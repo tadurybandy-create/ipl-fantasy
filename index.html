@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPL 2026 Fantasy League</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--green:#00C853;--dark-green:#007B33;--gold:#FFD600;--red:#FF1744;--purple:#a259ff;--bg:#0d1a0d;--card:#132213;--border:#1f3d1f;--text:#e8f5e9;--muted:#6a9b6a;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;
+  background-image:radial-gradient(ellipse 60% 40% at 50% -10%,rgba(0,200,83,.15) 0%,transparent 70%),
+  repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(0,200,83,.02) 40px,rgba(0,200,83,.02) 41px),
+  repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(0,200,83,.02) 40px,rgba(0,200,83,.02) 41px);}
+header{text-align:center;padding:2rem 1rem 1.2rem;border-bottom:1px solid var(--border);}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,7vw,4rem);letter-spacing:4px;
+  background:linear-gradient(135deg,var(--green),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;}
+.tagline{color:var(--muted);font-size:.82rem;letter-spacing:3px;text-transform:uppercase;margin-top:.3rem;}
+.sync-status{display:inline-flex;align-items:center;gap:.4rem;font-size:.75rem;margin-top:.4rem;padding:.2rem .7rem;border-radius:99px;border:1px solid var(--border);}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
+.sync-dot.ok{background:var(--green);}
+.sync-dot.err{background:var(--red);}
+.sync-dot.loading{background:var(--gold);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+nav{display:flex;justify-content:center;gap:.5rem;padding:1rem;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.tab-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1.2rem;border-radius:99px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.85rem;transition:all .2s;}
+.tab-btn.active,.tab-btn:hover{background:var(--green);border-color:var(--green);color:#000;font-weight:600;}
+.container{max-width:1200px;margin:0 auto;padding:1.5rem 1rem;}
+.screen{display:none;}.screen.active{display:block;}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:2px;color:var(--green);margin-bottom:1rem;}
+.subsection{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:1.5px;color:var(--muted);margin:1.2rem 0 .6rem;}
+input,select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:.6rem .85rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s;width:100%;}
+input:focus,select:focus{border-color:var(--green);}input::placeholder{color:var(--muted);}
+label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);display:block;margin-bottom:.3rem;}
+.input-group{display:flex;flex-direction:column;gap:.3rem;}
+.btn{background:var(--green);color:#000;border:none;padding:.7rem 1.8rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:.5rem;}
+.btn:hover{background:var(--gold);transform:translateY(-1px);}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.btn-sm{padding:.45rem 1rem;font-size:.85rem;letter-spacing:1px;}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.45rem 1rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.82rem;cursor:pointer;transition:all .2s;}
+.btn-ghost:hover{border-color:var(--green);color:var(--green);}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;}
+.info-box{background:rgba(0,200,83,.07);border:1px solid rgba(0,200,83,.2);border-radius:10px;padding:.9rem 1.1rem;font-size:.85rem;color:var(--muted);margin-bottom:1.2rem;}
+.info-box strong{color:var(--text);}
+.scoring-key{display:flex;gap:.7rem;margin-bottom:1.2rem;flex-wrap:wrap;}
+.key-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.45rem .9rem;font-size:.8rem;display:flex;align-items:center;gap:.5rem;}
+.key-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.empty-state{text-align:center;color:var(--muted);padding:2rem 1rem;font-size:.88rem;}
+.btn-row{display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* DRAFT */
+.draft-layout{display:grid;grid-template-columns:240px 1fr;gap:1.5rem;}
+@media(max-width:780px){.draft-layout{grid-template-columns:1fr;}}
+.participant-sidebar .card{position:sticky;top:1rem;}
+.participant-list{display:flex;flex-direction:column;gap:.4rem;max-height:420px;overflow-y:auto;margin-bottom:.8rem;}
+.p-item{display:flex;align-items:center;justify-content:space-between;padding:.5rem .7rem;border-radius:7px;font-size:.88rem;cursor:pointer;border:1px solid transparent;transition:all .15s;}
+.p-item:hover{border-color:var(--border);}
+.p-item.active{background:rgba(0,200,83,.1);border-color:var(--green);color:var(--green);}
+.p-item .p-progress{font-size:.72rem;color:var(--muted);}
+.p-item.active .p-progress{color:var(--green);}
+.p-item.complete .p-name::after{content:' ✓';color:var(--green);}
+.team-draft-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:1rem;}
+.team-draft-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem;}
+.team-draft-card h4{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1px;margin-bottom:.7rem;display:flex;align-items:center;justify-content:space-between;}
+.team-abbr{font-size:.65rem;padding:.15rem .45rem;border-radius:4px;background:rgba(0,200,83,.12);color:var(--green);}
+.player-pick-list{display:flex;flex-direction:column;gap:.28rem;max-height:190px;overflow-y:auto;}
+.player-opt{display:flex;align-items:center;justify-content:space-between;padding:.32rem .6rem;border-radius:5px;font-size:.81rem;cursor:pointer;border:1px solid transparent;transition:all .12s;}
+.player-opt:hover{background:rgba(0,200,83,.06);border-color:rgba(0,200,83,.2);}
+.player-opt.disabled{opacity:.35;cursor:not-allowed;pointer-events:none;}
+.player-opt.selected-by-me{background:rgba(0,200,83,.12);border-color:var(--green);color:var(--green);}
+.draft-pips{display:flex;gap:2px;}
+.mini-pip{width:7px;height:7px;border-radius:50%;background:var(--border);}
+.mini-pip.filled{background:var(--green);}
+.win-opt{display:flex;align-items:center;justify-content:space-between;padding:.5rem .9rem;border-radius:8px;font-size:.88rem;cursor:pointer;border:1px solid var(--border);background:var(--bg);transition:all .15s;margin-bottom:.4rem;}
+.win-opt:hover{border-color:var(--gold);color:var(--gold);}
+.win-opt.selected{background:rgba(255,214,0,.1);border-color:var(--gold);color:var(--gold);}
+.win-opt.disabled{opacity:.35;cursor:not-allowed;}
+.picks-summary{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.8rem;margin-top:1rem;}
+.picks-summary h5{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.6rem;}
+.pick-row{display:flex;align-items:center;gap:.5rem;font-size:.8rem;padding:.2rem 0;}
+.pick-row .team-tag{min-width:42px;font-size:.68rem;padding:.1rem .35rem;border-radius:3px;background:rgba(0,200,83,.1);color:var(--green);text-align:center;font-weight:600;}
+.pick-row .no-pick{color:var(--muted);font-style:italic;}
+
+/* REDRAFT */
+.redraft-layout{display:grid;grid-template-columns:220px 1fr;gap:1.5rem;}
+@media(max-width:700px){.redraft-layout{grid-template-columns:1fr;}}
+.swap-slot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:.8rem;}
+.swap-slot-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.9rem;}
+.swap-slot-card h5{font-family:'Bebas Neue',sans-serif;font-size:.95rem;letter-spacing:1px;margin-bottom:.6rem;display:flex;align-items:center;justify-content:space-between;}
+.current-player-row{display:flex;align-items:center;justify-content:space-between;background:rgba(0,200,83,.07);border:1px solid rgba(0,200,83,.18);border-radius:6px;padding:.45rem .7rem;margin-bottom:.5rem;}
+.current-player-name{font-weight:600;font-size:.88rem;}
+.frozen-pts{font-size:.72rem;color:var(--gold);}
+.history-player-row{font-size:.75rem;color:var(--muted);padding:.15rem 0;display:flex;justify-content:space-between;}
+.swap-select-wrap{display:flex;gap:.4rem;margin-top:.5rem;}
+.swap-select-wrap select{flex:1;font-size:.8rem;}
+.btn-swap{background:rgba(255,214,0,.15);border:1px solid rgba(255,214,0,.3);color:var(--gold);padding:.4rem .8rem;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-swap:hover{background:var(--gold);color:#000;}
+.swap-log{display:flex;flex-direction:column;gap:.5rem;margin-top:.8rem;}
+.swap-entry{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.7rem 1rem;font-size:.82rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;}
+.swap-arrow{color:var(--gold);font-size:1rem;}
+.swap-meta{color:var(--muted);font-size:.75rem;margin-left:auto;}
+
+/* SCORING */
+.import-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem 1.4rem;margin-bottom:1.5rem;position:relative;overflow:hidden;}
+.import-box::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,200,83,.04) 0%,transparent 60%);pointer-events:none;}
+.import-header{display:flex;align-items:center;gap:.6rem;margin-bottom:.7rem;}
+.import-title{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;color:var(--green);}
+.ai-badge{background:linear-gradient(135deg,var(--green),var(--gold));color:#000;font-size:.65rem;font-weight:700;padding:.15rem .5rem;border-radius:99px;letter-spacing:1px;text-transform:uppercase;}
+.import-row{display:flex;gap:.6rem;}
+.import-row input{flex:1;font-size:.85rem;width:auto;}
+.btn-import{background:linear-gradient(135deg,var(--dark-green),var(--green));color:#000;border:none;padding:.6rem 1.2rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;cursor:pointer;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:.4rem;}
+.btn-import:hover{filter:brightness(1.15);transform:translateY(-1px);}
+.btn-import:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.import-status{margin-top:.6rem;font-size:.82rem;min-height:1.1rem;display:flex;align-items:center;gap:.5rem;}
+.status-loading{color:var(--gold);}.status-success{color:var(--green);}.status-error{color:var(--red);}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,214,0,.3);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+.import-preview{margin-top:1rem;display:none;}.import-preview.show{display:block;}
+.preview-title{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.5rem;}
+.preview-player-row{display:flex;align-items:center;justify-content:space-between;padding:.35rem .65rem;border-radius:6px;font-size:.8rem;margin-bottom:.3rem;}
+.preview-player-row.hit{background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.2);}
+.preview-player-row.miss{background:rgba(255,23,68,.06);border:1px solid rgba(255,23,68,.15);color:var(--muted);}
+.preview-stats{display:flex;gap:.7rem;font-size:.75rem;color:var(--muted);}
+.preview-stats span{color:var(--text);}
+.badge-found{font-size:.68rem;padding:.1rem .4rem;border-radius:3px;font-weight:600;background:rgba(0,200,83,.2);color:var(--green);}
+.badge-miss{font-size:.68rem;padding:.1rem .4rem;border-radius:3px;font-weight:600;background:rgba(255,23,68,.15);color:var(--red);}
+.result-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.8rem;}
+.res-btn{flex:1;min-width:100px;background:var(--bg);border:2px solid var(--border);color:var(--muted);padding:.55rem .8rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:.9rem;cursor:pointer;transition:all .2s;text-align:center;}
+.res-btn:hover{border-color:var(--gold);color:var(--gold);}
+.res-btn.sel-t1{background:rgba(41,121,255,.15);border-color:#2979FF;color:#82b1ff;}
+.res-btn.sel-t2{background:rgba(255,109,0,.15);border-color:#FF6D00;color:#ffab40;}
+.res-btn.sel-draw{background:rgba(255,214,0,.1);border-color:var(--gold);color:var(--gold);}
+.match-log{display:flex;flex-direction:column;gap:.6rem;margin-top:1rem;}
+.match-entry{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.9rem 1.1rem;}
+.match-entry-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;}
+.match-title-text{font-weight:600;font-size:.95rem;}
+.match-date-text{font-size:.75rem;color:var(--muted);}
+.match-result-chip{font-size:.75rem;padding:.15rem .55rem;border-radius:99px;font-weight:600;}
+.chip-t1{background:rgba(41,121,255,.15);color:#82b1ff;}
+.chip-t2{background:rgba(255,109,0,.15);color:#ffab40;}
+.chip-draw{background:rgba(255,214,0,.1);color:var(--gold);}
+.match-player-updates{display:flex;flex-wrap:wrap;gap:.35rem;}
+.player-update-chip{font-size:.73rem;padding:.15rem .5rem;border-radius:5px;background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.15);}
+
+/* LEADERBOARD */
+.lb-table{width:100%;border-collapse:separate;border-spacing:0 .4rem;}
+.lb-table th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:0 .9rem .4rem;}
+.lb-table td{background:var(--card);padding:.85rem .9rem;font-size:.88rem;}
+.lb-table tr td:first-child{border-radius:10px 0 0 10px;}
+.lb-table tr td:last-child{border-radius:0 10px 10px 0;}
+.rank-badge{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--border);color:var(--muted);}
+.rank-1{background:var(--gold);color:#000;}.rank-2{background:#b0bec5;color:#000;}.rank-3{background:#a1714b;color:#fff;}
+.pts-big{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--green);}
+.pts-breakdown{font-size:.72rem;color:var(--muted);margin-top:.1rem;}
+.pts-gold{color:var(--gold);}
+.picks-mini{font-size:.75rem;color:var(--muted);line-height:1.7;}
+.picks-mini strong{color:var(--text);}
+.detail-row td{background:rgba(19,34,19,.6);padding:.6rem 1rem;}
+.detail-row{display:none;}
+.detail-row.open{display:table-row;}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.4rem;}
+.detail-chip{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.35rem .6rem;font-size:.76rem;}
+.detail-chip .dc-team{color:var(--muted);font-size:.68rem;}
+.detail-chip .dc-pts{float:right;color:var(--gold);font-weight:600;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ IPL 2026 Fantasy</div>
+  <div class="tagline">Season-Long · 16 Players · 10 Teams · Live Sync</div>
+  <div>
+    <span class="sync-status" id="syncStatus">
+      <span class="sync-dot loading" id="syncDot"></span>
+      <span id="syncText">Connecting…</span>
+    </span>
+  </div>
+</header>
+
+<nav>
+  <button class="tab-btn active" onclick="showScreen('draft',this)">🎯 Draft</button>
+  <button class="tab-btn" onclick="showScreen('redraft',this)">🔄 Redraft / Swap</button>
+  <button class="tab-btn" onclick="showScreen('scoring',this)">📊 Match Scoring</button>
+  <button class="tab-btn" onclick="showScreen('leaderboard',this)">🏆 Leaderboard</button>
+</nav>
+
+<div class="container">
+
+<!-- DRAFT -->
+<div id="screen-draft" class="screen active">
+  <div class="section-title">Season Draft</div>
+  <div class="scoring-key">
+    <div class="key-item"><span class="key-dot" style="background:var(--green)"></span>1 Run = 1 pt</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--red)"></span>1 Wicket = 25 pts</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--gold)"></span>1 Catch = 5 pts</div>
+    <div class="key-item"><span class="key-dot" style="background:#ff9800"></span>1 Run-out = 5 pts</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--muted)"></span>Max 2 drafts per player · Max 4 foreign per fantasy team</div>
+  </div>
+  <div class="info-box">
+    Each of the <strong>16 fantasy players</strong> picks <strong>1 player from each of the 10 IPL teams</strong> (10 picks total).
+    Max <strong>4 foreign players</strong> per fantasy team. <strong>All picks sync automatically</strong> for everyone.
+  </div>
+  <div class="card" style="margin-bottom:1.2rem">
+    <div style="display:flex;gap:.7rem;align-items:flex-end">
+      <div class="input-group" style="flex:1">
+        <label>Add Fantasy Participant</label>
+        <input type="text" id="newPName" placeholder="e.g. Priya" onkeydown="if(event.key==='Enter')addParticipant()">
+      </div>
+      <button class="btn btn-sm" onclick="addParticipant()">+ Add</button>
+      <span id="pCount" style="color:var(--muted);font-size:.82rem;white-space:nowrap;padding-bottom:.1rem">0/16</span>
+    </div>
+  </div>
+  <div class="draft-layout">
+    <div class="participant-sidebar">
+      <div class="card">
+        <div class="subsection" style="margin-top:0">Participants</div>
+        <div class="participant-list" id="participantList"></div>
+        <div style="font-size:.75rem;color:var(--muted)">Click a name to make their picks.</div>
+      </div>
+    </div>
+    <div>
+      <div id="draftActiveLabel" style="font-size:.88rem;color:var(--muted);margin-bottom:.8rem">← Select a participant to start drafting</div>
+      <div class="team-draft-grid" id="teamDraftGrid"></div>
+      <div class="picks-summary" id="picksSummary" style="display:none">
+        <h5>Current Picks for <span id="picksSummaryName"></span></h5>
+        <div id="picksSummaryRows"></div>
+        <div style="margin-top:.8rem"><button class="btn btn-sm" onclick="savePicks()">💾 Save Picks</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REDRAFT -->
+<div id="screen-redraft" class="screen">
+  <div class="section-title">Redraft / Swap Players</div>
+  <div class="info-box">
+    Mid-season player swap or injury replacement. <strong>Frozen points from the old player remain.</strong>
+    The new player earns points from their next match onwards. Swaps stay within the same IPL team. Max 2 drafts per player applies.
+  </div>
+  <div class="redraft-layout">
+    <div>
+      <div class="card" style="position:sticky;top:1rem">
+        <div class="subsection" style="margin-top:0">Select Participant</div>
+        <div id="redraftParticipantList" class="participant-list"></div>
+      </div>
+    </div>
+    <div>
+      <div id="redraftActiveLabel" style="font-size:.88rem;color:var(--muted);margin-bottom:.8rem">← Select a participant to manage their picks</div>
+      <div id="swapSlotGrid" class="swap-slot-grid"></div>
+      <div id="swapHistorySection" style="display:none;margin-top:1.5rem">
+        <div class="subsection">Swap History</div>
+        <div id="swapLog" class="swap-log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MATCH SCORING -->
+<div id="screen-scoring" class="screen">
+  <div class="section-title">Match Scoring</div>
+  <div class="info-box">Paste a scorecard link for today's match. Claude will read it and update all drafted players' season totals automatically.</div>
+  <div class="import-box">
+    <div class="import-header">
+      <span class="import-title">⚡ Import Match Scorecard</span>
+      <span class="ai-badge">AI Powered</span>
+    </div>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:.8rem">Paste an ESPNcricinfo or Cricbuzz scorecard URL. Only drafted players from the two playing teams will be updated.</div>
+    <div class="import-row">
+      <input type="url" id="scorecardUrl" placeholder="https://www.espncricinfo.com/series/ipl-2026-.../scorecard">
+      <button class="btn-import" id="importBtn" onclick="importScorecard()"><span id="importIcon">🔗</span> Import</button>
+    </div>
+    <div style="margin-top:.9rem">
+      <label>Match Result</label>
+      <div class="result-row">
+        <button class="res-btn" id="res-t1" onclick="setPendingResult('t1')">— Team 1 Won</button>
+        <button class="res-btn" id="res-draw" onclick="setPendingResult('draw')">🤝 Draw / No Result</button>
+        <button class="res-btn" id="res-t2" onclick="setPendingResult('t2')">— Team 2 Won</button>
+      </div>
+    </div>
+    <div class="import-status" id="importStatus"></div>
+    <div class="import-preview" id="importPreview">
+      <div class="preview-title">Players found in draft — <span id="previewCount"></span></div>
+      <div id="previewList"></div>
+      <div style="margin-top:.9rem" class="btn-row">
+        <button class="btn btn-sm" onclick="applyMatch()">✅ Apply to Season</button>
+        <span style="font-size:.8rem;color:var(--muted)" id="applyNote"></span>
+      </div>
+    </div>
+  </div>
+  <div class="subsection">Match History</div>
+  <div id="matchLog" class="match-log"><div class="empty-state">No matches scored yet.</div></div>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="screen-leaderboard" class="screen">
+  <div class="section-title">🏆 Season Leaderboard</div>
+  <div id="leaderboardContent"><div class="empty-state">Complete the draft first.</div></div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+// ═══════════════════════════════════════════════════════
+// SUPABASE CONFIG
+// ═══════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://oecyxuygrhtdnypmunae.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lY3l4dXlncmh0ZG55cG11bmFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzg5OTYsImV4cCI6MjA4Njk1NDk5Nn0.bHzTsY59yXshCZ_VSGK1W7iVzhn3GJQcBfby9XWSt80';
+const ANTHROPIC_KEY = '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';
+
+async function sb(method, table, body=null, params='') {
+  const url = `${SUPABASE_URL}/rest/v1/${table}${params}`;
+  const opts = {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': method==='POST' ? 'return=representation' : 'return=representation'
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`${method} ${table}: ${err}`);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// Convenience wrappers
+const dbGet = (table, params='') => sb('GET', table, null, params);
+const dbPost = (table, body) => sb('POST', table, body);
+const dbPatch = (table, body, params) => sb('PATCH', table, body, params);
+const dbDelete = (table, params) => sb('DELETE', table, null, params);
+
+// ═══════════════════════════════════════════════════════
+// IPL 2026 SQUADS
+// ═══════════════════════════════════════════════════════
+// players: [{name, foreign}]  foreign=true means overseas player
+const IPL_TEAMS = {
+  CSK:{name:'Chennai Super Kings',players:[
+    {name:'MS Dhoni',foreign:false},{name:'Ruturaj Gaikwad',foreign:false},{name:'Sanju Samson',foreign:false},{name:'Ayush Mhatre',foreign:false},{name:'Dewald Brevis',foreign:true},{name:'Shivam Dube',foreign:false},{name:'Urvil Patel',foreign:false},{name:'Noor Ahmad',foreign:true},{name:'Nathan Ellis',foreign:true},{name:'Shreyas Gopal',foreign:false},{name:'Khaleel Ahmed',foreign:false},{name:'Ramakrishna Ghosh',foreign:false},{name:'Mukesh Choudhary',foreign:false},{name:'Jamie Overton',foreign:true},{name:'Gurjapneet Singh',foreign:false},{name:'Anshul Kamboj',foreign:false},{name:'Prashant Veer',foreign:false},{name:'Kartik Sharma',foreign:false},{name:'Rahul Chahar',foreign:false},{name:'Akeal Hosein',foreign:true},{name:'Matt Henry',foreign:true},{name:'Matthew Short',foreign:true},{name:'Sarfaraz Khan',foreign:false},{name:'Zak Foulkes',foreign:true},{name:'Aman Khan',foreign:false}
+  ]},
+  DC:{name:'Delhi Capitals',players:[
+    {name:'KL Rahul',foreign:false},{name:'Axar Patel',foreign:false},{name:'Kuldeep Yadav',foreign:false},{name:'Mitchell Starc',foreign:true},{name:'Tristan Stubbs',foreign:true},{name:'Abhishek Porel',foreign:false},{name:'Karun Nair',foreign:false},{name:'Nitish Rana',foreign:false},{name:'Ashutosh Sharma',foreign:false},{name:'T Natarajan',foreign:false},{name:'Mukesh Kumar',foreign:false},{name:'Sameer Rizvi',foreign:false},{name:'Vipraj Nigam',foreign:false},{name:'Tripurana Vijay',foreign:false},{name:'Dushmantha Chameera',foreign:true},{name:'Madhav Tiwari',foreign:false},{name:'Ajay Mandal',foreign:false},{name:'Auqib Nabi Dar',foreign:false},{name:'Pathum Nissanka',foreign:true},{name:'David Miller',foreign:true},{name:'Ben Duckett',foreign:true},{name:'Lungi Ngidi',foreign:true},{name:'Kyle Jamieson',foreign:true},{name:'Prithvi Shaw',foreign:false},{name:'Sahil Parikh',foreign:false}
+  ]},
+  GT:{name:'Gujarat Titans',players:[
+    {name:'Shubman Gill',foreign:false},{name:'Sai Sudharsan',foreign:false},{name:'Rashid Khan',foreign:true},{name:'Jos Buttler',foreign:true},{name:'Glenn Phillips',foreign:true},{name:'Rahul Tewatia',foreign:false},{name:'Shahrukh Khan',foreign:false},{name:'Kagiso Rabada',foreign:true},{name:'Mohammed Siraj',foreign:false},{name:'Washington Sundar',foreign:false},{name:'Prasidh Krishna',foreign:false},{name:'R Sai Kishore',foreign:false},{name:'Nishant Sindhu',foreign:false},{name:'Kumar Kushagra',foreign:false},{name:'Anuj Rawat',foreign:false},{name:'Manav Suthar',foreign:false},{name:'Jayant Yadav',foreign:false},{name:'Gurnoor Brar',foreign:false},{name:'Ishant Sharma',foreign:false},{name:'Arshad Khan',foreign:false},{name:'Jason Holder',foreign:true},{name:'Tom Banton',foreign:true},{name:'Ashok Sharma',foreign:false},{name:'Luke Wood',foreign:true},{name:'Prithvi Raj',foreign:false}
+  ]},
+  KKR:{name:'Kolkata Knight Riders',players:[
+    {name:'Ajinkya Rahane',foreign:false},{name:'Sunil Narine',foreign:true},{name:'Varun Chakravarthy',foreign:false},{name:'Rinku Singh',foreign:false},{name:'Angkrish Raghuvanshi',foreign:false},{name:'Rovman Powell',foreign:true},{name:'Ramandeep Singh',foreign:false},{name:'Harshit Rana',foreign:false},{name:'Vaibhav Arora',foreign:false},{name:'Umran Malik',foreign:false},{name:'Anukul Roy',foreign:false},{name:'Manish Pandey',foreign:false},{name:'Cameron Green',foreign:true},{name:'Matheesha Pathirana',foreign:true},{name:'Finn Allen',foreign:true},{name:'Rachin Ravindra',foreign:true},{name:'Tim Seifert',foreign:true},{name:'Akash Deep',foreign:false},{name:'Rahul Tripathi',foreign:false},{name:'Tejasvi Singh',foreign:false},{name:'Daksh Kamra',foreign:false},{name:'Sarthak Ranjan',foreign:false},{name:'Prashant Solanki',foreign:false},{name:'Kartik Tyagi',foreign:false},{name:'Mustafizur Rahman',foreign:true}
+  ]},
+  LSG:{name:'Lucknow Super Giants',players:[
+    {name:'Rishabh Pant',foreign:false},{name:'Aiden Markram',foreign:true},{name:'Mitchell Marsh',foreign:true},{name:'Nicholas Pooran',foreign:true},{name:'Ayush Badoni',foreign:false},{name:'Abdul Samad',foreign:false},{name:'Mayank Yadav',foreign:false},{name:'Mohammed Shami',foreign:false},{name:'Avesh Khan',foreign:false},{name:'Shahbaz Ahmed',foreign:false},{name:'Mohsin Khan',foreign:false},{name:'Digvesh Rathi',foreign:false},{name:'Arshin Kulkarni',foreign:false},{name:'Himmat Singh',foreign:false},{name:'Manimaran Siddharth',foreign:false},{name:'Matthew Breetzke',foreign:true},{name:'Akash Singh',foreign:false},{name:'Arjun Tendulkar',foreign:false},{name:'Wanindu Hasaranga',foreign:true},{name:'Josh Inglis',foreign:true},{name:'Anrich Nortje',foreign:true},{name:'Mukul Choudhary',foreign:false},{name:'Akshat Raghuwanshi',foreign:false},{name:'Naman Tiwari',foreign:false},{name:'Prince Yadav',foreign:false}
+  ]},
+  MI:{name:'Mumbai Indians',players:[
+    {name:'Rohit Sharma',foreign:false},{name:'Suryakumar Yadav',foreign:false},{name:'Hardik Pandya',foreign:false},{name:'Jasprit Bumrah',foreign:false},{name:'Tilak Varma',foreign:false},{name:'Naman Dhir',foreign:false},{name:'Raj Angad Bawa',foreign:false},{name:'Robin Minz',foreign:false},{name:'Ryan Rickelton',foreign:true},{name:'Quinton de Kock',foreign:true},{name:'Shardul Thakur',foreign:false},{name:'Sherfane Rutherford',foreign:true},{name:'Corbin Bosch',foreign:true},{name:'Mitchell Santner',foreign:true},{name:'Will Jacks',foreign:true},{name:'Atharva Ankolekar',foreign:false},{name:'Mayank Markande',foreign:false},{name:'Allah Ghazanfar',foreign:true},{name:'Raghu Sharma',foreign:false},{name:'Ashwani Kumar',foreign:false},{name:'Deepak Chahar',foreign:false},{name:'Trent Boult',foreign:true},{name:'Romario Shepherd',foreign:true},{name:'Danish Malewar',foreign:false},{name:'Bevon Jacobs',foreign:true}
+  ]},
+  PBKS:{name:'Punjab Kings',players:[
+    {name:'Shreyas Iyer',foreign:false},{name:'Priyansh Arya',foreign:false},{name:'Prabhsimran Singh',foreign:false},{name:'Nehal Wadhera',foreign:false},{name:'Shashank Singh',foreign:false},{name:'Arshdeep Singh',foreign:false},{name:'Yuzvendra Chahal',foreign:false},{name:'Marco Jansen',foreign:true},{name:'Marcus Stoinis',foreign:true},{name:'Azmatullah Omarzai',foreign:true},{name:'Lockie Ferguson',foreign:true},{name:'Harpreet Brar',foreign:false},{name:'Vyshak Vijaykumar',foreign:false},{name:'Yash Thakur',foreign:false},{name:'Cooper Connolly',foreign:true},{name:'Ben Dwarshuis',foreign:true},{name:'Mitchell Owen',foreign:true},{name:'Vishnu Vinod',foreign:false},{name:'Harnoor Pannu',foreign:false},{name:'Musheer Khan',foreign:false},{name:'Pyla Avinash',foreign:false},{name:'Suryansh Shedge',foreign:false},{name:'Xavier Bartlett',foreign:true},{name:'Pravin Dubey',foreign:false},{name:'Vishal Nishad',foreign:false}
+  ]},
+  RCB:{name:'Royal Challengers Bengaluru',players:[
+    {name:'Virat Kohli',foreign:false},{name:'Rajat Patidar',foreign:false},{name:'Devdutt Padikkal',foreign:false},{name:'Phil Salt',foreign:true},{name:'Jitesh Sharma',foreign:false},{name:'Krunal Pandya',foreign:false},{name:'Tim David',foreign:true},{name:'Venkatesh Iyer',foreign:false},{name:'Jacob Bethell',foreign:true},{name:'Josh Hazlewood',foreign:true},{name:'Yash Dayal',foreign:false},{name:'Bhuvneshwar Kumar',foreign:false},{name:'Nuwan Thushara',foreign:true},{name:'Rasikh Salam',foreign:false},{name:'Swapnil Singh',foreign:false},{name:'Suyash Sharma',foreign:false},{name:'Satwik Deswal',foreign:false},{name:'Mangesh Yadav',foreign:false},{name:'Jordan Cox',foreign:true},{name:'Vicky Ostwal',foreign:false},{name:'Kanishk Chouhan',foreign:false},{name:'Vihaan Malhotra',foreign:false},{name:'Jacob Duffy',foreign:true},{name:'Romario Shepherd',foreign:true},{name:'Abhinandan Singh',foreign:false}
+  ]},
+  RR:{name:'Rajasthan Royals',players:[
+    {name:'Yashasvi Jaiswal',foreign:false},{name:'Vaibhav Suryavanshi',foreign:false},{name:'Riyan Parag',foreign:false},{name:'Ravindra Jadeja',foreign:false},{name:'Sam Curran',foreign:true},{name:'Dhruv Jurel',foreign:false},{name:'Shimron Hetmyer',foreign:true},{name:'Jofra Archer',foreign:true},{name:'Ravi Bishnoi',foreign:false},{name:'Sandeep Sharma',foreign:false},{name:'Nandre Burger',foreign:true},{name:'Kwena Maphaka',foreign:true},{name:'Shubham Dubey',foreign:false},{name:'Donovan Ferreira',foreign:true},{name:'Yudhvir Singh Charak',foreign:false},{name:'Lhuan-dre Pretorius',foreign:true},{name:'Ravi Singh',foreign:false},{name:'Brijesh Sharma',foreign:false},{name:'Adam Milne',foreign:true},{name:'Sushant Mishra',foreign:false},{name:'Aman Rao Perala',foreign:false},{name:'Vignesh Puthur',foreign:false},{name:'Yash Raj Punja',foreign:false},{name:'Kuldeep Sen',foreign:false},{name:'Tushar Deshpande',foreign:false}
+  ]},
+  SRH:{name:'Sunrisers Hyderabad',players:[
+    {name:'Pat Cummins',foreign:true},{name:'Travis Head',foreign:true},{name:'Heinrich Klaasen',foreign:true},{name:'Abhishek Sharma',foreign:false},{name:'Nitish Kumar Reddy',foreign:false},{name:'Ishan Kishan',foreign:false},{name:'Aniket Verma',foreign:false},{name:'Brydon Carse',foreign:true},{name:'Harshal Patel',foreign:false},{name:'Kamindu Mendis',foreign:true},{name:'Liam Livingstone',foreign:true},{name:'Jaydev Unadkat',foreign:false},{name:'Shivam Mavi',foreign:false},{name:'Jack Edwards',foreign:true},{name:'Harsh Dubey',foreign:false},{name:'Salil Arora',foreign:false},{name:'Smaran Ravichandran',foreign:false},{name:'Zeeshan Ansari',foreign:false},{name:'Amit Kumar',foreign:false},{name:'Eshan Malinga',foreign:false},{name:'Shivang Kumar',foreign:false},{name:'Praful Hinge',foreign:false},{name:'Onkar Tarmale',foreign:false},{name:'Sakib Hussain',foreign:false},{name:'Simarjeet Singh',foreign:false}
+  ]}
+};
+const TEAM_KEYS = Object.keys(IPL_TEAMS);
+const MAX_PLAYER_DRAFTS = 2;
+const MAX_FOREIGN_PER_FANTASY = 4;
+
+// ═══════════════════════════════════════════════════════
+// LOCAL STATE (populated from DB on load)
+// ═══════════════════════════════════════════════════════
+let state = {
+  participants: [],   // [{id, name, picks:{CSK:'Player',...}, pickHistory:{CSK:['Old'...]}}]
+  seasonScores: {},   // player_name -> {runs,wickets,catches,runouts}
+  matchHistory: [],
+  swapHistory: [],
+  activeParticipant: null,
+  activeRedraftParticipant: null,
+  pendingImport: null,
+  pendingResult: null,
+};
+
+// ═══════════════════════════════════════════════════════
+// SYNC STATUS UI
+// ═══════════════════════════════════════════════════════
+function setSyncStatus(state, msg) {
+  const dot = document.getElementById('syncDot');
+  const text = document.getElementById('syncText');
+  dot.className = `sync-dot ${state}`;
+  text.textContent = msg;
+}
+
+// ═══════════════════════════════════════════════════════
+// LOAD ALL DATA FROM SUPABASE
+// ═══════════════════════════════════════════════════════
+async function loadAll() {
+  setSyncStatus('loading', 'Syncing…');
+  try {
+    const [participants, picks, scores, matches, swaps] = await Promise.all([
+      dbGet('participants', '?order=created_at.asc'),
+      dbGet('picks', '?order=created_at.asc'),
+      dbGet('season_scores', ''),
+      dbGet('match_history', '?order=created_at.asc'),
+      dbGet('swap_history', '?order=created_at.asc'),
+    ]);
+
+    state.participants = (participants||[]).map(p => {
+      const myPicks = (picks||[]).filter(pk => pk.participant_id === p.id);
+      const activePicks = {}, pickHistory = {};
+      myPicks.forEach(pk => {
+        if (pk.is_active) activePicks[pk.team_key] = pk.player_name;
+        else {
+          if (!pickHistory[pk.team_key]) pickHistory[pk.team_key] = [];
+          pickHistory[pk.team_key].push(pk.player_name);
+        }
+      });
+      return { id: p.id, name: p.name, picks: activePicks, pickHistory };
+    });
+
+    state.seasonScores = {};
+    (scores||[]).forEach(s => {
+      state.seasonScores[s.player_name] = { runs:s.runs, wickets:s.wickets, catches:s.catches, runouts:s.runouts||0 };
+    });
+
+    state.matchHistory = (matches||[]).map(m => ({
+      id:m.id, title:m.title, date:m.match_date,
+      result:m.result, t1name:m.t1_name, t2name:m.t2_name, updates:m.updates||[]
+    }));
+
+    state.swapHistory = (swaps||[]).map(s => ({
+      id:s.id, participantName:s.participant_name, teamKey:s.team_key,
+      teamName:s.team_name, oldPlayer:s.old_player, newPlayer:s.new_player,
+      frozenPts:s.frozen_pts, date:s.swap_date
+    }));
+
+    setSyncStatus('ok', 'Synced');
+    renderAll();
+  } catch(e) {
+    console.error(e);
+    setSyncStatus('err', 'Sync failed — check console');
+  }
+}
+
+function renderAll() {
+  renderParticipantList();
+  renderDraftGrid();
+  renderPicksSummary();
+  renderRedraftScreen();
+  renderMatchLog();
+  renderLeaderboard();
+}
+
+// Auto-refresh every 30 seconds so all viewers stay in sync
+setInterval(loadAll, 30000);
+
+// ═══════════════════════════════════════════════════════
+// DRAFT COUNTS (from local state)
+// ═══════════════════════════════════════════════════════
+function getDraftCounts() {
+  const pc = {}, wc = {};
+  state.participants.forEach(p => {
+    TEAM_KEYS.forEach(k => {
+      if (p.picks[k]) pc[p.picks[k]] = (pc[p.picks[k]]||0)+1;
+      (p.pickHistory?.[k]||[]).forEach(name => { pc[name] = (pc[name]||0)+1; });
+    });
+  });
+  return { pc };
+}
+
+// Count foreign players in a participant's current active picks
+function countForeignPicks(participant, excludeTeamKey=null) {
+  let count = 0;
+  TEAM_KEYS.forEach(k => {
+    if (k === excludeTeamKey) return;
+    const pick = participant.picks[k];
+    if (!pick) return;
+    const teamPlayers = IPL_TEAMS[k].players;
+    const playerObj = teamPlayers.find(p => p.name === pick);
+    if (playerObj?.foreign) count++;
+  });
+  return count;
+}
+
+// Count foreign players in a participant's current active picks
+function countForeignPicks(participant) {
+  return TEAM_KEYS.filter(k => {
+    const pick = participant.picks[k];
+    if (!pick) return false;
+    const playerObj = IPL_TEAMS[k].players.find(pl => pl.name === pick);
+    return playerObj?.foreign === true;
+  }).length;
+}
+
+
+async function addParticipant() {
+  if (state.participants.length >= 16) { alert('Max 16 participants!'); return; }
+  const name = document.getElementById('newPName').value.trim();
+  if (!name) return;
+  if (state.participants.find(p => p.name.toLowerCase()===name.toLowerCase())) { alert('Name already exists'); return; }
+  try {
+    setSyncStatus('loading','Saving…');
+    const [row] = await dbPost('participants', { name });
+    state.participants.push({ id: row.id, name, winPick: null, picks: {}, pickHistory: {} });
+    document.getElementById('newPName').value = '';
+    setSyncStatus('ok','Synced');
+    renderParticipantList();
+    setActiveParticipant(state.participants.length-1);
+  } catch(e) { setSyncStatus('err','Save failed'); alert(e.message); }
+}
+
+function renderParticipantList() {
+  document.getElementById('pCount').textContent = `${state.participants.length}/16`;
+  const el = document.getElementById('participantList');
+  if (!state.participants.length) { el.innerHTML='<div class="empty-state" style="padding:.5rem">No participants yet.</div>'; return; }
+  el.innerHTML = state.participants.map((p,i) => {
+    const pickCount = TEAM_KEYS.filter(k=>p.picks[k]).length;
+    const complete = pickCount===10;
+    const active = state.activeParticipant===i;
+    return `<div class="p-item ${active?'active':''} ${complete?'complete':''}" onclick="setActiveParticipant(${i})">
+      <span class="p-name">${p.name}</span>
+      <span class="p-progress">${pickCount}/10</span>
+    </div>`;
+  }).join('');
+}
+
+function setActiveParticipant(i) {
+  state.activeParticipant = i;
+  renderParticipantList();
+  renderDraftGrid();
+  renderPicksSummary();
+  document.getElementById('draftActiveLabel').innerHTML =
+    `Drafting for <strong style="color:var(--green)">${state.participants[i].name}</strong>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// DRAFT GRID
+// ═══════════════════════════════════════════════════════
+function renderDraftGrid() {
+  const {pc} = getDraftCounts();
+  const ai = state.activeParticipant;
+  const active = ai!==null ? state.participants[ai] : null;
+  const foreignCount = active ? countForeignPicks(active) : 0;
+
+  document.getElementById('teamDraftGrid').innerHTML = TEAM_KEYS.map(key => {
+    const team = IPL_TEAMS[key];
+    const myPickName = active ? active.picks[key] : null;
+    // Foreign count excluding this slot (so we can show if picking this slot's foreign would breach limit)
+    const foreignExcludingSlot = active ? countForeignPicks(active, key) : 0;
+
+    const rows = team.players.map(playerObj => {
+      const {name: player, foreign} = playerObj;
+      const count = pc[player]||0;
+      const full = count>=MAX_PLAYER_DRAFTS;
+      const isMe = myPickName===player;
+      const wouldBreachForeign = foreign && !isMe && foreignExcludingSlot >= MAX_FOREIGN_PER_FANTASY;
+      const disabled = !active || (full&&!isMe) || wouldBreachForeign;
+      const flag = foreign ? '🌍' : '🇮🇳';
+      const foreignTag = foreign
+        ? `<span style="font-size:.65rem;background:rgba(255,152,0,.15);color:#ff9800;border-radius:3px;padding:.05rem .3rem">OVS</span>`
+        : '';
+      return `<div class="player-opt ${disabled?'disabled':''} ${isMe?'selected-by-me':''}"
+          onclick="${disabled?'':`togglePlayerPick('${key}','${player.replace(/'/g,"\\'")}')` }" title="${wouldBreachForeign?'Foreign player limit reached (max 4)':''}">
+        <span>${flag} ${player} ${foreignTag}</span>
+        <span style="display:flex;align-items:center;gap:4px">
+          <span class="draft-pips">${[0,1].map(j=>`<span class="mini-pip ${j<count?'filled':''}"></span>`).join('')}</span>
+          ${isMe?'<span style="font-size:.9rem">✓</span>':''}
+        </span>
+      </div>`;
+    }).join('');
+
+    return `<div class="team-draft-card">
+      <h4>${team.name} <span class="team-abbr">${key}</span></h4>
+      <div class="player-pick-list">${rows}</div>
+    </div>`;
+  }).join('');
+
+  // Foreign counter badge for active participant
+  if (active) {
+    const existing = document.getElementById('foreignCounter');
+    const badge = `<div id="foreignCounter" style="margin-bottom:.8rem;display:flex;align-items:center;gap:.6rem">
+      <span style="font-size:.82rem;color:var(--muted)">Foreign players in your team:</span>
+      <span style="font-weight:600;color:${foreignCount>=MAX_FOREIGN_PER_FANTASY?'#ff9800':'var(--green)'}">
+        ${foreignCount} / ${MAX_FOREIGN_PER_FANTASY}
+      </span>
+      ${foreignCount>=MAX_FOREIGN_PER_FANTASY?'<span style="font-size:.75rem;color:#ff9800">⚠ Limit reached</span>':''}
+    </div>`;
+    if (existing) existing.outerHTML = badge;
+    else document.getElementById('draftActiveLabel').insertAdjacentHTML('afterend', badge);
+  } else {
+    const existing = document.getElementById('foreignCounter');
+    if (existing) existing.remove();
+  }
+}
+
+// Count foreign players in a participant's current active picks
+function countForeignPicks(participant, excludeTeamKey=null) {
+  return TEAM_KEYS.filter(k => {
+    if (k === excludeTeamKey) return false;
+    const player = participant.picks[k];
+    if (!player) return false;
+    const teamPlayer = IPL_TEAMS[k].players.find(p => p.name === player);
+    return teamPlayer?.foreign;
+  }).length;
+}
+
+async function togglePlayerPick(teamKey, player) {
+  const ai = state.activeParticipant;
+  if (ai===null) return;
+  const p = state.participants[ai];
+  const {pc} = getDraftCounts();
+  const isDeselect = p.picks[teamKey]===player;
+
+  if (!isDeselect && (pc[player]||0)>=MAX_PLAYER_DRAFTS) { alert(`${player} is already drafted ${MAX_PLAYER_DRAFTS} times!`); return; }
+
+  // Check foreign limit
+  if (!isDeselect) {
+    const playerObj = IPL_TEAMS[teamKey].players.find(pl => pl.name === player);
+    if (playerObj?.foreign) {
+      // Count current foreign picks, excluding the slot being replaced
+      const currentForeign = TEAM_KEYS.filter(k => {
+        if (k === teamKey) return false; // this slot is being replaced
+        const pick = p.picks[k];
+        if (!pick) return false;
+        const po = IPL_TEAMS[k].players.find(pl => pl.name === pick);
+        return po?.foreign === true;
+      }).length;
+      if (currentForeign >= MAX_FOREIGN_PER_FANTASY) {
+        alert(`Max ${MAX_FOREIGN_PER_FANTASY} foreign players per fantasy team! You already have ${currentForeign}.`);
+        return;
+      }
+    }
+  }
+
+  // Foreign player limit check
+  if (!isDeselect) {
+    const teamPlayer = IPL_TEAMS[teamKey].players.find(pl => pl.name === player);
+    if (teamPlayer?.foreign) {
+      const currentForeign = countForeignPicks(p, teamKey); // exclude this slot
+      if (currentForeign >= MAX_FOREIGN_PER_FANTASY) {
+        alert(`You already have ${MAX_FOREIGN_PER_FANTASY} foreign players! You cannot pick another.\n\nYour foreign picks: ${TEAM_KEYS.filter(k=>k!==teamKey&&p.picks[k]&&IPL_TEAMS[k].players.find(pl=>pl.name===p.picks[k])?.foreign).map(k=>p.picks[k]).join(', ')}`);
+        return;
+      }
+    }
+  }
+
+  // Foreign limit check
+  if (!isDeselect) {
+    const playerObj = IPL_TEAMS[teamKey].players.find(pl => pl.name === player);
+    if (playerObj?.foreign) {
+      const foreignExcludingSlot = countForeignPicks(p, teamKey);
+      if (foreignExcludingSlot >= MAX_FOREIGN_PER_FANTASY) {
+        alert(`You already have ${MAX_FOREIGN_PER_FANTASY} foreign players! Max ${MAX_FOREIGN_PER_FANTASY} allowed per fantasy team.`);
+        return;
+      }
+    }
+  }
+
+  try {
+    setSyncStatus('loading','Saving…');
+    if (isDeselect) {
+      // Delete pick row
+      await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
+      delete p.picks[teamKey];
+    } else {
+      // Remove old active pick for this team slot if exists
+      if (p.picks[teamKey]) {
+        await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
+      }
+      // Insert new pick
+      await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: player, is_active: true });
+      p.picks[teamKey] = player;
+    }
+    setSyncStatus('ok','Synced');
+  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); return; }
+
+  renderDraftGrid();
+  renderPicksSummary();
+  renderParticipantList();
+}
+
+function savePicks() {
+  const ai = state.activeParticipant;
+  if (ai===null) return;
+  const p = state.participants[ai];
+  const done = TEAM_KEYS.filter(k=>p.picks[k]).length;
+  if (done<10) { alert(`${p.name} still needs ${10-done} more player pick(s).`); return; }
+  alert(`✓ All 10 picks saved for ${p.name}!`);
+}
+
+function renderPicksSummary() {
+  const ai = state.activeParticipant;
+  const el = document.getElementById('picksSummary');
+  if (ai===null) { el.style.display='none'; return; }
+  el.style.display='block';
+  const p = state.participants[ai];
+  const foreignCount = countForeignPicks(p);
+  document.getElementById('picksSummaryName').textContent = p.name;
+  el.innerHTML = `<h5>Current Picks for ${p.name} &nbsp;
+    <span style="font-size:.75rem;color:${foreignCount>=MAX_FOREIGN_PER_FANTASY?'#ff9800':'var(--muted)'}">
+      🌍 ${foreignCount}/${MAX_FOREIGN_PER_FANTASY} foreign
+    </span></h5>
+    <div id="picksSummaryRows">
+    ${TEAM_KEYS.map(k => {
+      const pick = p.picks[k];
+      const playerObj = pick ? IPL_TEAMS[k].players.find(pl => pl.name === pick) : null;
+      return `<div class="pick-row">
+        <span class="team-tag">${k}</span>
+        ${pick
+          ? `<span>${playerObj?.foreign?'🌍':'🇮🇳'} ${pick}</span>`
+          : `<span class="no-pick">not picked</span>`}
+      </div>`;
+    }).join('')}
+    </div>
+    <div style="margin-top:.8rem"><button class="btn btn-sm" onclick="savePicks()">💾 Save Picks</button></div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// REDRAFT / SWAP
+// ═══════════════════════════════════════════════════════
+function renderRedraftScreen() {
+  const listEl = document.getElementById('redraftParticipantList');
+  if (!state.participants.length) { listEl.innerHTML='<div class="empty-state" style="padding:.5rem">No participants yet.</div>'; return; }
+  listEl.innerHTML = state.participants.map((p,i) => {
+    const active = state.activeRedraftParticipant===i;
+    return `<div class="p-item ${active?'active':''}" onclick="setActiveRedraft(${i})">
+      <span class="p-name">${p.name}</span>
+    </div>`;
+  }).join('');
+  if (state.activeRedraftParticipant!==null) renderSwapSlots();
+  renderSwapHistory();
+}
+
+function setActiveRedraft(i) {
+  state.activeRedraftParticipant = i;
+  document.getElementById('redraftActiveLabel').innerHTML =
+    `Managing picks for <strong style="color:var(--gold)">${state.participants[i].name}</strong>`;
+  renderRedraftScreen();
+}
+
+function renderSwapSlots() {
+  const ai = state.activeRedraftParticipant;
+  if (ai===null) return;
+  const p = state.participants[ai];
+  const {pc} = getDraftCounts();
+
+  document.getElementById('swapSlotGrid').innerHTML = TEAM_KEYS.map(key => {
+    const team = IPL_TEAMS[key];
+    const current = p.picks[key];
+    const history = p.pickHistory?.[key]||[];
+    const frozenPts = history.reduce((sum,name) => {
+      const sc = state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0};
+      return sum + sc.runs + sc.wickets*25 + sc.catches*5 + (sc.runouts||0)*5;
+    }, 0);
+    const curSc = current ? (state.seasonScores[current]||{runs:0,wickets:0,catches:0,runouts:0}) : null;
+    const curPts = curSc ? curSc.runs+curSc.wickets*25+curSc.catches*5+(curSc.runouts||0)*5 : 0;
+
+    const playerOpts = team.players.map(playerObj => {
+      const {name: player, foreign} = playerObj;
+      if (player===current) return '';
+      const count = pc[player]||0;
+      const full = count>=MAX_PLAYER_DRAFTS;
+      // Foreign limit check for swap
+      const wouldBreachForeign = foreign && countForeignPicks(p, teamKey) >= MAX_FOREIGN_PER_FANTASY;
+      const disabled2 = full || wouldBreachForeign;
+      const flag = foreign ? '🌍' : '🇮🇳';
+      return `<option value="${player}" ${disabled2?'disabled':''}>${flag} ${player}${full?' (FULL)':wouldBreachForeign?' (Foreign limit)':count===1?' ·1 left':''}</option>`;
+    }).filter(Boolean).join('');
+
+    const historyRows = history.map(name => {
+      const sc = state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0};
+      const pts = sc.runs+sc.wickets*25+sc.catches*5+(sc.runouts||0)*5;
+      return `<div class="history-player-row"><span>↩ ${name}</span><span>${pts} pts frozen</span></div>`;
+    }).join('');
+
+    return `<div class="swap-slot-card">
+      <h5>${key} <span style="font-size:.7rem;color:var(--muted)">${team.name}</span></h5>
+      ${history.length ? `<div style="margin-bottom:.4rem">${historyRows}</div>` : ''}
+      <div class="current-player-row">
+        <span class="current-player-name">${current||'— not picked —'}</span>
+        <span class="frozen-pts">${current?curPts+' pts':''}</span>
+      </div>
+      ${history.length ? `<div style="font-size:.72rem;color:var(--muted);margin-bottom:.4rem">+ ${frozenPts} frozen pts from prev.</div>` : ''}
+      <div class="swap-select-wrap">
+        <select id="swapSel_${key}">
+          <option value="">— ${current?'swap to':'pick'} player… —</option>
+          ${playerOpts}
+        </select>
+        <button class="btn-swap" onclick="executeSwap(${ai},'${key}')">${current?'Swap':'Pick'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function executeSwap(participantIdx, teamKey) {
+  const p = state.participants[participantIdx];
+  const newPlayer = document.getElementById(`swapSel_${teamKey}`)?.value;
+  if (!newPlayer) { alert('Select a player to swap in.'); return; }
+
+  const {pc} = getDraftCounts();
+  if ((pc[newPlayer]||0)>=MAX_PLAYER_DRAFTS) { alert(`${newPlayer} is already drafted ${MAX_PLAYER_DRAFTS} times!`); return; }
+
+  const oldPlayer = p.picks[teamKey];
+  const frozenSc = oldPlayer ? (state.seasonScores[oldPlayer]||{runs:0,wickets:0,catches:0,runouts:0}) : null;
+  const frozenPts = frozenSc ? frozenSc.runs+frozenSc.wickets*25+frozenSc.catches*5+(frozenSc.runouts||0)*5 : 0;
+
+  try {
+    setSyncStatus('loading','Saving swap…');
+
+    // Mark old pick as inactive
+    if (oldPlayer) {
+      await dbPatch('picks', { is_active: false, swapped_at: new Date().toISOString() },
+        `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
+    }
+
+    // Insert new active pick
+    await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: newPlayer, is_active: true });
+
+    // Log the swap
+    await dbPost('swap_history', {
+      participant_id: p.id,
+      participant_name: p.name,
+      team_key: teamKey,
+      team_name: IPL_TEAMS[teamKey].name,
+      old_player: oldPlayer||'(none)',
+      new_player: newPlayer,
+      frozen_pts: frozenPts,
+      swap_date: new Date().toLocaleDateString()
+    });
+
+    // Ensure new player has score entry
+    if (!state.seasonScores[newPlayer]) {
+      await dbPost('season_scores', { player_name: newPlayer, runs: 0, wickets: 0, catches: 0 });
+      state.seasonScores[newPlayer] = {runs:0,wickets:0,catches:0};
+    }
+
+    setSyncStatus('ok','Synced');
+
+    // Update local state
+    if (!p.pickHistory) p.pickHistory = {};
+    if (!p.pickHistory[teamKey]) p.pickHistory[teamKey] = [];
+    if (oldPlayer) p.pickHistory[teamKey].push(oldPlayer);
+    p.picks[teamKey] = newPlayer;
+    state.swapHistory.push({ participantName:p.name, teamKey, teamName:IPL_TEAMS[teamKey].name, oldPlayer:oldPlayer||'(none)', newPlayer, frozenPts, date:new Date().toLocaleDateString() });
+
+    renderRedraftScreen();
+    renderParticipantList();
+    renderLeaderboard();
+  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); alert(e.message); }
+}
+
+function renderSwapHistory() {
+  const section = document.getElementById('swapHistorySection');
+  const logEl = document.getElementById('swapLog');
+  if (!state.swapHistory.length) { section.style.display='none'; return; }
+  section.style.display='block';
+  logEl.innerHTML = [...state.swapHistory].reverse().map(s =>
+    `<div class="swap-entry">
+      <strong>${s.participantName}</strong>
+      <span style="color:var(--muted);font-size:.78rem">${s.teamKey}</span>
+      <span>${s.oldPlayer}</span>
+      <span class="swap-arrow">→</span>
+      <span style="color:var(--green)">${s.newPlayer}</span>
+      ${s.frozenPts ? `<span style="color:var(--gold);font-size:.78rem">(${s.frozenPts}pts frozen)</span>` : ''}
+      <span class="swap-meta">${s.date}</span>
+    </div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// MATCH SCORING
+// ═══════════════════════════════════════════════════════
+function setPendingResult(r) {
+  state.pendingResult = r;
+  ['t1','draw','t2'].forEach(k => {
+    document.getElementById(`res-${k}`).className = 'res-btn'+(r===k?` sel-${k}`:'');
+  });
+}
+
+async function importScorecard() {
+  if (!state.participants.length) { setImportStatus('error','Complete the draft first!'); return; }
+  const url = document.getElementById('scorecardUrl').value.trim();
+  if (!url) { setImportStatus('error','Please paste a scorecard URL.'); return; }
+
+  const btn = document.getElementById('importBtn');
+  btn.disabled=true; document.getElementById('importIcon').textContent='⏳';
+  document.getElementById('importPreview').classList.remove('show');
+  setImportStatus('loading','Fetching scorecard & matching drafted players…');
+
+  const allDrafted = [];
+  const seen = new Set();
+  TEAM_KEYS.forEach(k => {
+    state.participants.forEach(p => {
+      if (p.picks[k] && !seen.has(p.picks[k])) {
+        seen.add(p.picks[k]);
+        allDrafted.push({ player: p.picks[k], team: IPL_TEAMS[k].name, teamKey: k });
+      }
+    });
+  });
+
+  const playerList = allDrafted.map(d=>`- ${d.player} (${d.team})`).join('\n');
+  const prompt = `You are a cricket scorecard parser for an IPL fantasy league.
+
+Fetch and read the scorecard at this URL: ${url}
+
+The fantasy league has drafted these players across all 10 IPL teams. Only players from the two teams PLAYING TODAY will appear in the scorecard:
+${playerList}
+
+Tasks:
+1. Identify which two IPL teams are playing.
+2. For each player listed who played today, extract:
+   - runs: runs scored while batting
+   - wickets: wickets taken while bowling
+   - catches: count of catches taken (look for "c [their name]" in dismissal descriptions)
+   - runouts: count of run-outs they directly caused (look for "run out ([their name])" or "run out (([their name]/...)" in dismissal descriptions)
+3. Players not in this match: set not_in_match: true.
+4. Players who played but scored 0 everywhere: all fields 0.
+5. Detect the match winner.
+
+Respond ONLY with valid JSON, no other text:
+{"match_title":"CSK vs MI","t1_name":"Chennai Super Kings","t2_name":"Mumbai Indians","winner":"Chennai Super Kings","players":[{"name":"Player","team":"Team","runs":0,"wickets":0,"catches":0,"runouts":0,"not_in_match":false}]}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:3000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:prompt}] })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const fullText = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Could not parse AI response.');
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!parsed.players) throw new Error('Unexpected response format.');
+
+    if (parsed.winner) {
+      const wl = parsed.winner.toLowerCase();
+      if (wl.includes((parsed.t1_name||'').toLowerCase().split(' ')[0])) setPendingResult('t1');
+      else setPendingResult('t2');
+    }
+    if (parsed.t1_name) document.getElementById('res-t1').textContent=`🔵 ${parsed.t1_name} Won`;
+    if (parsed.t2_name) document.getElementById('res-t2').textContent=`🟠 ${parsed.t2_name} Won`;
+
+    state.pendingImport = { parsed, t1name: parsed.t1_name, t2name: parsed.t2_name };
+    renderImportPreview(parsed, allDrafted);
+    setImportStatus('success', `✓ ${parsed.match_title||'Match'} parsed${parsed.winner?' · Winner: '+parsed.winner:''}`);
+  } catch(e) { console.error(e); setImportStatus('error',`Error: ${e.message}`); }
+
+  btn.disabled=false; document.getElementById('importIcon').textContent='🔗';
+}
+
+function setImportStatus(type,msg) {
+  const el=document.getElementById('importStatus');
+  if (type==='loading') el.innerHTML=`<div class="spinner"></div><span class="status-loading">${msg}</span>`;
+  else if (type==='success') el.innerHTML=`<span class="status-success">${msg}</span>`;
+  else el.innerHTML=`<span class="status-error">${msg}</span>`;
+}
+
+function renderImportPreview(parsed, allDrafted) {
+  const inMatch = parsed.players.filter(p=>!p.not_in_match);
+  let hitCount=0;
+  const rows = inMatch.map(p => {
+    const drafted = allDrafted.find(d=>d.player.toLowerCase()===p.name.toLowerCase());
+    if (!drafted) return '';
+    hitCount++;
+    const pts=(p.runs||0)+(p.wickets||0)*25+(p.catches||0)*5+(p.runouts||0)*5;
+    return `<div class="preview-player-row hit">
+      <div><strong>${p.name}</strong> <span style="color:var(--muted);font-size:.72rem">${p.team}</span></div>
+      <div class="preview-stats"><div>${p.runs||0} <span>runs</span></div><div>${p.wickets||0} <span>wkts</span></div><div>${p.catches||0} <span>ctch</span></div><div>${p.runouts||0} <span>r/o</span></div><div style="color:var(--gold);font-weight:600">+${pts} pts</div></div>
+      <span class="badge-found">DRAFTED</span>
+    </div>`;
+  }).filter(Boolean).join('');
+  const missRows = allDrafted.filter(d=>{
+    const f=parsed.players.find(p=>p.name.toLowerCase()===d.player.toLowerCase());
+    return !f||f.not_in_match;
+  }).map(d=>`<div class="preview-player-row miss"><span>${d.player} <span style="font-size:.72rem">${d.teamKey}</span></span><span style="font-size:.72rem">Not in today's match</span><span class="badge-miss">SKIP</span></div>`).join('');
+  document.getElementById('previewCount').textContent=`${hitCount} drafted players found in this match`;
+  document.getElementById('previewList').innerHTML=rows+missRows;
+  document.getElementById('applyNote').textContent=`${hitCount} player(s) will be updated`;
+  document.getElementById('importPreview').classList.add('show');
+}
+
+async function applyMatch() {
+  const imp = state.pendingImport;
+  if (!imp) { alert('Nothing to apply. Import a scorecard first.'); return; }
+  const {parsed} = imp;
+  const updates = [];
+
+  for (const p of parsed.players) {
+    if (p.not_in_match) continue;
+    const nameLower = p.name.toLowerCase();
+    let draftedAs = null;
+    TEAM_KEYS.forEach(k => {
+      state.participants.forEach(part => {
+        if (part.picks[k]&&part.picks[k].toLowerCase()===nameLower) draftedAs=part.picks[k];
+      });
+    });
+    if (!draftedAs) continue;
+    const runs=parseInt(p.runs)||0, wkts=parseInt(p.wickets)||0, ctch=parseInt(p.catches)||0, rnout=parseInt(p.runouts)||0;
+    updates.push({ player:draftedAs, team:p.team, runs, wkts, catches:ctch, runouts:rnout, pts:runs+wkts*25+ctch*5+rnout*5 });
+  }
+
+  try {
+    setSyncStatus('loading','Saving match…');
+
+    // Upsert season scores
+    for (const u of updates) {
+      const existing = state.seasonScores[u.player];
+      if (existing) {
+        const newRuns=existing.runs+u.runs, newWkts=existing.wickets+u.wkts, newCtch=existing.catches+u.catches, newRnout=(existing.runouts||0)+u.runouts;
+        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout }, `?player_name=eq.${encodeURIComponent(u.player)}`);
+        state.seasonScores[u.player] = { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout };
+      } else {
+        await dbPost('season_scores', { player_name:u.player, runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts });
+        state.seasonScores[u.player] = { runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts };
+      }
+    }
+
+    // Save match to history
+    const [matchRow] = await dbPost('match_history', {
+      title: parsed.match_title||`${imp.t1name} vs ${imp.t2name}`,
+      match_date: new Date().toLocaleDateString(),
+      result: state.pendingResult,
+      t1_name: imp.t1name,
+      t2_name: imp.t2name,
+      updates
+    });
+
+    state.matchHistory.push({ id:matchRow.id, title:matchRow.title, date:matchRow.match_date, result:matchRow.result, t1name:matchRow.t1_name, t2name:matchRow.t2_name, updates });
+
+    setSyncStatus('ok','Synced');
+
+    // Reset
+    state.pendingImport=null; state.pendingResult=null;
+    document.getElementById('scorecardUrl').value='';
+    document.getElementById('importPreview').classList.remove('show');
+    ['t1','draw','t2'].forEach(k=>document.getElementById(`res-${k}`).className='res-btn');
+    document.getElementById('res-t1').textContent='— Team 1 Won';
+    document.getElementById('res-t2').textContent='— Team 2 Won';
+    setImportStatus('success',`✓ Match applied! ${updates.length} player score(s) updated.`);
+    renderMatchLog(); renderLeaderboard();
+  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); alert(e.message); }
+}
+
+function renderMatchLog() {
+  const el=document.getElementById('matchLog');
+  if (!state.matchHistory.length) { el.innerHTML='<div class="empty-state">No matches scored yet.</div>'; return; }
+  el.innerHTML=[...state.matchHistory].reverse().map((m,ri)=>{
+    const i=state.matchHistory.length-1-ri;
+    const resultText=m.result==='draw'?'Draw':m.result==='t1'?`${m.t1name} Won`:`${m.t2name} Won`;
+    const chipClass=m.result==='draw'?'chip-draw':m.result==='t1'?'chip-t1':'chip-t2';
+    const chips=(m.updates||[]).map(u=>`<span class="player-update-chip">${u.player}: ${u.runs}r ${u.wkts}w ${u.catches}c ${u.runouts||0}ro = <strong>+${u.pts}pts</strong></span>`).join('');
+    return `<div class="match-entry">
+      <div class="match-entry-header">
+        <div><div class="match-title-text">${m.title}</div><div class="match-date-text">${m.date}</div></div>
+        <div style="display:flex;align-items:center;gap:.6rem">
+          <span class="match-result-chip ${chipClass}">${resultText}</span>
+          <button class="btn-ghost" onclick="removeMatch('${m.id}',${i})">✕ Remove</button>
+        </div>
+      </div>
+      <div class="match-player-updates">${chips||'<span style="color:var(--muted);font-size:.8rem">No drafted players scored</span>'}</div>
+    </div>`;
+  }).join('');
+}
+
+async function removeMatch(id, i) {
+  if (!confirm('Remove this match and reverse its points?')) return;
+  const m = state.matchHistory[i];
+  try {
+    setSyncStatus('loading','Removing…');
+    for (const u of (m.updates||[])) {
+      const sc = state.seasonScores[u.player];
+      if (sc) {
+        const newRuns=sc.runs-u.runs, newWkts=sc.wickets-u.wkts, newCtch=sc.catches-u.catches, newRnout=(sc.runouts||0)-u.runouts;
+        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout }, `?player_name=eq.${encodeURIComponent(u.player)}`);
+        state.seasonScores[u.player]={runs:newRuns,wickets:newWkts,catches:newCtch,runouts:newRnout};
+      }
+    }
+    await dbDelete('match_history', `?id=eq.${id}`);
+    state.matchHistory.splice(i,1);
+    setSyncStatus('ok','Synced');
+    renderMatchLog(); renderLeaderboard();
+  } catch(e) { setSyncStatus('err','Failed'); console.error(e); }
+}
+
+// ═══════════════════════════════════════════════════════
+// LEADERBOARD
+// ═══════════════════════════════════════════════════════
+function calcSeasonPoints(participant) {
+  let playerPts=0;
+  const breakdown={};
+  TEAM_KEYS.forEach(k => {
+    const current=participant.picks[k];
+    const history=participant.pickHistory?.[k]||[];
+    const allInSlot=[...history,current].filter(Boolean);
+    if (!allInSlot.length) return;
+    let slotPts=0;
+    const slotPlayers=allInSlot.map(name=>{
+      const sc=state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0};
+      const pts=sc.runs+sc.wickets*25+sc.catches*5+(sc.runouts||0)*5;
+      slotPts+=pts;
+      return {name,sc,pts};
+    });
+    playerPts+=slotPts;
+    breakdown[k]={current,history,slotPlayers,slotPts};
+  });
+  return {playerPts,total:playerPts,breakdown};
+}
+
+function renderLeaderboard() {
+  const el=document.getElementById('leaderboardContent');
+  if (!state.participants.length) { el.innerHTML='<div class="empty-state">Complete the draft first.</div>'; return; }
+
+  const sorted=state.participants.map((p,i)=>({...p,i,...calcSeasonPoints(p)})).sort((a,b)=>b.total-a.total);
+
+  const rows=sorted.map((p,rank)=>{
+    const rankClass=rank<3?`rank-${rank+1}`:'';
+    const pickCount=TEAM_KEYS.filter(k=>p.picks[k]).length;
+    const foreignCount = countForeignPicks(p);
+    const topPicks=TEAM_KEYS.filter(k=>p.picks[k])
+      .sort((a,b)=>(p.breakdown[b]?.slotPts||0)-(p.breakdown[a]?.slotPts||0))
+      .slice(0,3).map(k=>{
+        const playerObj = IPL_TEAMS[k].players.find(pl=>pl.name===p.picks[k]);
+        return `<strong>${playerObj?.foreign?'🌍':'🇮🇳'} ${p.picks[k]}</strong> +${p.breakdown[k]?.slotPts||0}pts`;
+      }).join(' · ');
+    return `<tr onclick="toggleDetail(${rank})" style="cursor:pointer">
+      <td><span class="rank-badge ${rankClass}">${rank+1}</span></td>
+      <td>
+        <div style="font-weight:600">${p.name}</div>
+        <div style="font-size:.75rem;color:var(--muted)">${pickCount}/10 picks · 🌍 ${foreignCount}/${MAX_FOREIGN_PER_FANTASY} foreign</div>
+      </td>
+      <td><div class="picks-mini">${topPicks||'—'}</div></td>
+      <td>
+        <div class="pts-big">${p.total}</div>
+        <div class="pts-breakdown">${p.playerPts} pts</div>
+      </td>
+    </tr>
+    <tr class="detail-row" id="detail-${rank}"><td colspan="4">
+      <div class="detail-grid">
+        ${TEAM_KEYS.map(k=>{
+          const bd=p.breakdown[k];
+          if (!bd) return `<div class="detail-chip" style="opacity:.4"><div class="dc-team">${k} — not picked</div></div>`;
+          const histLine=bd.history&&bd.history.length
+            ?`<div style="font-size:.68rem;color:var(--muted);margin-top:.1rem">${bd.history.map(h=>{const hs=state.seasonScores[h]||{runs:0,wickets:0,catches:0,runouts:0};return `↩ ${h} (${hs.runs+hs.wickets*25+hs.catches*5+(hs.runouts||0)*5}pts)`;}).join(', ')}</div>`:'';
+          const curSc=state.seasonScores[bd.current]||{runs:0,wickets:0,catches:0,runouts:0};
+          const playerObj = bd.current ? IPL_TEAMS[k].players.find(pl=>pl.name===bd.current) : null;
+          return `<div class="detail-chip">
+            <div class="dc-team">${k} ${playerObj?.foreign?'🌍':'🇮🇳'} <span class="dc-pts">${bd.slotPts}pts</span></div>
+            <div>${bd.current||'—'}</div>
+            ${bd.current?`<div style="font-size:.7rem;color:var(--muted)">${curSc.runs}r · ${curSc.wickets}w · ${curSc.catches}c · ${curSc.runouts||0}ro</div>`:''}
+            ${histLine}
+          </div>`;
+        }).join('')}
+      </div>
+    </td></tr>`;
+  }).join('');
+
+  el.innerHTML=`<table class="lb-table">
+    <thead><tr><th>#</th><th>Participant</th><th>Top Picks</th><th>Season Pts</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function toggleDetail(rank) {
+  document.getElementById(`detail-${rank}`).classList.toggle('open');
+}
+
+// ═══════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════
+function showScreen(name,btn) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`screen-${name}`).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name==='leaderboard') renderLeaderboard();
+  if (name==='scoring') renderMatchLog();
+  if (name==='redraft') renderRedraftScreen();
+}
+
+// ═══════════════════════════════════════════════════════
+// BOOT — load from Supabase
+// ═══════════════════════════════════════════════════════
+loadAll();
+</script>
+</body>
+</html>
