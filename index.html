@@ -375,42 +375,35 @@ const dbPatch = (table, body, params) => sb('PATCH', table, body, params);
 const dbDelete = (table, params) => sb('DELETE', table, null, params);
 
 // ═══════════════════════════════════════════════════════
-// IPL 2026 SQUADS
+// IPL 2026 SQUADS — loaded from Supabase, seeded on first run
 // ═══════════════════════════════════════════════════════
-// players: [{name, foreign}]  foreign=true means overseas player
-const IPL_TEAMS = {
-  CSK:{name:'Chennai Super Kings',players:[
-    {name:'MS Dhoni',foreign:false},{name:'Ruturaj Gaikwad',foreign:false},{name:'Sanju Samson',foreign:false},{name:'Ayush Mhatre',foreign:false},{name:'Dewald Brevis',foreign:true},{name:'Shivam Dube',foreign:false},{name:'Urvil Patel',foreign:false},{name:'Noor Ahmad',foreign:true},{name:'Nathan Ellis',foreign:true},{name:'Shreyas Gopal',foreign:false},{name:'Khaleel Ahmed',foreign:false},{name:'Ramakrishna Ghosh',foreign:false},{name:'Mukesh Choudhary',foreign:false},{name:'Jamie Overton',foreign:true},{name:'Gurjapneet Singh',foreign:false},{name:'Anshul Kamboj',foreign:false},{name:'Prashant Veer',foreign:false},{name:'Kartik Sharma',foreign:false},{name:'Rahul Chahar',foreign:false},{name:'Akeal Hosein',foreign:true},{name:'Matt Henry',foreign:true},{name:'Matthew Short',foreign:true},{name:'Sarfaraz Khan',foreign:false},{name:'Zak Foulkes',foreign:true},{name:'Aman Khan',foreign:false}
-  ]},
-  DC:{name:'Delhi Capitals',players:[
-    {name:'KL Rahul',foreign:false},{name:'Axar Patel',foreign:false},{name:'Kuldeep Yadav',foreign:false},{name:'Mitchell Starc',foreign:true},{name:'Tristan Stubbs',foreign:true},{name:'Abhishek Porel',foreign:false},{name:'Karun Nair',foreign:false},{name:'Nitish Rana',foreign:false},{name:'Ashutosh Sharma',foreign:false},{name:'T Natarajan',foreign:false},{name:'Mukesh Kumar',foreign:false},{name:'Sameer Rizvi',foreign:false},{name:'Vipraj Nigam',foreign:false},{name:'Tripurana Vijay',foreign:false},{name:'Dushmantha Chameera',foreign:true},{name:'Madhav Tiwari',foreign:false},{name:'Ajay Mandal',foreign:false},{name:'Auqib Nabi Dar',foreign:false},{name:'Pathum Nissanka',foreign:true},{name:'David Miller',foreign:true},{name:'Ben Duckett',foreign:true},{name:'Lungi Ngidi',foreign:true},{name:'Kyle Jamieson',foreign:true},{name:'Prithvi Shaw',foreign:false},{name:'Sahil Parikh',foreign:false}
-  ]},
-  GT:{name:'Gujarat Titans',players:[
-    {name:'Shubman Gill',foreign:false},{name:'Sai Sudharsan',foreign:false},{name:'Rashid Khan',foreign:true},{name:'Jos Buttler',foreign:true},{name:'Glenn Phillips',foreign:true},{name:'Rahul Tewatia',foreign:false},{name:'Shahrukh Khan',foreign:false},{name:'Kagiso Rabada',foreign:true},{name:'Mohammed Siraj',foreign:false},{name:'Washington Sundar',foreign:false},{name:'Prasidh Krishna',foreign:false},{name:'R Sai Kishore',foreign:false},{name:'Nishant Sindhu',foreign:false},{name:'Kumar Kushagra',foreign:false},{name:'Anuj Rawat',foreign:false},{name:'Manav Suthar',foreign:false},{name:'Jayant Yadav',foreign:false},{name:'Gurnoor Brar',foreign:false},{name:'Ishant Sharma',foreign:false},{name:'Arshad Khan',foreign:false},{name:'Jason Holder',foreign:true},{name:'Tom Banton',foreign:true},{name:'Ashok Sharma',foreign:false},{name:'Luke Wood',foreign:true},{name:'Prithvi Raj',foreign:false}
-  ]},
-  KKR:{name:'Kolkata Knight Riders',players:[
-    {name:'Ajinkya Rahane',foreign:false},{name:'Sunil Narine',foreign:true},{name:'Varun Chakravarthy',foreign:false},{name:'Rinku Singh',foreign:false},{name:'Angkrish Raghuvanshi',foreign:false},{name:'Rovman Powell',foreign:true},{name:'Ramandeep Singh',foreign:false},{name:'Harshit Rana',foreign:false},{name:'Vaibhav Arora',foreign:false},{name:'Umran Malik',foreign:false},{name:'Anukul Roy',foreign:false},{name:'Manish Pandey',foreign:false},{name:'Cameron Green',foreign:true},{name:'Matheesha Pathirana',foreign:true},{name:'Finn Allen',foreign:true},{name:'Rachin Ravindra',foreign:true},{name:'Tim Seifert',foreign:true},{name:'Akash Deep',foreign:false},{name:'Rahul Tripathi',foreign:false},{name:'Tejasvi Singh',foreign:false},{name:'Daksh Kamra',foreign:false},{name:'Sarthak Ranjan',foreign:false},{name:'Prashant Solanki',foreign:false},{name:'Kartik Tyagi',foreign:false},{name:'Mustafizur Rahman',foreign:true}
-  ]},
-  LSG:{name:'Lucknow Super Giants',players:[
-    {name:'Rishabh Pant',foreign:false},{name:'Aiden Markram',foreign:true},{name:'Mitchell Marsh',foreign:true},{name:'Nicholas Pooran',foreign:true},{name:'Ayush Badoni',foreign:false},{name:'Abdul Samad',foreign:false},{name:'Mayank Yadav',foreign:false},{name:'Mohammed Shami',foreign:false},{name:'Avesh Khan',foreign:false},{name:'Shahbaz Ahmed',foreign:false},{name:'Mohsin Khan',foreign:false},{name:'Digvesh Rathi',foreign:false},{name:'Arshin Kulkarni',foreign:false},{name:'Himmat Singh',foreign:false},{name:'Manimaran Siddharth',foreign:false},{name:'Matthew Breetzke',foreign:true},{name:'Akash Singh',foreign:false},{name:'Arjun Tendulkar',foreign:false},{name:'Wanindu Hasaranga',foreign:true},{name:'Josh Inglis',foreign:true},{name:'Anrich Nortje',foreign:true},{name:'Mukul Choudhary',foreign:false},{name:'Akshat Raghuwanshi',foreign:false},{name:'Naman Tiwari',foreign:false},{name:'Prince Yadav',foreign:false}
-  ]},
-  MI:{name:'Mumbai Indians',players:[
-    {name:'Rohit Sharma',foreign:false},{name:'Suryakumar Yadav',foreign:false},{name:'Hardik Pandya',foreign:false},{name:'Jasprit Bumrah',foreign:false},{name:'Tilak Varma',foreign:false},{name:'Naman Dhir',foreign:false},{name:'Raj Angad Bawa',foreign:false},{name:'Robin Minz',foreign:false},{name:'Ryan Rickelton',foreign:true},{name:'Quinton de Kock',foreign:true},{name:'Shardul Thakur',foreign:false},{name:'Sherfane Rutherford',foreign:true},{name:'Corbin Bosch',foreign:true},{name:'Mitchell Santner',foreign:true},{name:'Will Jacks',foreign:true},{name:'Atharva Ankolekar',foreign:false},{name:'Mayank Markande',foreign:false},{name:'Allah Ghazanfar',foreign:true},{name:'Raghu Sharma',foreign:false},{name:'Ashwani Kumar',foreign:false},{name:'Deepak Chahar',foreign:false},{name:'Trent Boult',foreign:true},{name:'Romario Shepherd',foreign:true},{name:'Danish Malewar',foreign:false},{name:'Bevon Jacobs',foreign:true}
-  ]},
-  PBKS:{name:'Punjab Kings',players:[
-    {name:'Shreyas Iyer',foreign:false},{name:'Priyansh Arya',foreign:false},{name:'Prabhsimran Singh',foreign:false},{name:'Nehal Wadhera',foreign:false},{name:'Shashank Singh',foreign:false},{name:'Arshdeep Singh',foreign:false},{name:'Yuzvendra Chahal',foreign:false},{name:'Marco Jansen',foreign:true},{name:'Marcus Stoinis',foreign:true},{name:'Azmatullah Omarzai',foreign:true},{name:'Lockie Ferguson',foreign:true},{name:'Harpreet Brar',foreign:false},{name:'Vyshak Vijaykumar',foreign:false},{name:'Yash Thakur',foreign:false},{name:'Cooper Connolly',foreign:true},{name:'Ben Dwarshuis',foreign:true},{name:'Mitchell Owen',foreign:true},{name:'Vishnu Vinod',foreign:false},{name:'Harnoor Pannu',foreign:false},{name:'Musheer Khan',foreign:false},{name:'Pyla Avinash',foreign:false},{name:'Suryansh Shedge',foreign:false},{name:'Xavier Bartlett',foreign:true},{name:'Pravin Dubey',foreign:false},{name:'Vishal Nishad',foreign:false}
-  ]},
-  RCB:{name:'Royal Challengers Bengaluru',players:[
-    {name:'Virat Kohli',foreign:false},{name:'Rajat Patidar',foreign:false},{name:'Devdutt Padikkal',foreign:false},{name:'Phil Salt',foreign:true},{name:'Jitesh Sharma',foreign:false},{name:'Krunal Pandya',foreign:false},{name:'Tim David',foreign:true},{name:'Venkatesh Iyer',foreign:false},{name:'Jacob Bethell',foreign:true},{name:'Josh Hazlewood',foreign:true},{name:'Yash Dayal',foreign:false},{name:'Bhuvneshwar Kumar',foreign:false},{name:'Nuwan Thushara',foreign:true},{name:'Rasikh Salam',foreign:false},{name:'Swapnil Singh',foreign:false},{name:'Suyash Sharma',foreign:false},{name:'Satwik Deswal',foreign:false},{name:'Mangesh Yadav',foreign:false},{name:'Jordan Cox',foreign:true},{name:'Vicky Ostwal',foreign:false},{name:'Kanishk Chouhan',foreign:false},{name:'Vihaan Malhotra',foreign:false},{name:'Jacob Duffy',foreign:true},{name:'Romario Shepherd',foreign:true},{name:'Abhinandan Singh',foreign:false}
-  ]},
-  RR:{name:'Rajasthan Royals',players:[
-    {name:'Yashasvi Jaiswal',foreign:false},{name:'Vaibhav Suryavanshi',foreign:false},{name:'Riyan Parag',foreign:false},{name:'Ravindra Jadeja',foreign:false},{name:'Sam Curran',foreign:true},{name:'Dhruv Jurel',foreign:false},{name:'Shimron Hetmyer',foreign:true},{name:'Jofra Archer',foreign:true},{name:'Ravi Bishnoi',foreign:false},{name:'Sandeep Sharma',foreign:false},{name:'Nandre Burger',foreign:true},{name:'Kwena Maphaka',foreign:true},{name:'Shubham Dubey',foreign:false},{name:'Donovan Ferreira',foreign:true},{name:'Yudhvir Singh Charak',foreign:false},{name:'Lhuan-dre Pretorius',foreign:true},{name:'Ravi Singh',foreign:false},{name:'Brijesh Sharma',foreign:false},{name:'Adam Milne',foreign:true},{name:'Sushant Mishra',foreign:false},{name:'Aman Rao Perala',foreign:false},{name:'Vignesh Puthur',foreign:false},{name:'Yash Raj Punja',foreign:false},{name:'Kuldeep Sen',foreign:false},{name:'Tushar Deshpande',foreign:false}
-  ]},
-  SRH:{name:'Sunrisers Hyderabad',players:[
-    {name:'Pat Cummins',foreign:true},{name:'Travis Head',foreign:true},{name:'Heinrich Klaasen',foreign:true},{name:'Abhishek Sharma',foreign:false},{name:'Nitish Kumar Reddy',foreign:false},{name:'Ishan Kishan',foreign:false},{name:'Aniket Verma',foreign:false},{name:'Brydon Carse',foreign:true},{name:'Harshal Patel',foreign:false},{name:'Kamindu Mendis',foreign:true},{name:'Liam Livingstone',foreign:true},{name:'Jaydev Unadkat',foreign:false},{name:'Shivam Mavi',foreign:false},{name:'Jack Edwards',foreign:true},{name:'Harsh Dubey',foreign:false},{name:'Salil Arora',foreign:false},{name:'Smaran Ravichandran',foreign:false},{name:'Zeeshan Ansari',foreign:false},{name:'Amit Kumar',foreign:false},{name:'Eshan Malinga',foreign:false},{name:'Shivang Kumar',foreign:false},{name:'Praful Hinge',foreign:false},{name:'Onkar Tarmale',foreign:false},{name:'Sakib Hussain',foreign:false},{name:'Simarjeet Singh',foreign:false}
-  ]}
-};
-const TEAM_KEYS = Object.keys(IPL_TEAMS);
+// Fallback seed data used to populate Supabase if squads table is empty
+const SQUAD_SEED = [
+  {team_key:'CSK',team_name:'Chennai Super Kings',player_name:'MS Dhoni',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Ruturaj Gaikwad',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Sanju Samson',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Ayush Mhatre',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Dewald Brevis',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Shivam Dube',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Urvil Patel',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Noor Ahmad',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Nathan Ellis',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Shreyas Gopal',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Khaleel Ahmed',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Ramakrishna Ghosh',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Mukesh Choudhary',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Jamie Overton',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Gurjapneet Singh',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Anshul Kamboj',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Prashant Veer',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Kartik Sharma',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Rahul Chahar',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Akeal Hosein',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Matt Henry',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Matthew Short',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Sarfaraz Khan',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Zak Foulkes',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Aman Khan',is_foreign:false},
+  {team_key:'DC',team_name:'Delhi Capitals',player_name:'KL Rahul',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Axar Patel',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Kuldeep Yadav',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Mitchell Starc',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Tristan Stubbs',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Abhishek Porel',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Karun Nair',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Nitish Rana',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Ashutosh Sharma',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'T Natarajan',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Mukesh Kumar',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Sameer Rizvi',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Vipraj Nigam',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Tripurana Vijay',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Dushmantha Chameera',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Madhav Tiwari',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Ajay Mandal',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Auqib Nabi Dar',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Pathum Nissanka',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'David Miller',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Ben Duckett',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Lungi Ngidi',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Kyle Jamieson',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Prithvi Shaw',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Sahil Parikh',is_foreign:false},
+  {team_key:'GT',team_name:'Gujarat Titans',player_name:'Shubman Gill',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Sai Sudharsan',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Rashid Khan',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Jos Buttler',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Glenn Phillips',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Rahul Tewatia',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Shahrukh Khan',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Kagiso Rabada',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Mohammed Siraj',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Washington Sundar',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Prasidh Krishna',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'R Sai Kishore',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Nishant Sindhu',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Kumar Kushagra',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Anuj Rawat',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Manav Suthar',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Jayant Yadav',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Gurnoor Brar',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Ishant Sharma',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Arshad Khan',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Jason Holder',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Tom Banton',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Ashok Sharma',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Luke Wood',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Prithvi Raj',is_foreign:false},
+  {team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Ajinkya Rahane',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Sunil Narine',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Varun Chakravarthy',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Rinku Singh',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Angkrish Raghuvanshi',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Rovman Powell',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Ramandeep Singh',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Harshit Rana',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Vaibhav Arora',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Umran Malik',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Anukul Roy',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Manish Pandey',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Cameron Green',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Matheesha Pathirana',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Finn Allen',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Rachin Ravindra',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Tim Seifert',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Akash Deep',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Rahul Tripathi',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Tejasvi Singh',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Daksh Kamra',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Sarthak Ranjan',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Prashant Solanki',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Kartik Tyagi',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Mustafizur Rahman',is_foreign:true},
+  {team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Rishabh Pant',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Aiden Markram',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Mitchell Marsh',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Nicholas Pooran',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Ayush Badoni',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Abdul Samad',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Mayank Yadav',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Mohammed Shami',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Avesh Khan',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Shahbaz Ahmed',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Mohsin Khan',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Digvesh Rathi',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Arshin Kulkarni',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Himmat Singh',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Manimaran Siddharth',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Matthew Breetzke',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Akash Singh',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Arjun Tendulkar',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Wanindu Hasaranga',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Josh Inglis',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Anrich Nortje',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Mukul Choudhary',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Akshat Raghuwanshi',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Naman Tiwari',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Prince Yadav',is_foreign:false},
+  {team_key:'MI',team_name:'Mumbai Indians',player_name:'Rohit Sharma',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Suryakumar Yadav',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Hardik Pandya',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Jasprit Bumrah',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Tilak Varma',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Naman Dhir',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Raj Angad Bawa',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Robin Minz',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Ryan Rickelton',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Quinton de Kock',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Shardul Thakur',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Sherfane Rutherford',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Corbin Bosch',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Mitchell Santner',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Will Jacks',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Atharva Ankolekar',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Mayank Markande',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Allah Ghazanfar',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Raghu Sharma',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Ashwani Kumar',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Deepak Chahar',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Trent Boult',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Romario Shepherd',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Danish Malewar',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Bevon Jacobs',is_foreign:true},
+  {team_key:'PBKS',team_name:'Punjab Kings',player_name:'Shreyas Iyer',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Priyansh Arya',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Prabhsimran Singh',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Nehal Wadhera',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Shashank Singh',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Arshdeep Singh',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Yuzvendra Chahal',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Marco Jansen',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Marcus Stoinis',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Azmatullah Omarzai',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Lockie Ferguson',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Harpreet Brar',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Vyshak Vijaykumar',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Yash Thakur',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Cooper Connolly',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Ben Dwarshuis',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Mitchell Owen',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Vishnu Vinod',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Harnoor Pannu',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Musheer Khan',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Pyla Avinash',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Suryansh Shedge',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Xavier Bartlett',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Pravin Dubey',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Vishal Nishad',is_foreign:false},
+  {team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Virat Kohli',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Rajat Patidar',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Devdutt Padikkal',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Phil Salt',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Jitesh Sharma',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Krunal Pandya',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Tim David',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Venkatesh Iyer',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Jacob Bethell',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Josh Hazlewood',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Yash Dayal',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Bhuvneshwar Kumar',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Nuwan Thushara',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Rasikh Salam',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Swapnil Singh',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Suyash Sharma',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Satwik Deswal',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Mangesh Yadav',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Jordan Cox',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Vicky Ostwal',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Kanishk Chouhan',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Vihaan Malhotra',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Jacob Duffy',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Romario Shepherd',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Abhinandan Singh',is_foreign:false},
+  {team_key:'RR',team_name:'Rajasthan Royals',player_name:'Yashasvi Jaiswal',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Vaibhav Suryavanshi',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Riyan Parag',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Ravindra Jadeja',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Sam Curran',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Dhruv Jurel',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Shimron Hetmyer',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Jofra Archer',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Ravi Bishnoi',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Sandeep Sharma',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Nandre Burger',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Kwena Maphaka',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Shubham Dubey',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Donovan Ferreira',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Yudhvir Singh Charak',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Lhuan-dre Pretorius',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Ravi Singh',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Brijesh Sharma',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Adam Milne',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Sushant Mishra',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Aman Rao Perala',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Vignesh Puthur',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Yash Raj Punja',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Kuldeep Sen',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Tushar Deshpande',is_foreign:false},
+  {team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Pat Cummins',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Travis Head',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Heinrich Klaasen',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Abhishek Sharma',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Nitish Kumar Reddy',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Ishan Kishan',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Aniket Verma',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Brydon Carse',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Harshal Patel',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Kamindu Mendis',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Liam Livingstone',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Jaydev Unadkat',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Shivam Mavi',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Jack Edwards',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Harsh Dubey',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Salil Arora',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Smaran Ravichandran',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Zeeshan Ansari',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Amit Kumar',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Eshan Malinga',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Shivang Kumar',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Praful Hinge',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Onkar Tarmale',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Sakib Hussain',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Simarjeet Singh',is_foreign:false}
+];
+
+// IPL_TEAMS is built dynamically from Supabase squads on load
+let IPL_TEAMS = {};
+let TEAM_KEYS = [];
+
+function buildIPLTeamsFromRows(rows) {
+  const teams = {};
+  rows.forEach(r => {
+    if (!teams[r.team_key]) teams[r.team_key] = { name: r.team_name, players: [] };
+    teams[r.team_key].players.push({ name: r.player_name, foreign: r.is_foreign });
+  });
+  return teams;
+}
+
 const MAX_PLAYER_DRAFTS = 2;
 const MAX_FOREIGN_PER_FANTASY = 4;
 
@@ -444,6 +437,18 @@ function setSyncStatus(state, msg) {
 async function loadAll() {
   setSyncStatus('loading', 'Syncing…');
   try {
+    // Load squads first — seed from SQUAD_SEED if table is empty
+    let squadRows = await dbGet('squads', '?order=team_key.asc,player_name.asc');
+    if (!squadRows || squadRows.length === 0) {
+      // First run — seed the squads table in batches
+      for (let i = 0; i < SQUAD_SEED.length; i += 50) {
+        await sb('POST', 'squads', SQUAD_SEED.slice(i, i + 50), '', { Prefer: 'resolution=merge-duplicates,return=representation' });
+      }
+      squadRows = SQUAD_SEED;
+    }
+    IPL_TEAMS = buildIPLTeamsFromRows(squadRows);
+    TEAM_KEYS.length = 0;
+    Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
     const [participants, picks, scores, matches, swaps] = await Promise.all([
       dbGet('participants', '?order=created_at.asc'),
       dbGet('picks', '?order=created_at.asc'),
@@ -522,21 +527,10 @@ function countForeignPicks(participant, excludeTeamKey=null) {
     if (k === excludeTeamKey) return;
     const pick = participant.picks[k];
     if (!pick) return;
-    const teamPlayers = IPL_TEAMS[k].players;
-    const playerObj = teamPlayers.find(p => p.name === pick);
+    const playerObj = (IPL_TEAMS[k]?.players||[]).find(p => p.name === pick);
     if (playerObj?.foreign) count++;
   });
   return count;
-}
-
-// Count foreign players in a participant's current active picks
-function countForeignPicks(participant) {
-  return TEAM_KEYS.filter(k => {
-    const pick = participant.picks[k];
-    if (!pick) return false;
-    const playerObj = IPL_TEAMS[k].players.find(pl => pl.name === pick);
-    return playerObj?.foreign === true;
-  }).length;
 }
 
 
@@ -640,16 +634,6 @@ function renderDraftGrid() {
   }
 }
 
-// Count foreign players in a participant's current active picks
-function countForeignPicks(participant, excludeTeamKey=null) {
-  return TEAM_KEYS.filter(k => {
-    if (k === excludeTeamKey) return false;
-    const player = participant.picks[k];
-    if (!player) return false;
-    const teamPlayer = IPL_TEAMS[k].players.find(p => p.name === player);
-    return teamPlayer?.foreign;
-  }).length;
-}
 
 async function togglePlayerPick(teamKey, player) {
   const ai = state.activeParticipant;
@@ -660,46 +644,12 @@ async function togglePlayerPick(teamKey, player) {
 
   if (!isDeselect && (pc[player]||0)>=MAX_PLAYER_DRAFTS) { alert(`${player} is already drafted ${MAX_PLAYER_DRAFTS} times!`); return; }
 
-  // Check foreign limit
+  // Check foreign player limit (exclude this slot since it's being replaced)
   if (!isDeselect) {
-    const playerObj = IPL_TEAMS[teamKey].players.find(pl => pl.name === player);
-    if (playerObj?.foreign) {
-      // Count current foreign picks, excluding the slot being replaced
-      const currentForeign = TEAM_KEYS.filter(k => {
-        if (k === teamKey) return false; // this slot is being replaced
-        const pick = p.picks[k];
-        if (!pick) return false;
-        const po = IPL_TEAMS[k].players.find(pl => pl.name === pick);
-        return po?.foreign === true;
-      }).length;
-      if (currentForeign >= MAX_FOREIGN_PER_FANTASY) {
-        alert(`Max ${MAX_FOREIGN_PER_FANTASY} foreign players per fantasy team! You already have ${currentForeign}.`);
-        return;
-      }
-    }
-  }
-
-  // Foreign player limit check
-  if (!isDeselect) {
-    const teamPlayer = IPL_TEAMS[teamKey].players.find(pl => pl.name === player);
-    if (teamPlayer?.foreign) {
-      const currentForeign = countForeignPicks(p, teamKey); // exclude this slot
-      if (currentForeign >= MAX_FOREIGN_PER_FANTASY) {
-        alert(`You already have ${MAX_FOREIGN_PER_FANTASY} foreign players! You cannot pick another.\n\nYour foreign picks: ${TEAM_KEYS.filter(k=>k!==teamKey&&p.picks[k]&&IPL_TEAMS[k].players.find(pl=>pl.name===p.picks[k])?.foreign).map(k=>p.picks[k]).join(', ')}`);
-        return;
-      }
-    }
-  }
-
-  // Foreign limit check
-  if (!isDeselect) {
-    const playerObj = IPL_TEAMS[teamKey].players.find(pl => pl.name === player);
-    if (playerObj?.foreign) {
-      const foreignExcludingSlot = countForeignPicks(p, teamKey);
-      if (foreignExcludingSlot >= MAX_FOREIGN_PER_FANTASY) {
-        alert(`You already have ${MAX_FOREIGN_PER_FANTASY} foreign players! Max ${MAX_FOREIGN_PER_FANTASY} allowed per fantasy team.`);
-        return;
-      }
+    const playerObj = (IPL_TEAMS[teamKey]?.players||[]).find(pl => pl.name === player);
+    if (playerObj?.foreign && countForeignPicks(p, teamKey) >= MAX_FOREIGN_PER_FANTASY) {
+      alert(`Max ${MAX_FOREIGN_PER_FANTASY} foreign players per fantasy team! Choose an Indian player instead.`);
+      return;
     }
   }
 
@@ -1224,32 +1174,27 @@ async function importSquads() {
   const btn = document.getElementById('importSquadsBtn');
   const status = document.getElementById('importSquadsStatus');
   btn.disabled = true;
-  status.innerHTML = '<span style="color:var(--gold)">⏳ Importing squads to Supabase…</span>';
+  status.innerHTML = '<span style="color:var(--gold)">⏳ Uploading squads to Supabase…</span>';
 
   try {
-    // Upsert all players into a squads table (create if not exists via upsert pattern)
-    const rows = [];
-    TEAM_KEYS.forEach(key => {
-      IPL_TEAMS[key].players.forEach(p => {
-        rows.push({
-          team_key: key,
-          team_name: IPL_TEAMS[key].name,
-          player_name: p.name,
-          is_foreign: p.foreign
-        });
-      });
-    });
-
-    // Insert in batches of 50
-    for (let i = 0; i < rows.length; i += 50) {
-      const batch = rows.slice(i, i + 50);
-      await sb('POST', 'squads', batch, '', { Prefer: 'resolution=merge-duplicates' });
+    // Upsert all players in batches of 50
+    for (let i = 0; i < SQUAD_SEED.length; i += 50) {
+      await sb('POST', 'squads', SQUAD_SEED.slice(i, i + 50), '', { Prefer: 'resolution=merge-duplicates,return=representation' });
     }
 
-    status.innerHTML = `<span style="color:var(--green)">✓ ${rows.length} players imported across ${TEAM_KEYS.length} teams.</span>`;
+    // Reload squads into live IPL_TEAMS
+    const squadRows = await dbGet('squads', '?order=team_key.asc,player_name.asc');
+    IPL_TEAMS = buildIPLTeamsFromRows(squadRows);
+    TEAM_KEYS.length = 0;
+    Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
+
+    // Refresh the draft grid if one is showing
+    renderDraftGrid();
+
+    status.innerHTML = `<span style="color:var(--green)">✓ ${SQUAD_SEED.length} players across ${TEAM_KEYS.length} teams synced to Supabase successfully.</span>`;
   } catch(e) {
-    // Table may not exist yet — that's fine, squads are embedded in the app
-    status.innerHTML = `<span style="color:var(--muted)">ℹ️ Squads are embedded in the app. To store them in Supabase, create a "squads" table first via SQL Editor. (${e.message})</span>`;
+    status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}. Make sure the squads table exists in Supabase (run supabase_setup.sql).</span>`;
+    console.error(e);
   }
   btn.disabled = false;
 }
