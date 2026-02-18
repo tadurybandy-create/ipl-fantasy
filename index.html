@@ -225,7 +225,7 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
       <div id="draftActiveLabel" style="font-size:.88rem;color:var(--muted);margin-bottom:.8rem">← Select a participant to start drafting</div>
       <div class="team-draft-grid" id="teamDraftGrid"></div>
       <div class="picks-summary" id="picksSummary" style="display:none">
-        <h5>Current Picks for <span id="picksSummaryName"></span></h5>
+        <h5>Current Picks for <span id="picksSummaryName"></span> &nbsp; <span id="picksSummaryForeign" style="font-size:.75rem;color:var(--muted)"></span></h5>
         <div id="picksSummaryRows"></div>
         <div style="margin-top:.8rem"><button class="btn btn-sm" onclick="savePicks()">💾 Save Picks</button></div>
       </div>
@@ -656,24 +656,27 @@ async function togglePlayerPick(teamKey, player) {
   try {
     setSyncStatus('loading','Saving…');
     if (isDeselect) {
-      // Delete pick row
       await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
       delete p.picks[teamKey];
     } else {
-      // Remove old active pick for this team slot if exists
       if (p.picks[teamKey]) {
         await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
       }
-      // Insert new pick
       await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: player, is_active: true });
       p.picks[teamKey] = player;
     }
     setSyncStatus('ok','Synced');
   } catch(e) { setSyncStatus('err','Save failed'); console.error(e); return; }
 
-  renderDraftGrid();
-  renderPicksSummary();
-  renderParticipantList();
+  // Only re-render if this participant is still active (user may have switched)
+  if (state.activeParticipant === ai) {
+    renderDraftGrid();
+    renderPicksSummary();
+    renderParticipantList();
+  } else {
+    // Still update participant list progress counts
+    renderParticipantList();
+  }
 }
 
 function savePicks() {
@@ -694,8 +697,15 @@ function renderPicksSummary() {
   const p = state.participants[ai];
   const foreignCount = countForeignPicks(p);
 
-  document.getElementById('picksSummaryName').textContent =
-    `${p.name} \u00a0 🌍 ${foreignCount}/${MAX_FOREIGN_PER_FANTASY} foreign`;
+  // Update both the name span and foreign count together
+  const nameEl = document.getElementById('picksSummaryName');
+  if (nameEl) nameEl.textContent = p.name;
+
+  const foreignEl = document.getElementById('picksSummaryForeign');
+  if (foreignEl) {
+    foreignEl.textContent = `🌍 ${foreignCount}/${MAX_FOREIGN_PER_FANTASY} foreign`;
+    foreignEl.style.color = foreignCount >= MAX_FOREIGN_PER_FANTASY ? '#ff9800' : 'var(--muted)';
+  }
 
   const rows = TEAM_KEYS.map(k => {
     const pick = p.picks[k];
