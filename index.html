@@ -442,7 +442,7 @@ async function loadAll() {
     if (!squadRows || squadRows.length === 0) {
       // First run — seed the squads table in batches
       for (let i = 0; i < SQUAD_SEED.length; i += 50) {
-        await sb('POST', 'squads', SQUAD_SEED.slice(i, i + 50), '', { Prefer: 'resolution=merge-duplicates,return=representation' });
+        await sb('POST', 'squads', SQUAD_SEED.slice(i, i + 50), '', { 'Prefer': 'return=minimal' });
       }
       squadRows = SQUAD_SEED;
     }
@@ -688,28 +688,28 @@ function savePicks() {
 function renderPicksSummary() {
   const ai = state.activeParticipant;
   const el = document.getElementById('picksSummary');
+  if (!el) return;
   if (ai===null) { el.style.display='none'; return; }
   el.style.display='block';
   const p = state.participants[ai];
   const foreignCount = countForeignPicks(p);
-  document.getElementById('picksSummaryName').textContent = p.name;
-  el.innerHTML = `<h5>Current Picks for ${p.name} &nbsp;
-    <span style="font-size:.75rem;color:${foreignCount>=MAX_FOREIGN_PER_FANTASY?'#ff9800':'var(--muted)'}">
-      🌍 ${foreignCount}/${MAX_FOREIGN_PER_FANTASY} foreign
-    </span></h5>
-    <div id="picksSummaryRows">
-    ${TEAM_KEYS.map(k => {
-      const pick = p.picks[k];
-      const playerObj = pick ? IPL_TEAMS[k].players.find(pl => pl.name === pick) : null;
-      return `<div class="pick-row">
-        <span class="team-tag">${k}</span>
-        ${pick
-          ? `<span>${playerObj?.foreign?'🌍':'🇮🇳'} ${pick}</span>`
-          : `<span class="no-pick">not picked</span>`}
-      </div>`;
-    }).join('')}
-    </div>
-    <div style="margin-top:.8rem"><button class="btn btn-sm" onclick="savePicks()">💾 Save Picks</button></div>`;
+
+  document.getElementById('picksSummaryName').textContent =
+    `${p.name} \u00a0 🌍 ${foreignCount}/${MAX_FOREIGN_PER_FANTASY} foreign`;
+
+  const rows = TEAM_KEYS.map(k => {
+    const pick = p.picks[k];
+    const players = IPL_TEAMS[k]?.players || [];
+    const playerObj = pick ? players.find(pl => pl.name === pick) : null;
+    return `<div class="pick-row">
+      <span class="team-tag">${k}</span>
+      ${pick
+        ? `<span>${playerObj?.foreign ? '🌍' : '🇮🇳'} ${pick}</span>`
+        : `<span class="no-pick">not picked</span>`}
+    </div>`;
+  }).join('');
+
+  document.getElementById('picksSummaryRows').innerHTML = rows;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1177,9 +1177,13 @@ async function importSquads() {
   status.innerHTML = '<span style="color:var(--gold)">⏳ Uploading squads to Supabase…</span>';
 
   try {
-    // Upsert all players in batches of 50
+    // Delete all existing rows first, then re-insert clean
+    await dbDelete('squads', '?id=gte.0');
+
+    // Insert in batches of 50
     for (let i = 0; i < SQUAD_SEED.length; i += 50) {
-      await sb('POST', 'squads', SQUAD_SEED.slice(i, i + 50), '', { Prefer: 'resolution=merge-duplicates,return=representation' });
+      const batch = SQUAD_SEED.slice(i, i + 50);
+      await sb('POST', 'squads', batch, '', { 'Prefer': 'return=minimal' });
     }
 
     // Reload squads into live IPL_TEAMS
@@ -1188,12 +1192,11 @@ async function importSquads() {
     TEAM_KEYS.length = 0;
     Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
 
-    // Refresh the draft grid if one is showing
     renderDraftGrid();
 
-    status.innerHTML = `<span style="color:var(--green)">✓ ${SQUAD_SEED.length} players across ${TEAM_KEYS.length} teams synced to Supabase successfully.</span>`;
+    status.innerHTML = `<span style="color:var(--green)">✓ ${SQUAD_SEED.length} players across ${TEAM_KEYS.length} teams synced successfully.</span>`;
   } catch(e) {
-    status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}. Make sure the squads table exists in Supabase (run supabase_setup.sql).</span>`;
+    status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
     console.error(e);
   }
   btn.disabled = false;
