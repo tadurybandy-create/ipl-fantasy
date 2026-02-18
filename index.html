@@ -198,6 +198,7 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
     <div class="key-item"><span class="key-dot" style="background:#ff9800"></span>1 Run-out = 5 pts (both fielders)</div>
     <div class="key-item"><span class="key-dot" style="background:var(--purple)"></span>1 Stumping = 5 pts</div>
     <div class="key-item"><span class="key-dot" style="background:var(--muted)"></span>Max 2 drafts per player · Max 4 foreign per fantasy team</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--gold)"></span>Draft 1 IPL Team: Win = 30 pts · Draw = 15 pts · Max 2 drafts per team</div>
   </div>
   <div class="info-box">
     Each of the <strong>16 fantasy players</strong> picks <strong>1 player from each of the 10 IPL teams</strong> (10 picks total).
@@ -238,7 +239,7 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
   <div class="section-title">Redraft / Swap Players</div>
   <div class="info-box">
     Mid-season player swap or injury replacement. <strong>Frozen points from the old player remain.</strong>
-    The new player earns points from their next match onwards. Swaps stay within the same IPL team. Max 2 drafts per player applies.
+    The new player earns points from their next match onwards. Swaps stay within the same IPL team. Max 2 drafts per player applies. You can also swap your <strong>drafted IPL team</strong> here.
   </div>
   <div class="redraft-layout">
     <div>
@@ -406,13 +407,17 @@ function buildIPLTeamsFromRows(rows) {
 
 const MAX_PLAYER_DRAFTS = 2;
 const MAX_FOREIGN_PER_FANTASY = 4;
+const MAX_TEAM_DRAFTS = 2;
+const TEAM_WIN_PTS = 30;
+const TEAM_DRAW_PTS = 15;
 
 // ═══════════════════════════════════════════════════════
 // LOCAL STATE (populated from DB on load)
 // ═══════════════════════════════════════════════════════
 let state = {
-  participants: [],   // [{id, name, picks:{CSK:'Player',...}, pickHistory:{CSK:['Old'...]}}]
+  participants: [],   // [{id, name, picks:{CSK:'Player',...}, pickHistory:{CSK:['Old'...]}, teamPick:'MI'}]
   seasonScores: {},   // player_name -> {runs,wickets,catches,runouts,stumpings}
+  teamWins: {},       // team_key -> {wins, draws}
   matchHistory: [],
   swapHistory: [],
   activeParticipant: null,
@@ -467,7 +472,7 @@ async function loadAll() {
           pickHistory[pk.team_key].push(pk.player_name);
         }
       });
-      return { id: p.id, name: p.name, picks: activePicks, pickHistory };
+      return { id: p.id, name: p.name, picks: activePicks, pickHistory, teamPick: p.team_pick||null };
     });
 
     state.seasonScores = {};
@@ -479,6 +484,10 @@ async function loadAll() {
       id:m.id, title:m.title, date:m.match_date,
       result:m.result, t1name:m.t1_name, t2name:m.t2_name, updates:m.updates||[]
     }));
+
+    // Recompute teamWins from full match history
+    state.teamWins = {};
+    state.matchHistory.forEach(m => applyMatchResultToTeamWins(m, false));
 
     state.swapHistory = (swaps||[]).map(s => ({
       id:s.id, participantName:s.participant_name, teamKey:s.team_key,
@@ -510,14 +519,15 @@ setInterval(loadAll, 30000);
 // DRAFT COUNTS (from local state)
 // ═══════════════════════════════════════════════════════
 function getDraftCounts() {
-  const pc = {}, wc = {};
+  const pc = {}, tc = {};
   state.participants.forEach(p => {
     TEAM_KEYS.forEach(k => {
       if (p.picks[k]) pc[p.picks[k]] = (pc[p.picks[k]]||0)+1;
       (p.pickHistory?.[k]||[]).forEach(name => { pc[name] = (pc[name]||0)+1; });
     });
+    if (p.teamPick) tc[p.teamPick] = (tc[p.teamPick]||0)+1;
   });
-  return { pc };
+  return { pc, tc };
 }
 
 // Count foreign players in a participant's current active picks
@@ -616,6 +626,36 @@ function renderDraftGrid() {
     </div>`;
   }).join('');
 
+  // Team pick card — appended after all player cards
+  const {tc} = getDraftCounts();
+  const myTeamPick = active ? active.teamPick : null;
+  const teamCardRows = TEAM_KEYS.map(key => {
+    const count = tc[key]||0;
+    const full = count >= MAX_TEAM_DRAFTS;
+    const isMe = myTeamPick === key;
+    const disabled = !active || (full && !isMe);
+    const wins = state.teamWins[key]?.wins||0;
+    const draws = state.teamWins[key]?.draws||0;
+    const earnedPts = wins*TEAM_WIN_PTS + draws*TEAM_DRAW_PTS;
+    return `<div class="player-opt ${disabled?'disabled':''} ${isMe?'selected-by-me':''}"
+        onclick="${disabled?'':`toggleTeamPick('${key}')`}" title="${full&&!isMe?'Team already drafted '+MAX_TEAM_DRAFTS+' times':''}">
+      <span>🏏 ${IPL_TEAMS[key].name} <span style="font-size:.65rem;background:rgba(0,200,83,.12);color:var(--green);border-radius:3px;padding:.05rem .3rem">${key}</span></span>
+      <span style="display:flex;align-items:center;gap:4px">
+        <span style="font-size:.7rem;color:var(--muted)">${earnedPts?earnedPts+'pts':''}</span>
+        <span class="draft-pips">${[0,1].map(j=>`<span class="mini-pip ${j<count?'filled':''}" style="${isMe&&j===0?'background:#FFD600':''}""></span>`).join('')}</span>
+        ${isMe?'<span style="font-size:.9rem">✓</span>':''}
+      </span>
+    </div>`;
+  }).join('');
+
+  // Append team card to grid
+  const teamCard = `<div class="team-draft-card" style="border-color:rgba(255,214,0,.3);background:rgba(255,214,0,.04)">
+    <h4 style="color:var(--gold)">🏆 Draft a Team <span class="team-abbr" style="background:rgba(255,214,0,.15);color:var(--gold)">+30 pts/win</span></h4>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:.5rem">Each IPL team win = 30 pts · Draw = 15 pts · Max 2 drafts per team</div>
+    <div class="player-pick-list">${teamCardRows}</div>
+  </div>`;
+  document.getElementById('teamDraftGrid').innerHTML += teamCard;
+
   // Foreign counter badge for active participant
   if (active) {
     const existing = document.getElementById('foreignCounter');
@@ -679,6 +719,54 @@ async function togglePlayerPick(teamKey, player) {
   }
 }
 
+async function toggleTeamPick(teamKey) {
+  const ai = state.activeParticipant;
+  if (ai===null) return;
+  const p = state.participants[ai];
+  const {tc} = getDraftCounts();
+  const isDeselect = p.teamPick === teamKey;
+
+  if (!isDeselect && (tc[teamKey]||0) >= MAX_TEAM_DRAFTS) {
+    alert(`${IPL_TEAMS[teamKey].name} has already been drafted ${MAX_TEAM_DRAFTS} times!`); return;
+  }
+
+  try {
+    setSyncStatus('loading','Saving…');
+    const newVal = isDeselect ? null : teamKey;
+    await dbPatch('participants', { team_pick: newVal }, `?id=eq.${p.id}`);
+    p.teamPick = newVal;
+    setSyncStatus('ok','Synced');
+  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); return; }
+
+  if (state.activeParticipant === ai) {
+    renderDraftGrid();
+    renderPicksSummary();
+    renderParticipantList();
+  } else {
+    renderParticipantList();
+  }
+}
+
+// Apply a match result to teamWins state (additive or subtractive)
+function applyMatchResultToTeamWins(m, add=true) {
+  const delta = add ? 1 : -1;
+  if (!m.t1name || !m.t2name) return;
+  // Find team keys from names
+  const findKey = name => TEAM_KEYS.find(k => IPL_TEAMS[k]?.name?.toLowerCase() === name?.toLowerCase());
+  const t1key = findKey(m.t1name);
+  const t2key = findKey(m.t2name);
+  if (!state.teamWins[t1key]) state.teamWins[t1key] = {wins:0,draws:0};
+  if (!state.teamWins[t2key]) state.teamWins[t2key] = {wins:0,draws:0};
+  if (m.result === 'draw') {
+    if (t1key) state.teamWins[t1key].draws = Math.max(0, (state.teamWins[t1key]?.draws||0)+delta);
+    if (t2key) state.teamWins[t2key].draws = Math.max(0, (state.teamWins[t2key]?.draws||0)+delta);
+  } else if (m.result === 't1' && t1key) {
+    state.teamWins[t1key].wins = Math.max(0, (state.teamWins[t1key]?.wins||0)+delta);
+  } else if (m.result === 't2' && t2key) {
+    state.teamWins[t2key].wins = Math.max(0, (state.teamWins[t2key]?.wins||0)+delta);
+  }
+}
+
 function savePicks() {
   const ai = state.activeParticipant;
   if (ai===null) return;
@@ -719,7 +807,13 @@ function renderPicksSummary() {
     </div>`;
   }).join('');
 
-  document.getElementById('picksSummaryRows').innerHTML = rows;
+  const teamRow = `<div class="pick-row" style="border-top:1px solid var(--border);margin-top:.4rem;padding-top:.4rem">
+    <span class="team-tag" style="background:rgba(255,214,0,.12);color:var(--gold)">TEAM</span>
+    ${p.teamPick
+      ? `<span>🏆 ${IPL_TEAMS[p.teamPick]?.name||p.teamPick} <span style="font-size:.7rem;color:var(--muted)">(${p.teamPick})</span></span>`
+      : `<span class="no-pick">no team picked</span>`}
+  </div>`;
+  document.getElementById('picksSummaryRows').innerHTML = rows + teamRow;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -734,7 +828,12 @@ function renderRedraftScreen() {
       <span class="p-name">${p.name}</span>
     </div>`;
   }).join('');
-  if (state.activeRedraftParticipant!==null) renderSwapSlots();
+  const grid = document.getElementById('swapSlotGrid');
+  if (state.activeRedraftParticipant!==null) {
+    renderSwapSlots();
+  } else {
+    if (grid) grid.innerHTML = '';
+  }
   renderSwapHistory();
 }
 
@@ -768,7 +867,7 @@ function renderSwapSlots() {
       const count = pc[player]||0;
       const full = count>=MAX_PLAYER_DRAFTS;
       // Foreign limit check for swap
-      const wouldBreachForeign = foreign && countForeignPicks(p, teamKey) >= MAX_FOREIGN_PER_FANTASY;
+      const wouldBreachForeign = foreign && countForeignPicks(p, key) >= MAX_FOREIGN_PER_FANTASY;
       const disabled2 = full || wouldBreachForeign;
       const flag = foreign ? '🌍' : '🇮🇳';
       return `<option value="${player}" ${disabled2?'disabled':''}>${flag} ${player}${full?' (FULL)':wouldBreachForeign?' (Foreign limit)':count===1?' ·1 left':''}</option>`;
@@ -797,6 +896,53 @@ function renderSwapSlots() {
       </div>
     </div>`;
   }).join('');
+
+  // Team pick swap card
+  const {tc} = getDraftCounts();
+  const myTeam = p.teamPick;
+  const teamOpts = TEAM_KEYS.map(k => {
+    if (k === myTeam) return '';
+    const count = tc[k]||0;
+    const full = count >= MAX_TEAM_DRAFTS;
+    const wins = state.teamWins[k]?.wins||0;
+    const draws = state.teamWins[k]?.draws||0;
+    return `<option value="${k}" ${full?'disabled':''}>${IPL_TEAMS[k].name} (${k})${full?' — FULL':''}  ${wins}W ${draws}D</option>`;
+  }).filter(Boolean).join('');
+
+  const teamWins = myTeam ? (state.teamWins[myTeam]?.wins||0) : 0;
+  const teamDraws = myTeam ? (state.teamWins[myTeam]?.draws||0) : 0;
+  const teamPts = teamWins*TEAM_WIN_PTS + teamDraws*TEAM_DRAW_PTS;
+
+  document.getElementById('swapSlotGrid').innerHTML += `<div class="swap-slot-card" style="border-color:rgba(255,214,0,.3);background:rgba(255,214,0,.04)">
+    <h5 style="color:var(--gold)">🏆 <span style="font-size:.7rem;color:var(--muted)">Team Draft</span></h5>
+    <div class="current-player-row" style="background:rgba(255,214,0,.07);border-color:rgba(255,214,0,.2)">
+      <span class="current-player-name">${myTeam ? IPL_TEAMS[myTeam]?.name+' ('+myTeam+')' : '— not picked —'}</span>
+      <span class="frozen-pts">${myTeam ? teamPts+' pts ('+teamWins+'W '+teamDraws+'D)' : ''}</span>
+    </div>
+    <div class="swap-select-wrap">
+      <select id="swapSel_TEAM">
+        <option value="">— ${myTeam?'swap to':'pick a'} team… —</option>
+        ${teamOpts}
+      </select>
+      <button class="btn-swap" onclick="executeTeamSwap(${ai})">${myTeam?'Swap':'Pick'}</button>
+    </div>
+  </div>`;
+}
+
+async function executeTeamSwap(participantIdx) {
+  const p = state.participants[participantIdx];
+  const newTeam = document.getElementById('swapSel_TEAM')?.value;
+  if (!newTeam) { alert('Select a team.'); return; }
+  const {tc} = getDraftCounts();
+  if ((tc[newTeam]||0) >= MAX_TEAM_DRAFTS) { alert(`${IPL_TEAMS[newTeam].name} is already drafted ${MAX_TEAM_DRAFTS} times!`); return; }
+  try {
+    setSyncStatus('loading','Saving…');
+    await dbPatch('participants', { team_pick: newTeam }, `?id=eq.${p.id}`);
+    p.teamPick = newTeam;
+    setSyncStatus('ok','Synced');
+    renderRedraftScreen();
+    renderLeaderboard();
+  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); alert(e.message); }
 }
 
 async function executeSwap(participantIdx, teamKey) {
@@ -1038,7 +1184,9 @@ async function applyMatch() {
       updates
     });
 
-    state.matchHistory.push({ id:matchRow.id, title:matchRow.title, date:matchRow.match_date, result:matchRow.result, t1name:matchRow.t1_name, t2name:matchRow.t2_name, updates });
+    const newMatch = { id:matchRow.id, title:matchRow.title, date:matchRow.match_date, result:matchRow.result, t1name:matchRow.t1_name, t2name:matchRow.t2_name, updates };
+    state.matchHistory.push(newMatch);
+    applyMatchResultToTeamWins(newMatch, true);
 
     setSyncStatus('ok','Synced');
 
@@ -1089,6 +1237,7 @@ async function removeMatch(id, i) {
       }
     }
     await dbDelete('match_history', `?id=eq.${id}`);
+    applyMatchResultToTeamWins(m, false);
     state.matchHistory.splice(i,1);
     setSyncStatus('ok','Synced');
     renderMatchLog(); renderLeaderboard();
@@ -1116,7 +1265,13 @@ function calcSeasonPoints(participant) {
     playerPts+=slotPts;
     breakdown[k]={current,history,slotPlayers,slotPts};
   });
-  return {playerPts,total:playerPts,breakdown};
+
+  // Team pick points
+  const tw = participant.teamPick ? (state.teamWins[participant.teamPick]||{wins:0,draws:0}) : null;
+  const teamPts = tw ? tw.wins*TEAM_WIN_PTS + tw.draws*TEAM_DRAW_PTS : 0;
+  const total = playerPts + teamPts;
+
+  return {playerPts, teamPts, total, breakdown, teamPick:participant.teamPick, teamWinData:tw};
 }
 
 function renderLeaderboard() {
@@ -1139,12 +1294,12 @@ function renderLeaderboard() {
       <td><span class="rank-badge ${rankClass}">${rank+1}</span></td>
       <td>
         <div style="font-weight:600">${p.name}</div>
-        <div style="font-size:.75rem;color:var(--muted)">${pickCount}/10 picks · 🌍 ${foreignCount}/${MAX_FOREIGN_PER_FANTASY} foreign</div>
+        <div style="font-size:.75rem;color:var(--muted)">${pickCount}/10 picks · 🌍 ${foreignCount}/${MAX_FOREIGN_PER_FANTASY} foreign${p.teamPick?' · 🏆 '+p.teamPick:''}</div>
       </td>
       <td><div class="picks-mini">${topPicks||'—'}</div></td>
       <td>
         <div class="pts-big">${p.total}</div>
-        <div class="pts-breakdown">${p.playerPts} pts</div>
+        <div class="pts-breakdown">${p.playerPts} player${p.teamPts?` + <span class="pts-gold">${p.teamPts} team</span>`:''}</div>
       </td>
     </tr>
     <tr class="detail-row" id="detail-${rank}"><td colspan="4">
@@ -1163,6 +1318,13 @@ function renderLeaderboard() {
             ${histLine}
           </div>`;
         }).join('')}
+        ${p.teamPick
+          ? `<div class="detail-chip" style="border-color:rgba(255,214,0,.3)">
+               <div class="dc-team" style="color:var(--gold)">🏆 TEAM DRAFT <span class="dc-pts" style="color:var(--gold)">${p.teamPts}pts</span></div>
+               <div>${IPL_TEAMS[p.teamPick]?.name||p.teamPick} (${p.teamPick})</div>
+               <div style="font-size:.7rem;color:var(--muted)">${p.teamWinData?.wins||0} wins · ${p.teamWinData?.draws||0} draws</div>
+             </div>`
+          : `<div class="detail-chip" style="opacity:.4"><div class="dc-team">🏆 TEAM — not picked</div></div>`}
       </div>
     </td></tr>`;
   }).join('');
