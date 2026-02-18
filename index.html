@@ -195,7 +195,8 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
     <div class="key-item"><span class="key-dot" style="background:var(--green)"></span>1 Run = 1 pt</div>
     <div class="key-item"><span class="key-dot" style="background:var(--red)"></span>1 Wicket = 25 pts</div>
     <div class="key-item"><span class="key-dot" style="background:var(--gold)"></span>1 Catch = 5 pts</div>
-    <div class="key-item"><span class="key-dot" style="background:#ff9800"></span>1 Run-out = 5 pts</div>
+    <div class="key-item"><span class="key-dot" style="background:#ff9800"></span>1 Run-out = 5 pts (both fielders)</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--purple)"></span>1 Stumping = 5 pts</div>
     <div class="key-item"><span class="key-dot" style="background:var(--muted)"></span>Max 2 drafts per player · Max 4 foreign per fantasy team</div>
   </div>
   <div class="info-box">
@@ -418,7 +419,7 @@ const MAX_FOREIGN_PER_FANTASY = 4;
 // ═══════════════════════════════════════════════════════
 let state = {
   participants: [],   // [{id, name, picks:{CSK:'Player',...}, pickHistory:{CSK:['Old'...]}}]
-  seasonScores: {},   // player_name -> {runs,wickets,catches,runouts}
+  seasonScores: {},   // player_name -> {runs,wickets,catches,runouts,stumpings}
   matchHistory: [],
   swapHistory: [],
   activeParticipant: null,
@@ -847,8 +848,8 @@ async function executeSwap(participantIdx, teamKey) {
   if ((pc[newPlayer]||0)>=MAX_PLAYER_DRAFTS) { alert(`${newPlayer} is already drafted ${MAX_PLAYER_DRAFTS} times!`); return; }
 
   const oldPlayer = p.picks[teamKey];
-  const frozenSc = oldPlayer ? (state.seasonScores[oldPlayer]||{runs:0,wickets:0,catches:0,runouts:0}) : null;
-  const frozenPts = frozenSc ? frozenSc.runs+frozenSc.wickets*25+frozenSc.catches*5+(frozenSc.runouts||0)*5 : 0;
+  const frozenSc = oldPlayer ? (state.seasonScores[oldPlayer]||{runs:0,wickets:0,catches:0,runouts:0,stumpings:0}) : null;
+  const frozenPts = frozenSc ? frozenSc.runs+frozenSc.wickets*25+frozenSc.catches*5+(frozenSc.runouts||0)*5+(frozenSc.stumpings||0)*5 : 0;
 
   try {
     setSyncStatus('loading','Saving swap…');
@@ -944,7 +945,6 @@ async function importScorecard() {
     });
   });
 
-  const playerList = allDrafted.map(d=>`- ${d.player} (${d.team})`).join('\n');
   const prompt = `You are a cricket scorecard parser for an IPL fantasy league.
 
 Fetch and read the scorecard at this URL: ${url}
@@ -957,14 +957,17 @@ Tasks:
 2. For each player listed who played today, extract:
    - runs: runs scored while batting
    - wickets: wickets taken while bowling
-   - catches: count of catches taken (look for "c [their name]" in dismissal descriptions)
-   - runouts: count of run-outs they directly caused (look for "run out ([their name])" or "run out (([their name]/...)" in dismissal descriptions)
+   - catches: count of catches taken (look for "c [their name]" in dismissal descriptions, NOT stumpings)
+   - runouts: count of run-outs they were involved in. IMPORTANT — if a dismissal shows "run out (PlayerA/PlayerB)", BOTH PlayerA AND PlayerB each get 1 run-out credit (full 5 pts each). Count every run-out dismissal where their name appears anywhere in the brackets.
+   - stumpings: count of stumpings made (look for "st [their name]" in dismissal descriptions — this is always the wicketkeeper)
 3. Players not in this match: set not_in_match: true.
 4. Players who played but scored 0 everywhere: all fields 0.
 5. Detect the match winner.
 
+Scoring reminder: runs×1 + wickets×25 + catches×5 + runouts×5 + stumpings×5
+
 Respond ONLY with valid JSON, no other text:
-{"match_title":"CSK vs MI","t1_name":"Chennai Super Kings","t2_name":"Mumbai Indians","winner":"Chennai Super Kings","players":[{"name":"Player","team":"Team","runs":0,"wickets":0,"catches":0,"runouts":0,"not_in_match":false}]}`;
+{"match_title":"CSK vs MI","t1_name":"Chennai Super Kings","t2_name":"Mumbai Indians","winner":"Chennai Super Kings","players":[{"name":"Player","team":"Team","runs":0,"wickets":0,"catches":0,"runouts":0,"stumpings":0,"not_in_match":false}]}`;
 
   try {
     // Call our Netlify proxy — keeps the API key off GitHub
@@ -1012,10 +1015,10 @@ function renderImportPreview(parsed, allDrafted) {
     const drafted = allDrafted.find(d=>d.player.toLowerCase()===p.name.toLowerCase());
     if (!drafted) return '';
     hitCount++;
-    const pts=(p.runs||0)+(p.wickets||0)*25+(p.catches||0)*5+(p.runouts||0)*5;
+    const pts=(p.runs||0)+(p.wickets||0)*25+(p.catches||0)*5+(p.runouts||0)*5+(p.stumpings||0)*5;
     return `<div class="preview-player-row hit">
       <div><strong>${p.name}</strong> <span style="color:var(--muted);font-size:.72rem">${p.team}</span></div>
-      <div class="preview-stats"><div>${p.runs||0} <span>runs</span></div><div>${p.wickets||0} <span>wkts</span></div><div>${p.catches||0} <span>ctch</span></div><div>${p.runouts||0} <span>r/o</span></div><div style="color:var(--gold);font-weight:600">+${pts} pts</div></div>
+      <div class="preview-stats"><div>${p.runs||0} <span>runs</span></div><div>${p.wickets||0} <span>wkts</span></div><div>${p.catches||0} <span>ctch</span></div><div>${p.runouts||0} <span>r/o</span></div><div>${p.stumpings||0} <span>st</span></div><div style="color:var(--gold);font-weight:600">+${pts} pts</div></div>
       <span class="badge-found">DRAFTED</span>
     </div>`;
   }).filter(Boolean).join('');
@@ -1045,8 +1048,8 @@ async function applyMatch() {
       });
     });
     if (!draftedAs) continue;
-    const runs=parseInt(p.runs)||0, wkts=parseInt(p.wickets)||0, ctch=parseInt(p.catches)||0, rnout=parseInt(p.runouts)||0;
-    updates.push({ player:draftedAs, team:p.team, runs, wkts, catches:ctch, runouts:rnout, pts:runs+wkts*25+ctch*5+rnout*5 });
+    const runs=parseInt(p.runs)||0, wkts=parseInt(p.wickets)||0, ctch=parseInt(p.catches)||0, rnout=parseInt(p.runouts)||0, stmp=parseInt(p.stumpings)||0;
+    updates.push({ player:draftedAs, team:p.team, runs, wkts, catches:ctch, runouts:rnout, stumpings:stmp, pts:runs+wkts*25+ctch*5+rnout*5+stmp*5 });
   }
 
   try {
@@ -1056,12 +1059,12 @@ async function applyMatch() {
     for (const u of updates) {
       const existing = state.seasonScores[u.player];
       if (existing) {
-        const newRuns=existing.runs+u.runs, newWkts=existing.wickets+u.wkts, newCtch=existing.catches+u.catches, newRnout=(existing.runouts||0)+u.runouts;
-        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout }, `?player_name=eq.${encodeURIComponent(u.player)}`);
-        state.seasonScores[u.player] = { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout };
+        const newRuns=existing.runs+u.runs, newWkts=existing.wickets+u.wkts, newCtch=existing.catches+u.catches, newRnout=(existing.runouts||0)+u.runouts, newStmp=(existing.stumpings||0)+u.stumpings;
+        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp }, `?player_name=eq.${encodeURIComponent(u.player)}`);
+        state.seasonScores[u.player] = { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp };
       } else {
-        await dbPost('season_scores', { player_name:u.player, runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts });
-        state.seasonScores[u.player] = { runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts };
+        await dbPost('season_scores', { player_name:u.player, runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts, stumpings:u.stumpings });
+        state.seasonScores[u.player] = { runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts, stumpings:u.stumpings };
       }
     }
 
@@ -1098,7 +1101,7 @@ function renderMatchLog() {
     const i=state.matchHistory.length-1-ri;
     const resultText=m.result==='draw'?'Draw':m.result==='t1'?`${m.t1name} Won`:`${m.t2name} Won`;
     const chipClass=m.result==='draw'?'chip-draw':m.result==='t1'?'chip-t1':'chip-t2';
-    const chips=(m.updates||[]).map(u=>`<span class="player-update-chip">${u.player}: ${u.runs}r ${u.wkts}w ${u.catches}c ${u.runouts||0}ro = <strong>+${u.pts}pts</strong></span>`).join('');
+    const chips=(m.updates||[]).map(u=>`<span class="player-update-chip">${u.player}: ${u.runs}r ${u.wkts}w ${u.catches}c ${u.runouts||0}ro ${u.stumpings||0}st = <strong>+${u.pts}pts</strong></span>`).join('');
     return `<div class="match-entry">
       <div class="match-entry-header">
         <div><div class="match-title-text">${m.title}</div><div class="match-date-text">${m.date}</div></div>
@@ -1120,9 +1123,9 @@ async function removeMatch(id, i) {
     for (const u of (m.updates||[])) {
       const sc = state.seasonScores[u.player];
       if (sc) {
-        const newRuns=sc.runs-u.runs, newWkts=sc.wickets-u.wkts, newCtch=sc.catches-u.catches, newRnout=(sc.runouts||0)-u.runouts;
-        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout }, `?player_name=eq.${encodeURIComponent(u.player)}`);
-        state.seasonScores[u.player]={runs:newRuns,wickets:newWkts,catches:newCtch,runouts:newRnout};
+        const newRuns=sc.runs-u.runs, newWkts=sc.wickets-u.wkts, newCtch=sc.catches-u.catches, newRnout=(sc.runouts||0)-u.runouts, newStmp=(sc.stumpings||0)-u.stumpings;
+        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp }, `?player_name=eq.${encodeURIComponent(u.player)}`);
+        state.seasonScores[u.player]={runs:newRuns,wickets:newWkts,catches:newCtch,runouts:newRnout,stumpings:newStmp};
       }
     }
     await dbDelete('match_history', `?id=eq.${id}`);
@@ -1145,8 +1148,8 @@ function calcSeasonPoints(participant) {
     if (!allInSlot.length) return;
     let slotPts=0;
     const slotPlayers=allInSlot.map(name=>{
-      const sc=state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0};
-      const pts=sc.runs+sc.wickets*25+sc.catches*5+(sc.runouts||0)*5;
+      const sc=state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0,stumpings:0};
+      const pts=sc.runs+sc.wickets*25+sc.catches*5+(sc.runouts||0)*5+(sc.stumpings||0)*5;
       slotPts+=pts;
       return {name,sc,pts};
     });
@@ -1190,13 +1193,13 @@ function renderLeaderboard() {
           const bd=p.breakdown[k];
           if (!bd) return `<div class="detail-chip" style="opacity:.4"><div class="dc-team">${k} — not picked</div></div>`;
           const histLine=bd.history&&bd.history.length
-            ?`<div style="font-size:.68rem;color:var(--muted);margin-top:.1rem">${bd.history.map(h=>{const hs=state.seasonScores[h]||{runs:0,wickets:0,catches:0,runouts:0};return `↩ ${h} (${hs.runs+hs.wickets*25+hs.catches*5+(hs.runouts||0)*5}pts)`;}).join(', ')}</div>`:'';
-          const curSc=state.seasonScores[bd.current]||{runs:0,wickets:0,catches:0,runouts:0};
+            ?`<div style="font-size:.68rem;color:var(--muted);margin-top:.1rem">${bd.history.map(h=>{const hs=state.seasonScores[h]||{runs:0,wickets:0,catches:0,runouts:0,stumpings:0};return `↩ ${h} (${hs.runs+hs.wickets*25+hs.catches*5+(hs.runouts||0)*5+(hs.stumpings||0)*5}pts)`;}).join(', ')}</div>`:'';
+          const curSc=state.seasonScores[bd.current]||{runs:0,wickets:0,catches:0,runouts:0,stumpings:0};
           const playerObj = bd.current ? IPL_TEAMS[k].players.find(pl=>pl.name===bd.current) : null;
           return `<div class="detail-chip">
             <div class="dc-team">${k} ${playerObj?.foreign?'🌍':'🇮🇳'} <span class="dc-pts">${bd.slotPts}pts</span></div>
             <div>${bd.current||'—'}</div>
-            ${bd.current?`<div style="font-size:.7rem;color:var(--muted)">${curSc.runs}r · ${curSc.wickets}w · ${curSc.catches}c · ${curSc.runouts||0}ro</div>`:''}
+            ${bd.current?`<div style="font-size:.7rem;color:var(--muted)">${curSc.runs}r · ${curSc.wickets}w · ${curSc.catches}c · ${curSc.runouts||0}ro · ${curSc.stumpings||0}st</div>`:''}
             ${histLine}
           </div>`;
         }).join('')}
