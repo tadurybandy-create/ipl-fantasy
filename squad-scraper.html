@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPL Squad Scraper</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080f08;
+    --surface: #0f1a0f;
+    --card: #141f14;
+    --border: #1e2e1e;
+    --green: #00e676;
+    --green-dim: #00c853;
+    --gold: #ffc107;
+    --red: #ff1744;
+    --muted: #4a6a4a;
+    --text: #d4e8d4;
+    --text-dim: #8aaa8a;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  /* Subtle cricket field grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,230,118,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,230,118,.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 780px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    margin-bottom: 2.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.5rem;
+  }
+  .header-eyebrow {
+    font-family: var(--mono);
+    font-size: .7rem;
+    color: var(--green);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: .5rem;
+  }
+  .header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 3px;
+    color: var(--green);
+    line-height: 1;
+    margin-bottom: .4rem;
+  }
+  .header p {
+    color: var(--text-dim);
+    font-size: .875rem;
+    line-height: 1.6;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .card-label {
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: var(--green);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: .75rem;
+  }
+
+  /* ── INPUTS ── */
+  .input-row {
+    display: flex;
+    gap: .75rem;
+    align-items: stretch;
+  }
+  input[type="text"], select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: .8rem;
+    padding: .65rem .9rem;
+    outline: none;
+    transition: border-color .2s;
+    width: 100%;
+  }
+  input[type="text"]:focus, select:focus {
+    border-color: var(--green);
+  }
+  input::placeholder { color: var(--muted); }
+  select option { background: var(--surface); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: .75rem; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 2px;
+    padding: .65rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .2s;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--green);
+    color: #080f08;
+  }
+  .btn-primary:hover { background: #69f0ae; }
+  .btn-primary:disabled { background: var(--muted); color: var(--bg); cursor: not-allowed; }
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .btn-secondary:hover { border-color: var(--green); color: var(--green); }
+  .btn-copy {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: .75rem;
+    padding: .4rem .9rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .btn-copy:hover { background: var(--border); }
+
+  /* ── STATUS ── */
+  .status {
+    font-family: var(--mono);
+    font-size: .78rem;
+    min-height: 1.4rem;
+    margin-top: .75rem;
+  }
+  .status.loading { color: var(--gold); }
+  .status.ok { color: var(--green); }
+  .status.err { color: var(--red); }
+
+  /* ── SPINNER ── */
+  .spinner {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border: 2px solid var(--gold);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    margin-right: .4rem;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── RESULTS ── */
+  .results { display: none; }
+  .results.visible { display: block; }
+
+  .team-result {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+  .team-result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .75rem 1rem;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+  }
+  .team-badge {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: .9rem;
+    letter-spacing: 2px;
+    background: var(--green);
+    color: var(--bg);
+    padding: .15rem .5rem;
+    border-radius: 4px;
+  }
+  .team-name {
+    font-size: .85rem;
+    color: var(--text);
+    font-weight: 600;
+    flex: 1;
+    margin-left: .75rem;
+  }
+  .team-count {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--text-dim);
+  }
+
+  .player-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: .4rem;
+    padding: .75rem;
+  }
+  .player-chip {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .35rem .6rem;
+    border-radius: 5px;
+    font-size: .78rem;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--card);
+    transition: all .15s;
+    user-select: none;
+  }
+  .player-chip:hover { border-color: var(--green-dim); }
+  .player-chip.foreign { border-color: rgba(255,193,7,.3); }
+  .player-chip.foreign:hover { border-color: var(--gold); }
+  .player-chip .flag { font-size: .85rem; flex-shrink: 0; }
+  .player-chip .pname { flex: 1; color: var(--text); }
+  .player-chip .ovs-tag {
+    font-family: var(--mono);
+    font-size: .58rem;
+    background: rgba(255,193,7,.15);
+    color: var(--gold);
+    border: 1px solid rgba(255,193,7,.3);
+    padding: .1rem .3rem;
+    border-radius: 3px;
+    letter-spacing: 1px;
+  }
+  .player-chip .toggle-btn {
+    font-size: .7rem;
+    color: var(--muted);
+    cursor: pointer;
+    padding: .1rem .25rem;
+    border-radius: 3px;
+    transition: all .15s;
+  }
+  .player-chip:hover .toggle-btn { background: var(--border); color: var(--text); }
+
+  /* ── SQL OUTPUT ── */
+  .sql-output-wrap {
+    position: relative;
+    margin-top: 1rem;
+  }
+  .sql-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: .5rem;
+  }
+  .sql-label {
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: var(--green);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .sql-actions { display: flex; gap: .5rem; }
+  textarea.sql-box {
+    width: 100%;
+    background: #050d05;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: #7ec97e;
+    font-family: var(--mono);
+    font-size: .72rem;
+    line-height: 1.7;
+    padding: 1rem;
+    resize: vertical;
+    min-height: 220px;
+    outline: none;
+  }
+  textarea.sql-box:focus { border-color: var(--green-dim); }
+
+  /* ── INSTRUCTIONS ── */
+  .instructions {
+    background: rgba(0,230,118,.04);
+    border: 1px solid rgba(0,230,118,.12);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  .instructions ol {
+    padding-left: 1.25rem;
+    color: var(--text-dim);
+    font-size: .82rem;
+    line-height: 2;
+  }
+  .instructions ol li strong { color: var(--text); }
+  .instructions a { color: var(--green); text-decoration: none; }
+  .instructions a:hover { text-decoration: underline; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
+  }
+
+  .tag { display: inline-block; font-family: var(--mono); font-size: .65rem; background: rgba(0,230,118,.1); color: var(--green); border: 1px solid rgba(0,230,118,.2); padding: .1rem .4rem; border-radius: 3px; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="header-eyebrow">⚡ IPL 2026 Fantasy League</div>
+    <h1>Squad Scraper</h1>
+    <p>Paste an ESPNcricinfo squad URL — Claude AI reads the page and generates ready-to-run SQL for your Supabase squads table.</p>
+  </div>
+
+  <div class="instructions">
+    <ol>
+      <li>Go to <a href="https://www.espncricinfo.com/series/ipl-2026/squads" target="_blank">espncricinfo.com → IPL 2026 → Squads</a></li>
+      <li>Click on a team (e.g. <strong>Mumbai Indians</strong>)</li>
+      <li>Copy the URL from your browser and paste it below</li>
+      <li>Select the team key, click <strong>Scrape Squad</strong></li>
+      <li>Review the players, toggle any foreign/Indian flags if wrong, then copy the SQL</li>
+    </ol>
+  </div>
+
+  <!-- Input -->
+  <div class="card">
+    <div class="card-label">🔗 Squad Page URL</div>
+    <div class="two-col">
+      <div>
+        <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:.4rem">ESPNcricinfo team squad URL</div>
+        <input type="text" id="squadUrl" placeholder="https://www.espncricinfo.com/series/ipl-2026/..." />
+      </div>
+      <div>
+        <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:.4rem">IPL Team</div>
+        <select id="teamKey">
+          <option value="CSK">CSK — Chennai Super Kings</option>
+          <option value="DC">DC — Delhi Capitals</option>
+          <option value="GT">GT — Gujarat Titans</option>
+          <option value="KKR">KKR — Kolkata Knight Riders</option>
+          <option value="LSG">LSG — Lucknow Super Giants</option>
+          <option value="MI" selected>MI — Mumbai Indians</option>
+          <option value="PBKS">PBKS — Punjab Kings</option>
+          <option value="RCB">RCB — Royal Challengers Bengaluru</option>
+          <option value="RR">RR — Rajasthan Royals</option>
+          <option value="SRH">SRH — Sunrisers Hyderabad</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:.75rem;display:flex;gap:.75rem;align-items:center">
+      <button class="btn btn-primary" id="scrapeBtn" onclick="scrapeSquad()">⚡ SCRAPE SQUAD</button>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+    <div id="playerResults"></div>
+
+    <!-- Save to Supabase -->
+    <div class="card" style="border-color:rgba(0,230,118,.25);background:rgba(0,230,118,.04)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+        <div>
+          <div class="card-label" style="margin-bottom:.25rem">💾 Save to Supabase</div>
+          <div style="font-size:.8rem;color:var(--text-dim)">Deletes existing squad for this team and reinserts scraped players directly into your squads table.</div>
+          <div class="status" id="saveStatus" style="margin-top:.5rem"></div>
+        </div>
+        <button class="btn btn-primary" id="saveBtn" onclick="saveToSupabase()">💾 SAVE TO SUPABASE</button>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- SQL fallback -->
+    <div class="sql-output-wrap">
+      <div class="sql-header">
+        <span class="sql-label">📋 SQL (fallback)</span>
+        <div class="sql-actions">
+          <button class="btn-copy" onclick="copySQL()">📋 Copy SQL</button>
+          <button class="btn-copy" onclick="downloadSQL()">⬇ Download .sql</button>
+        </div>
+      </div>
+      <textarea class="sql-box" id="sqlOutput" readonly></textarea>
+      <div style="margin-top:.5rem;font-size:.75rem;color:var(--text-dim)">
+        If the direct save fails, paste this into <strong style="color:var(--text)">Supabase → SQL Editor</strong> as a fallback.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = 'https://oecyxuygrhtdnypmunae.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lY3l4dXlncmh0ZG55cG11bmFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzg5OTYsImV4cCI6MjA4Njk1NDk5Nn0.bHzTsY59yXshCZ_VSGK1W7iVzhn3GJQcBfby9XWSt80';
+
+const TEAM_NAMES = {
+  CSK:'Chennai Super Kings', DC:'Delhi Capitals', GT:'Gujarat Titans',
+  KKR:'Kolkata Knight Riders', LSG:'Lucknow Super Giants', MI:'Mumbai Indians',
+  PBKS:'Punjab Kings', RCB:'Royal Challengers Bengaluru', RR:'Rajasthan Royals',
+  SRH:'Sunrisers Hyderabad'
+};
+
+let detectedPlayers = [];
+let currentTeamKey = '';
+
+async function sbReq(method, path, body=null) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: body ? JSON.stringify(body) : null
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+}
+
+function setStatus(msg, type='') {
+  const el = document.getElementById('status');
+  el.className = 'status ' + type;
+  el.innerHTML = msg;
+}
+
+function setSaveStatus(msg, type='') {
+  const el = document.getElementById('saveStatus');
+  el.className = 'status ' + type;
+  el.innerHTML = msg;
+}
+
+async function scrapeSquad() {
+  const url = document.getElementById('squadUrl').value.trim();
+  const teamKey = document.getElementById('teamKey').value;
+  if (!url) { setStatus('Please paste a squad URL first.', 'err'); return; }
+
+  currentTeamKey = teamKey;
+  document.getElementById('scrapeBtn').disabled = true;
+  document.getElementById('results').classList.remove('visible');
+  setStatus('<span class="spinner"></span> Fetching squad via Claude AI…', 'loading');
+
+  const teamName = TEAM_NAMES[teamKey];
+
+  const prompt = `You are a cricket data extractor.
+
+Fetch and read the squad page at this URL: ${url}
+
+Extract the complete squad list for the IPL team on that page.
+
+For each player, determine:
+1. Their full name as listed
+2. Whether they are a foreign/overseas player (not Indian) — true/false
+
+Common indicators of foreign players: non-Indian names, country flags, "(overseas)" labels, or nationalities listed next to names.
+
+Respond ONLY with valid JSON, no other text, no markdown:
+{
+  "team_name": "Full team name from the page",
+  "players": [
+    {"name": "Player Full Name", "foreign": false},
+    {"name": "Overseas Player", "foreign": true}
+  ]
+}`;
+
+  try {
+    const response = await fetch('/.netlify/functions/anthropic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) throw new Error(await response.text());
+
+    const data = await response.json();
+    const textBlock = data.content.find(b => b.type === 'text');
+    if (!textBlock) throw new Error('No text response from Claude');
+
+    const clean = textBlock.text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    detectedPlayers = parsed.players || [];
+    if (!detectedPlayers.length) throw new Error('No players found on that page');
+
+    renderResults(teamKey, teamName, detectedPlayers);
+    setStatus(`✓ Found ${detectedPlayers.length} players for ${teamName}`, 'ok');
+
+  } catch(e) {
+    setStatus(`Error: ${e.message}`, 'err');
+    console.error(e);
+  }
+
+  document.getElementById('scrapeBtn').disabled = false;
+}
+
+function renderResults(teamKey, teamName, players) {
+  const foreignCount = players.filter(p => p.foreign).length;
+
+  const chips = players.map((p, i) => `
+    <div class="player-chip ${p.foreign ? 'foreign' : ''}" id="chip-${i}">
+      <span class="flag">${p.foreign ? '🌍' : '🇮🇳'}</span>
+      <span class="pname">${p.name}</span>
+      ${p.foreign ? '<span class="ovs-tag">OVS</span>' : ''}
+      <span class="toggle-btn" onclick="toggleForeign(${i})" title="Toggle Indian/Foreign">⇄</span>
+    </div>
+  `).join('');
+
+  document.getElementById('playerResults').innerHTML = `
+    <div class="team-result">
+      <div class="team-result-header">
+        <span class="team-badge">${teamKey}</span>
+        <span class="team-name">${teamName}</span>
+        <span class="team-count">${players.length} players · ${foreignCount} overseas · click ⇄ to toggle flag</span>
+      </div>
+      <div class="player-grid">${chips}</div>
+    </div>
+  `;
+
+  document.getElementById('results').classList.add('visible');
+  setSaveStatus('');
+  generateSQL();
+}
+
+function toggleForeign(i) {
+  detectedPlayers[i].foreign = !detectedPlayers[i].foreign;
+  const chip = document.getElementById(`chip-${i}`);
+  const p = detectedPlayers[i];
+  chip.className = `player-chip ${p.foreign ? 'foreign' : ''}`;
+  chip.querySelector('.flag').textContent = p.foreign ? '🌍' : '🇮🇳';
+  const ovs = chip.querySelector('.ovs-tag');
+  if (p.foreign && !ovs) {
+    const tag = document.createElement('span');
+    tag.className = 'ovs-tag';
+    tag.textContent = 'OVS';
+    chip.insertBefore(tag, chip.querySelector('.toggle-btn'));
+  } else if (!p.foreign && ovs) {
+    ovs.remove();
+  }
+  generateSQL();
+}
+
+async function saveToSupabase() {
+  if (!detectedPlayers.length) return;
+  const teamKey = currentTeamKey;
+  const teamName = TEAM_NAMES[teamKey];
+  const btn = document.getElementById('saveBtn');
+
+  btn.disabled = true;
+  setSaveStatus('<span class="spinner"></span> Deleting existing entries…', 'loading');
+
+  try {
+    // Step 1 — delete all existing rows for this team
+    await sbReq('DELETE', `squads?team_key=eq.${teamKey}`);
+
+    setSaveStatus('<span class="spinner"></span> Inserting ' + detectedPlayers.length + ' players…', 'loading');
+
+    // Step 2 — insert fresh rows in batches of 50
+    for (let i = 0; i < detectedPlayers.length; i += 50) {
+      const batch = detectedPlayers.slice(i, i + 50).map(p => ({
+        team_key: teamKey,
+        team_name: teamName,
+        player_name: p.name,
+        is_foreign: p.foreign
+      }));
+      await sbReq('POST', 'squads', batch);
+    }
+
+    setSaveStatus(`✓ ${detectedPlayers.length} players saved to Supabase for ${teamName}. The draft app will use the updated squad on next load.`, 'ok');
+  } catch(e) {
+    setSaveStatus(`Error saving to Supabase: ${e.message}`, 'err');
+    console.error(e);
+  }
+
+  btn.disabled = false;
+}
+
+function generateSQL() {
+  const teamKey = currentTeamKey;
+  const teamName = TEAM_NAMES[teamKey];
+
+  const values = detectedPlayers.map(p => {
+    const escapedName = p.name.replace(/'/g, "''");
+    return `('${teamKey}','${teamName}','${escapedName}',${p.foreign})`;
+  }).join(',\n');
+
+  const sql =
+`-- ${teamName} (${teamKey}) — ${detectedPlayers.length} players
+-- Generated by IPL Squad Scraper
+
+delete from squads where team_key = '${teamKey}';
+
+insert into squads (team_key, team_name, player_name, is_foreign)
+values
+${values};`;
+
+  document.getElementById('sqlOutput').value = sql;
+}
+
+function copySQL() {
+  const sql = document.getElementById('sqlOutput').value;
+  navigator.clipboard.writeText(sql).then(() => {
+    const btn = event.target;
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = '📋 Copy SQL', 1500);
+  });
+}
+
+function downloadSQL() {
+  const sql = document.getElementById('sqlOutput').value;
+  const blob = new Blob([sql], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${currentTeamKey}_squad.sql`;
+  a.click();
+}
+</script>
+</body>
+</html>
