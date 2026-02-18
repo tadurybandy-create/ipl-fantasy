@@ -867,10 +867,11 @@ function renderSwapSlots() {
       const count = pc[player]||0;
       const full = count>=MAX_PLAYER_DRAFTS;
       // Foreign limit check for swap
-      const wouldBreachForeign = foreign && countForeignPicks(p, key) >= MAX_FOREIGN_PER_FANTASY;
-      const disabled2 = full || wouldBreachForeign;
+      const foreignLimitReached = foreign && countForeignPicks(p, key) >= MAX_FOREIGN_PER_FANTASY;
+      const disabled2 = full || foreignLimitReached;
       const flag = foreign ? '🌍' : '🇮🇳';
-      return `<option value="${player}" ${disabled2?'disabled':''}>${flag} ${player}${full?' (FULL)':wouldBreachForeign?' (Foreign limit)':count===1?' ·1 left':''}</option>`;
+      if (foreignLimitReached) return ''; // Hide foreign options entirely when limit reached
+      return `<option value="${player}" ${disabled2?'disabled':''}>${flag} ${player}${full?' (FULL)':count===1?' ·1 left':''}</option>`;
     }).filter(Boolean).join('');
 
     const historyRows = history.map(name => {
@@ -952,6 +953,13 @@ async function executeSwap(participantIdx, teamKey) {
 
   const {pc} = getDraftCounts();
   if ((pc[newPlayer]||0)>=MAX_PLAYER_DRAFTS) { alert(`${newPlayer} is already drafted ${MAX_PLAYER_DRAFTS} times!`); return; }
+
+  // Foreign limit check — count foreigners excluding this slot (since old player is being replaced)
+  const newPlayerObj = (IPL_TEAMS[teamKey]?.players||[]).find(pl => pl.name === newPlayer);
+  if (newPlayerObj?.foreign && countForeignPicks(p, teamKey) >= MAX_FOREIGN_PER_FANTASY) {
+    alert(`Can't swap in ${newPlayer} — ${p.name} already has ${MAX_FOREIGN_PER_FANTASY} foreign players!`);
+    return;
+  }
 
   const oldPlayer = p.picks[teamKey];
   const frozenSc = oldPlayer ? (state.seasonScores[oldPlayer]||{runs:0,wickets:0,catches:0,runouts:0,stumpings:0}) : null;
