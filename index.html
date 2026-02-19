@@ -1059,6 +1059,8 @@ async function importScorecard() {
     });
   });
 
+  const playerList = allDrafted.map(d => `- ${d.player} (${d.team})`).join('\n');
+
   const prompt = `You are a cricket scorecard parser for an IPL fantasy league.
 
 Fetch and read the scorecard at this URL: ${url}
