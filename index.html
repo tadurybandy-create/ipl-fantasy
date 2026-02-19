@@ -268,10 +268,15 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
       <span class="import-title">⚡ Import Match Scorecard</span>
       <span class="ai-badge">AI Powered</span>
     </div>
-    <div style="font-size:.82rem;color:var(--muted);margin-bottom:.8rem">Paste an ESPNcricinfo or Cricbuzz scorecard URL. Only drafted players from the two playing teams will be updated.</div>
-    <div class="import-row">
-      <input type="url" id="scorecardUrl" placeholder="https://www.espncricinfo.com/series/ipl-2026-.../scorecard">
-      <button class="btn-import" id="importBtn" onclick="importScorecard()"><span id="importIcon">🔗</span> Import</button>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:.8rem">
+      Open the ESPNcricinfo scorecard page → select all text (Ctrl+A) → copy (Ctrl+C) → paste below.
+      <br>Tip: You can also just copy the batting + bowling tables section for cleaner results.
+    </div>
+    <div class="import-row" style="flex-direction:column;gap:.6rem">
+      <textarea id="scorecardText" rows="8" placeholder="Paste scorecard text here…" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.7rem;border-radius:8px;font-family:monospace;font-size:.78rem;resize:vertical;line-height:1.5"></textarea>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn-import" id="importBtn" onclick="importScorecard()"><span id="importIcon">📋</span> Parse & Import</button>
+      </div>
     </div>
     <div style="margin-top:.9rem">
       <label>Match Result</label>
@@ -1040,13 +1045,13 @@ function setPendingResult(r) {
 
 async function importScorecard() {
   if (!state.participants.length) { setImportStatus('error','Complete the draft first!'); return; }
-  const url = document.getElementById('scorecardUrl').value.trim();
-  if (!url) { setImportStatus('error','Please paste a scorecard URL.'); return; }
+  const scorecardText = document.getElementById('scorecardText').value.trim();
+  if (!scorecardText) { setImportStatus('error','Please paste the scorecard text first.'); return; }
 
   const btn = document.getElementById('importBtn');
   btn.disabled=true; document.getElementById('importIcon').textContent='⏳';
   document.getElementById('importPreview').classList.remove('show');
-  setImportStatus('loading','Fetching scorecard & matching drafted players…');
+  setImportStatus('loading','Parsing scorecard…');
 
   const allDrafted = [];
   const seen = new Set();
@@ -1063,9 +1068,9 @@ async function importScorecard() {
 
   const prompt = `You are a cricket scorecard parser for an IPL fantasy league.
 
-Fetch and read the scorecard at this URL: ${url}
+Below is pasted scorecard text from an IPL match. Read it carefully.
 
-The fantasy league has drafted these players across all 10 IPL teams. Only players from the two teams PLAYING TODAY will appear in the scorecard:
+The fantasy league has drafted these players across all 10 IPL teams. Only players from the two teams in this match will appear in the scorecard:
 ${playerList}
 
 Tasks:
@@ -1087,11 +1092,15 @@ Respond ONLY with valid JSON, no other text:
 
   try {
     // Call our Netlify proxy — keeps the API key off GitHub
+    const fullPrompt = prompt + '\n\n--- SCORECARD TEXT ---\n\n' + scorecardText;
+
     const response = await fetch('/.netlify/functions/anthropic', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:3000,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        messages:[{role:'user',content:prompt}] })
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2000,
+        messages: [{role:'user', content:fullPrompt}]
+      })
     });
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
@@ -1211,7 +1220,7 @@ async function applyMatch() {
 
     // Reset
     state.pendingImport=null; state.pendingResult=null;
-    document.getElementById('scorecardUrl').value='';
+    document.getElementById('scorecardText').value='';
     document.getElementById('importPreview').classList.remove('show');
     ['t1','draw','t2'].forEach(k=>document.getElementById(`res-${k}`).className='res-btn');
     document.getElementById('res-t1').textContent='— Team 1 Won';
