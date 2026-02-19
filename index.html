@@ -492,7 +492,7 @@ async function loadAll() {
 
     // Recompute teamWins from full match history
     state.teamWins = {};
-    state.matchHistory.forEach(m => applyMatchResultToTeamWins(m, false));
+    state.matchHistory.forEach(m => applyMatchResultToTeamWins(m, true));
 
     state.swapHistory = (swaps||[]).map(s => ({
       id:s.id, participantName:s.participant_name, teamKey:s.team_key,
