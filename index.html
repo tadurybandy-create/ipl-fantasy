@@ -1087,12 +1087,23 @@ Tasks:
 
 Scoring reminder: runs×1 + wickets×25 + catches×5 + runouts×5 + stumpings×5
 
-Respond ONLY with valid JSON, no other text:
+IMPORTANT: Respond ONLY with valid JSON, no markdown, no explanation. Use plain ASCII only in all string values — no special symbols like †. Player names must be plain text only.
 {"match_title":"CSK vs MI","t1_name":"Chennai Super Kings","t2_name":"Mumbai Indians","winner":"Chennai Super Kings","players":[{"name":"Player","team":"Team","runs":0,"wickets":0,"catches":0,"runouts":0,"stumpings":0,"not_in_match":false}]}`;
 
   try {
     // Call our Netlify proxy — keeps the API key off GitHub
-    const fullPrompt = prompt + '\n\n--- SCORECARD TEXT ---\n\n' + scorecardText;
+    // Sanitise pasted text — strip symbols that confuse Claude or break JSON
+    const cleanedScorecard = scorecardText
+      .replace(/†/g, '')          // wicketkeeper dagger
+      .replace(/†/g, '')     // dagger unicode variant
+      .replace(/→|←|↑|↓/g, '')   // arrows
+      .replace(/\(c\)/gi, '')     // captain marker
+      .replace(/ /g, ' ')    // non-breaking space
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+      .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+      .replace(/[ \t]{3,}/g, '  ')
+      .slice(0, 20000);
+    const fullPrompt = prompt + '\n\n--- SCORECARD TEXT ---\n\n' + cleanedScorecard;
 
     const response = await fetch('/.netlify/functions/anthropic', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -1111,11 +1122,18 @@ Respond ONLY with valid JSON, no other text:
     try {
       parsed = JSON.parse(jsonMatch[0]);
     } catch(jsonErr) {
-      // Claude sometimes produces slightly malformed JSON — try sanitising it
+      // Strip any characters that break JSON and retry
       const sanitised = jsonMatch[0]
-        .replace(/[\x00-\x1F\x7F]/g, ' ')  // strip control characters
-        .replace(/,\s*([}\]])/g, '$1');        // remove trailing commas
-      parsed = JSON.parse(sanitised);
+        .replace(/[\u0000-\u001F\u007F]/g, ' ') // control chars
+        .replace(/†/g, '')                          // dagger symbol from scorecard
+        .replace(/[^ -]/g, '')              // any remaining non-ASCII
+        .replace(/,\s*([}\]])/g, '$1');            // trailing commas
+      try {
+        parsed = JSON.parse(sanitised);
+      } catch(e2) {
+        console.error('Raw AI response:', fullText);
+        throw new Error('Could not parse AI response. Check console for details.');
+      }
     }
     if (!parsed.players) throw new Error('Unexpected response format.');
 
