@@ -778,7 +778,8 @@ function renderDraftGrid() {
     </div>`;
   }).join('');
 
-  // Append team card to grid
+  // Append team card to grid — IPL mode only
+  if (state.mode === 'worldcup') return;
   const teamCard = `<div class="team-draft-card" style="border-color:rgba(255,214,0,.3);background:rgba(255,214,0,.04)">
     <h4 style="color:var(--gold)">🏆 Draft a Team <span class="team-abbr" style="background:rgba(255,214,0,.15);color:var(--gold)">+30 pts/win</span></h4>
     <div style="font-size:.72rem;color:var(--muted);margin-bottom:.5rem">Each IPL team win = 30 pts · Draw = 15 pts · Max 2 drafts per team</div>
@@ -1029,7 +1030,8 @@ function renderSwapSlots() {
     </div>`;
   }).join('');
 
-  // Team pick swap card
+  // Team pick swap card — IPL mode only
+  if (state.mode === 'worldcup') return;
   const {tc} = getDraftCounts();
   const myTeam = p.teamPick;
   const teamOpts = TEAM_KEYS.map(k => {
@@ -1466,8 +1468,8 @@ function calcSeasonPoints(participant) {
     breakdown[k]={current,history,slotPlayers,slotPts};
   });
 
-  // Team pick points
-  const tw = participant.teamPick ? (state.teamWins[participant.teamPick]||{wins:0,draws:0}) : null;
+  // Team pick points — disabled in World Cup mode
+  const tw = (state.mode !== 'worldcup' && participant.teamPick) ? (state.teamWins[participant.teamPick]||{wins:0,draws:0}) : null;
   const teamPts = tw ? tw.wins*TEAM_WIN_PTS + tw.draws*TEAM_DRAW_PTS : 0;
   const total = playerPts + teamPts;
 
