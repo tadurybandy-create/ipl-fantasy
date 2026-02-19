@@ -10,49 +10,62 @@ exports.handler = async function(event) {
 
   try {
     const body = JSON.parse(event.body);
-    let messages = [...(body.messages || [])];
-    let finalData = null;
 
-    // Loop to handle pause_turn (Anthropic pauses long web search turns)
-    for (let i = 0; i < 5; i++) {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
+    // If a scorecardUrl is provided, fetch the page here in the function
+    // and inject the text into the prompt — no AI web search needed
+    let messages = body.messages || [];
+    if (body.scorecardUrl) {
+      const pageRes = await fetch(body.scorecardUrl, {
         headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_KEY,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({ ...body, messages })
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'en-US,en;q=0.9',
+        }
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        return { statusCode: response.status, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) };
+      if (!pageRes.ok) {
+        return { statusCode: 502, body: JSON.stringify({ error: { message: `Could not fetch scorecard page: ${pageRes.status}` } }) };
       }
 
-      finalData = data;
+      let html = await pageRes.text();
 
-      // Done
-      if (data.stop_reason === 'end_turn') break;
+      // Strip scripts, styles, nav noise — keep just text content
+      html = html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s{3,}/g, '\n')
+        .slice(0, 30000); // cap at 30k chars — plenty for a scorecard
 
-      // Paused mid-search — send response back as-is to let Claude continue
-      if (data.stop_reason === 'pause_turn') {
-        messages = [
-          ...messages,
-          { role: 'assistant', content: data.content }
-        ];
-        continue;
-      }
-
-      // Any other stop reason — return what we have
-      break;
+      // Inject the fetched content into the user message
+      messages = messages.map(m => {
+        if (m.role === 'user') {
+          return { ...m, content: m.content + '\n\nHere is the raw scorecard page text:\n\n' + html };
+        }
+        return m;
+      });
     }
 
+    // Call Anthropic — no web_search tool needed since we fetched the page ourselves
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: body.model || 'claude-haiku-4-5-20251001',
+        max_tokens: body.max_tokens || 2000,
+        messages
+      })
+    });
+
+    const data = await response.json();
     return {
-      statusCode: 200,
+      statusCode: response.status,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(finalData)
+      body: JSON.stringify(data)
     };
 
   } catch (err) {

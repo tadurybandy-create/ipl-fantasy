@@ -1063,7 +1063,7 @@ async function importScorecard() {
 
   const prompt = `You are a cricket scorecard parser for an IPL fantasy league.
 
-Fetch and read the scorecard at this URL: ${url}
+The scorecard page text is appended at the end of this message. Read it carefully.
 
 The fantasy league has drafted these players across all 10 IPL teams. Only players from the two teams PLAYING TODAY will appear in the scorecard:
 ${playerList}
@@ -1089,9 +1089,12 @@ Respond ONLY with valid JSON, no other text:
     // Call our Netlify proxy — keeps the API key off GitHub
     const response = await fetch('/.netlify/functions/anthropic', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:3000,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        messages:[{role:'user',content:prompt}] })
+      body: JSON.stringify({
+        scorecardUrl: url,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2000,
+        messages: [{role:'user', content:prompt}]
+      })
     });
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
