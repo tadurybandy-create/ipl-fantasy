@@ -98,6 +98,21 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 .btn-swap{background:rgba(255,214,0,.15);border:1px solid rgba(255,214,0,.3);color:var(--gold);padding:.4rem .8rem;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
 .btn-swap:hover{background:var(--gold);color:#000;}
 .swap-log{display:flex;flex-direction:column;gap:.5rem;margin-top:.8rem;}
+.mode-toggle{display:inline-flex;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:3px;gap:2px;}
+.mode-btn{background:transparent;border:none;color:var(--muted);padding:.3rem 1rem;border-radius:99px;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s;}
+.mode-btn.active{background:var(--green);color:#000;}
+.mode-btn:not(.active):hover{color:var(--text);}
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:1rem;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;max-width:760px;width:100%;max-height:85vh;overflow-y:auto;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;color:var(--green);}
+.modal-close{background:transparent;border:1px solid var(--border);color:var(--muted);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;}
+.modal-close:hover{border-color:var(--red);color:var(--red);}
+/* Match breakdown in modal */
+.match-breakdown-row{display:flex;align-items:center;justify-content:space-between;padding:.45rem .7rem;border-radius:6px;background:var(--bg);border:1px solid var(--border);margin-bottom:.3rem;font-size:.82rem;}
+.match-breakdown-pts{font-weight:700;color:var(--gold);min-width:50px;text-align:right;}
 .swap-entry{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.7rem 1rem;font-size:.82rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;}
 .swap-arrow{color:var(--gold);font-size:1rem;}
 .swap-meta{color:var(--muted);font-size:.75rem;margin-left:auto;}
@@ -168,9 +183,13 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 <body>
 
 <header>
-  <div class="logo">⚡ IPL 2026 Fantasy</div>
-  <div class="tagline">Season-Long · 16 Players · 10 Teams · Live Sync</div>
-  <div>
+  <div class="logo">⚡ Cricket Fantasy App</div>
+  <div class="tagline" id="appTagline">Pick Smart. Score Big. Rule the Season.</div>
+  <div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-top:.6rem;flex-wrap:wrap">
+    <div class="mode-toggle" id="modeToggle">
+      <button class="mode-btn active" id="modeIPL" onclick="setMode('ipl')">🏏 IPL</button>
+      <button class="mode-btn" id="modeWC" onclick="setMode('worldcup')">🌍 World Cup</button>
+    </div>
     <span class="sync-status" id="syncStatus">
       <span class="sync-dot loading" id="syncDot"></span>
       <span id="syncText">Connecting…</span>
@@ -197,12 +216,14 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
     <div class="key-item"><span class="key-dot" style="background:var(--gold)"></span>1 Catch = 5 pts</div>
     <div class="key-item"><span class="key-dot" style="background:#ff9800"></span>1 Run-out = 5 pts (both fielders)</div>
     <div class="key-item"><span class="key-dot" style="background:var(--purple)"></span>1 Stumping = 5 pts</div>
-    <div class="key-item"><span class="key-dot" style="background:var(--muted)"></span>Max 2 drafts per player · Max 4 foreign per fantasy team</div>
-    <div class="key-item"><span class="key-dot" style="background:var(--gold)"></span>Draft 1 IPL Team: Win = 30 pts · Draw = 15 pts · Max 2 drafts per team</div>
+    <div class="key-item"><span class="key-dot" style="background:#e91e63"></span>Man of the Match = 5 pts</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--muted)"></span>Max 2 drafts per player <span id="foreignKeySpan"> · Max 4 foreign per fantasy team</span></div>
+    <div class="key-item"><span class="key-dot" style="background:var(--gold)"></span>Draft 1 Team: Win = 30 pts · Draw = 15 pts · Max 2 drafts per team</div>
   </div>
-  <div class="info-box">
-    Each of the <strong>16 fantasy players</strong> picks <strong>1 player from each of the 10 IPL teams</strong> (10 picks total).
-    Max <strong>4 foreign players</strong> per fantasy team. <strong>All picks sync automatically</strong> for everyone.
+  <div class="info-box" id="draftInfoBox">
+    Each of the <strong>16 fantasy players</strong> picks <strong>1 player from each team</strong>.
+    <span id="foreignInfoSpan">Max <strong>4 foreign players</strong> per fantasy team.</span>
+    <strong>All picks sync automatically</strong> for everyone.
   </div>
   <div class="card" style="margin-bottom:1.2rem">
     <div style="display:flex;gap:.7rem;align-items:flex-end">
@@ -322,6 +343,18 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
     </div>
   </div>
 
+  <!-- Mode Info -->
+  <div class="card" style="margin-bottom:1.5rem;border-color:rgba(0,200,83,.25)">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">🌍 World Cup Mode</div>
+    <div style="font-size:.85rem;color:var(--muted);max-width:540px;margin-bottom:.8rem">
+      Switch to World Cup mode using the toggle in the header. In World Cup mode, <strong style="color:var(--text)">foreign player limits are removed</strong> — all players are equal. 
+      The squad structure works the same: 1 player per nation. Use the squad import below to load World Cup team squads.
+    </div>
+    <div style="font-size:.82rem;color:var(--muted)">
+      To set up a World Cup league: (1) Reset everything, (2) Switch to World Cup mode, (3) Import WC squads via the squad importer with each nation as a "team_key", (4) Start drafting.
+    </div>
+  </div>
+
   <!-- Reset Everything -->
   <div class="card" style="border-color:rgba(255,23,68,.3);background:rgba(255,23,68,.04)">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem">
@@ -342,6 +375,17 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 </div>
 
 </div><!-- /container -->
+
+<!-- PARTICIPANT DETAIL MODAL -->
+<div class="modal-overlay" id="detailModal" onclick="closeDetailModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">—</span>
+      <button class="modal-close" onclick="closeDetailModal()">✕</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
 
 <script>
 // ═══════════════════════════════════════════════════════
@@ -421,7 +465,7 @@ const TEAM_DRAW_PTS = 15;
 // ═══════════════════════════════════════════════════════
 let state = {
   participants: [],   // [{id, name, picks:{CSK:'Player',...}, pickHistory:{CSK:['Old'...]}, teamPick:'MI'}]
-  seasonScores: {},   // player_name -> {runs,wickets,catches,runouts,stumpings}
+  seasonScores: {},   // player_name -> {runs,wickets,catches,runouts,stumpings,motm}
   teamWins: {},       // team_key -> {wins, draws}
   matchHistory: [],
   swapHistory: [],
@@ -429,11 +473,36 @@ let state = {
   activeRedraftParticipant: null,
   pendingImport: null,
   pendingResult: null,
+  mode: 'ipl',        // 'ipl' | 'worldcup'
 };
 
 // ═══════════════════════════════════════════════════════
 // SYNC STATUS UI
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// MODE (IPL / WORLD CUP)
+// ═══════════════════════════════════════════════════════
+const MOTM_PTS = 5;
+
+function setMode(mode, save=true) {
+  state.mode = mode;
+  document.getElementById('modeIPL').classList.toggle('active', mode==='ipl');
+  document.getElementById('modeWC').classList.toggle('active', mode==='worldcup');
+  const isWC = mode === 'worldcup';
+  // Update tagline
+  document.getElementById('appTagline').textContent = isWC
+    ? 'Pick Smart. Score Big. Own the World Cup.' 
+    : 'Pick Smart. Score Big. Rule the Season.';
+  // Show/hide foreign limit info
+  const foreignInfo = document.getElementById('foreignInfoSpan');
+  if (foreignInfo) foreignInfo.style.display = isWC ? 'none' : '';
+  const foreignKey = document.getElementById('foreignKeySpan');
+  if (foreignKey) foreignKey.style.display = isWC ? 'none' : '';
+  // Re-render everything
+  renderAll();
+  if (save) dbPatch('settings', { mode }, '?id=eq.global').catch(()=>{});
+}
+
 function setSyncStatus(state, msg) {
   const dot = document.getElementById('syncDot');
   const text = document.getElementById('syncText');
@@ -459,13 +528,16 @@ async function loadAll() {
     IPL_TEAMS = buildIPLTeamsFromRows(squadRows);
     TEAM_KEYS.length = 0;
     Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
-    const [participants, picks, scores, matches, swaps] = await Promise.all([
+    const [participants, picks, scores, matches, swaps, settings] = await Promise.all([
       dbGet('participants', '?order=created_at.asc'),
       dbGet('picks', '?order=created_at.asc'),
       dbGet('season_scores', ''),
       dbGet('match_history', '?order=created_at.asc'),
       dbGet('swap_history', '?order=created_at.asc'),
+      dbGet('settings', '?id=eq.global').catch(()=>[]),
     ]);
+    const savedMode = (settings||[])[0]?.mode || 'ipl';
+    if (savedMode !== state.mode) setMode(savedMode, false);
 
     state.participants = (participants||[]).map(p => {
       const myPicks = (picks||[]).filter(pk => pk.participant_id === p.id);
@@ -482,7 +554,7 @@ async function loadAll() {
 
     state.seasonScores = {};
     (scores||[]).forEach(s => {
-      state.seasonScores[s.player_name] = { runs:s.runs, wickets:s.wickets, catches:s.catches, runouts:s.runouts||0 };
+      state.seasonScores[s.player_name] = { runs:s.runs, wickets:s.wickets, catches:s.catches, runouts:s.runouts||0, stumpings:s.stumpings||0, motm:s.motm||0 };
     });
 
     state.matchHistory = (matches||[]).map(m => ({
@@ -537,6 +609,7 @@ function getDraftCounts() {
 
 // Count foreign players in a participant's current active picks
 function countForeignPicks(participant, excludeTeamKey=null) {
+  if (state.mode === 'worldcup') return 0; // no foreign limit in WC mode
   let count = 0;
   TEAM_KEYS.forEach(k => {
     if (k === excludeTeamKey) return;
@@ -609,7 +682,7 @@ function renderDraftGrid() {
       const count = pc[player]||0;
       const full = count>=MAX_PLAYER_DRAFTS;
       const isMe = myPickName===player;
-      const wouldBreachForeign = foreign && !isMe && foreignExcludingSlot >= MAX_FOREIGN_PER_FANTASY;
+      const wouldBreachForeign = state.mode !== 'worldcup' && foreign && !isMe && foreignExcludingSlot >= MAX_FOREIGN_PER_FANTASY;
       const disabled = !active || (full&&!isMe) || wouldBreachForeign;
       const flag = foreign ? '🌍' : '🇮🇳';
       const foreignTag = foreign
@@ -690,7 +763,7 @@ async function togglePlayerPick(teamKey, player) {
   if (!isDeselect && (pc[player]||0)>=MAX_PLAYER_DRAFTS) { alert(`${player} is already drafted ${MAX_PLAYER_DRAFTS} times!`); return; }
 
   // Check foreign player limit (exclude this slot since it's being replaced)
-  if (!isDeselect) {
+  if (!isDeselect && state.mode !== 'worldcup') {
     const playerObj = (IPL_TEAMS[teamKey]?.players||[]).find(pl => pl.name === player);
     if (playerObj?.foreign && countForeignPicks(p, teamKey) >= MAX_FOREIGN_PER_FANTASY) {
       alert(`Max ${MAX_FOREIGN_PER_FANTASY} foreign players per fantasy team! Choose an Indian player instead.`);
@@ -862,10 +935,10 @@ function renderSwapSlots() {
     const history = p.pickHistory?.[key]||[];
     const frozenPts = history.reduce((sum,name) => {
       const sc = state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0};
-      return sum + sc.runs + sc.wickets*25 + sc.catches*5 + (sc.runouts||0)*5;
+      return sum + sc.runs + sc.wickets*25 + sc.catches*5 + (sc.runouts||0)*5 + (sc.stumpings||0)*5 + (sc.motm||0)*MOTM_PTS;
     }, 0);
     const curSc = current ? (state.seasonScores[current]||{runs:0,wickets:0,catches:0,runouts:0}) : null;
-    const curPts = curSc ? curSc.runs+curSc.wickets*25+curSc.catches*5+(curSc.runouts||0)*5 : 0;
+    const curPts = curSc ? curSc.runs+curSc.wickets*25+curSc.catches*5+(curSc.runouts||0)*5+(curSc.stumpings||0)*5+(curSc.motm||0)*MOTM_PTS : 0;
 
     const playerOpts = team.players.map(playerObj => {
       const {name: player, foreign} = playerObj;
@@ -961,10 +1034,12 @@ async function executeSwap(participantIdx, teamKey) {
   if ((pc[newPlayer]||0)>=MAX_PLAYER_DRAFTS) { alert(`${newPlayer} is already drafted ${MAX_PLAYER_DRAFTS} times!`); return; }
 
   // Foreign limit check — count foreigners excluding this slot (since old player is being replaced)
-  const newPlayerObj = (IPL_TEAMS[teamKey]?.players||[]).find(pl => pl.name === newPlayer);
-  if (newPlayerObj?.foreign && countForeignPicks(p, teamKey) >= MAX_FOREIGN_PER_FANTASY) {
-    alert(`Can't swap in ${newPlayer} — ${p.name} already has ${MAX_FOREIGN_PER_FANTASY} foreign players!`);
-    return;
+  if (state.mode !== 'worldcup') {
+    const newPlayerObj = (IPL_TEAMS[teamKey]?.players||[]).find(pl => pl.name === newPlayer);
+    if (newPlayerObj?.foreign && countForeignPicks(p, teamKey) >= MAX_FOREIGN_PER_FANTASY) {
+      alert(`Can't swap in ${newPlayer} — ${p.name} already has ${MAX_FOREIGN_PER_FANTASY} foreign players!`);
+      return;
+    }
   }
 
   const oldPlayer = p.picks[teamKey];
@@ -1082,14 +1157,15 @@ Tasks:
    - catches: count of catches taken (look for "c [their name]" in dismissal descriptions, NOT stumpings)
    - runouts: count of run-outs they were involved in. IMPORTANT — if a dismissal shows "run out (PlayerA/PlayerB)", BOTH PlayerA AND PlayerB each get 1 run-out credit (full 5 pts each). Count every run-out dismissal where their name appears anywhere in the brackets.
    - stumpings: count of stumpings made (look for "st [their name]" in dismissal descriptions — this is always the wicketkeeper)
+   - motm: 1 if this player was named Man of the Match, 0 otherwise. Look for "Player Of The Match" near the top of the scorecard.
 3. ONLY include players who actually played in this match — do NOT include players with not_in_match:true. Skip them entirely.
 4. Players who played but scored 0 everywhere: all fields 0.
 5. Detect the match winner.
 
-Scoring reminder: runs×1 + wickets×25 + catches×5 + runouts×5 + stumpings×5
+Scoring reminder: runs×1 + wickets×25 + catches×5 + runouts×5 + stumpings×5 + motm×5
 
 IMPORTANT: Respond ONLY with valid JSON, no markdown, no explanation, no backticks. Use plain ASCII only — no special symbols. Player names must be plain text only.
-{"match_title":"CSK vs MI","t1_name":"Chennai Super Kings","t2_name":"Mumbai Indians","winner":"Chennai Super Kings","players":[{"name":"Player","team":"Team","runs":0,"wickets":0,"catches":0,"runouts":0,"stumpings":0}]}`;
+{"match_title":"CSK vs MI","t1_name":"Chennai Super Kings","t2_name":"Mumbai Indians","winner":"Chennai Super Kings","players":[{"name":"Player","team":"Team","runs":0,"wickets":0,"catches":0,"runouts":0,"stumpings":0,"motm":0}]}`;
 
   try {
     // Call our Netlify proxy — keeps the API key off GitHub
@@ -1172,10 +1248,10 @@ function renderImportPreview(parsed, allDrafted) {
     const drafted = allDrafted.find(d=>d.player.toLowerCase()===p.name.toLowerCase());
     if (!drafted) return '';
     hitCount++;
-    const pts=(p.runs||0)+(p.wickets||0)*25+(p.catches||0)*5+(p.runouts||0)*5+(p.stumpings||0)*5;
+    const pts=(p.runs||0)+(p.wickets||0)*25+(p.catches||0)*5+(p.runouts||0)*5+(p.stumpings||0)*5+(p.motm||0)*MOTM_PTS;
     return `<div class="preview-player-row hit">
       <div><strong>${p.name}</strong> <span style="color:var(--muted);font-size:.72rem">${p.team}</span></div>
-      <div class="preview-stats"><div>${p.runs||0} <span>runs</span></div><div>${p.wickets||0} <span>wkts</span></div><div>${p.catches||0} <span>ctch</span></div><div>${p.runouts||0} <span>r/o</span></div><div>${p.stumpings||0} <span>st</span></div><div style="color:var(--gold);font-weight:600">+${pts} pts</div></div>
+      <div class="preview-stats"><div>${p.runs||0} <span>runs</span></div><div>${p.wickets||0} <span>wkts</span></div><div>${p.catches||0} <span>ctch</span></div><div>${p.runouts||0} <span>r/o</span></div><div>${p.stumpings||0} <span>st</span></div>${p.motm?'<div style="color:#e91e63;font-weight:600">⭐ MOTM</div>':''}<div style="color:var(--gold);font-weight:600">+${pts} pts</div></div>
       <span class="badge-found">DRAFTED</span>
     </div>`;
   }).filter(Boolean).join('');
@@ -1224,7 +1300,8 @@ async function applyMatch() {
     });
     if (!draftedAs) continue;
     const runs=parseInt(p.runs)||0, wkts=parseInt(p.wickets)||0, ctch=parseInt(p.catches)||0, rnout=parseInt(p.runouts)||0, stmp=parseInt(p.stumpings)||0;
-    updates.push({ player:draftedAs, team:p.team, runs, wkts, catches:ctch, runouts:rnout, stumpings:stmp, pts:runs+wkts*25+ctch*5+rnout*5+stmp*5 });
+    const motm=parseInt(p.motm)||0;
+    updates.push({ player:draftedAs, team:p.team, runs, wkts, catches:ctch, runouts:rnout, stumpings:stmp, motm, pts:runs+wkts*25+ctch*5+rnout*5+stmp*5+motm*MOTM_PTS });
   }
 
   try {
@@ -1234,12 +1311,12 @@ async function applyMatch() {
     for (const u of updates) {
       const existing = state.seasonScores[u.player];
       if (existing) {
-        const newRuns=existing.runs+u.runs, newWkts=existing.wickets+u.wkts, newCtch=existing.catches+u.catches, newRnout=(existing.runouts||0)+u.runouts, newStmp=(existing.stumpings||0)+u.stumpings;
-        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp }, `?player_name=eq.${encodeURIComponent(u.player)}`);
-        state.seasonScores[u.player] = { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp };
+        const newRuns=existing.runs+u.runs, newWkts=existing.wickets+u.wkts, newCtch=existing.catches+u.catches, newRnout=(existing.runouts||0)+u.runouts, newStmp=(existing.stumpings||0)+u.stumpings, newMotm=(existing.motm||0)+(u.motm||0);
+        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp, motm:newMotm }, `?player_name=eq.${encodeURIComponent(u.player)}`);
+        state.seasonScores[u.player] = { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp, motm:newMotm };
       } else {
-        await dbPost('season_scores', { player_name:u.player, runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts, stumpings:u.stumpings });
-        state.seasonScores[u.player] = { runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts, stumpings:u.stumpings };
+        await dbPost('season_scores', { player_name:u.player, runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts, stumpings:u.stumpings, motm:u.motm||0 });
+        state.seasonScores[u.player] = { runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts, stumpings:u.stumpings, motm:u.motm||0 };
       }
     }
 
@@ -1278,7 +1355,7 @@ function renderMatchLog() {
     const i=state.matchHistory.length-1-ri;
     const resultText=m.result==='draw'?'Draw':m.result==='t1'?`${m.t1name} Won`:`${m.t2name} Won`;
     const chipClass=m.result==='draw'?'chip-draw':m.result==='t1'?'chip-t1':'chip-t2';
-    const chips=(m.updates||[]).map(u=>`<span class="player-update-chip">${u.player}: ${u.runs}r ${u.wkts}w ${u.catches}c ${u.runouts||0}ro ${u.stumpings||0}st = <strong>+${u.pts}pts</strong></span>`).join('');
+    const chips=(m.updates||[]).map(u=>`<span class="player-update-chip">${u.player}: ${u.runs}r ${u.wkts}w ${u.catches}c ${u.runouts||0}ro ${u.stumpings||0}st${u.motm?` ⭐`:''} = <strong>+${u.pts}pts</strong></span>`).join('');
     return `<div class="match-entry">
       <div class="match-entry-header">
         <div><div class="match-title-text">${m.title}</div><div class="match-date-text">${m.date}</div></div>
@@ -1302,9 +1379,9 @@ async function removeMatch(id) {
     for (const u of (m.updates||[])) {
       const sc = state.seasonScores[u.player];
       if (sc) {
-        const newRuns=sc.runs-u.runs, newWkts=sc.wickets-u.wkts, newCtch=sc.catches-u.catches, newRnout=(sc.runouts||0)-u.runouts, newStmp=(sc.stumpings||0)-u.stumpings;
-        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp }, `?player_name=eq.${encodeURIComponent(u.player)}`);
-        state.seasonScores[u.player]={runs:newRuns,wickets:newWkts,catches:newCtch,runouts:newRnout,stumpings:newStmp};
+        const newRuns=sc.runs-u.runs, newWkts=sc.wickets-u.wkts, newCtch=sc.catches-u.catches, newRnout=(sc.runouts||0)-u.runouts, newStmp=(sc.stumpings||0)-u.stumpings, newMotm=(sc.motm||0)-(u.motm||0);
+        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp, motm:newMotm }, `?player_name=eq.${encodeURIComponent(u.player)}`);
+        state.seasonScores[u.player]={runs:newRuns,wickets:newWkts,catches:newCtch,runouts:newRnout,stumpings:newStmp,motm:newMotm};
       }
     }
     await dbDelete('match_history', `?id=eq.${id}`);
@@ -1329,7 +1406,7 @@ function calcSeasonPoints(participant) {
     let slotPts=0;
     const slotPlayers=allInSlot.map(name=>{
       const sc=state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0,stumpings:0};
-      const pts=sc.runs+sc.wickets*25+sc.catches*5+(sc.runouts||0)*5+(sc.stumpings||0)*5;
+      const pts=sc.runs+sc.wickets*25+sc.catches*5+(sc.runouts||0)*5+(sc.stumpings||0)*5+(sc.motm||0)*MOTM_PTS;
       slotPts+=pts;
       return {name,sc,pts};
     });
@@ -1353,61 +1430,116 @@ function renderLeaderboard() {
 
   const rows=sorted.map((p,rank)=>{
     const rankClass=rank<3?`rank-${rank+1}`:'';
-    const pickCount=TEAM_KEYS.filter(k=>p.picks[k]).length;
-    const foreignCount = countForeignPicks(p);
-    const topPicks=TEAM_KEYS.filter(k=>p.picks[k])
-      .sort((a,b)=>(p.breakdown[b]?.slotPts||0)-(p.breakdown[a]?.slotPts||0))
-      .slice(0,3).map(k=>{
-        const playerObj = IPL_TEAMS[k].players.find(pl=>pl.name===p.picks[k]);
-        return `<strong>${playerObj?.foreign?'🌍':'🇮🇳'} ${p.picks[k]}</strong> +${p.breakdown[k]?.slotPts||0}pts`;
-      }).join(' · ');
-    return `<tr onclick="toggleDetail(${rank})" style="cursor:pointer">
+    return `<tr onclick="openParticipantDetail(${p.i})" style="cursor:pointer">
       <td><span class="rank-badge ${rankClass}">${rank+1}</span></td>
-      <td>
-        <div style="font-weight:600">${p.name}</div>
-        <div style="font-size:.75rem;color:var(--muted)">${pickCount}/10 picks · 🌍 ${foreignCount}/${MAX_FOREIGN_PER_FANTASY} foreign${p.teamPick?' · 🏆 '+p.teamPick:''}</div>
+      <td><div style="font-weight:600">${p.name}</div>
+          <div style="font-size:.75rem;color:var(--muted)">${p.teamPick?'🏆 '+p.teamPick:''}</div>
       </td>
-      <td><div class="picks-mini">${topPicks||'—'}</div></td>
       <td>
         <div class="pts-big">${p.total}</div>
         <div class="pts-breakdown">${p.playerPts} player${p.teamPts?` + <span class="pts-gold">${p.teamPts} team</span>`:''}</div>
       </td>
-    </tr>
-    <tr class="detail-row" id="detail-${rank}"><td colspan="4">
-      <div class="detail-grid">
-        ${TEAM_KEYS.map(k=>{
-          const bd=p.breakdown[k];
-          if (!bd) return `<div class="detail-chip" style="opacity:.4"><div class="dc-team">${k} — not picked</div></div>`;
-          const histLine=bd.history&&bd.history.length
-            ?`<div style="font-size:.68rem;color:var(--muted);margin-top:.1rem">${bd.history.map(h=>{const hs=state.seasonScores[h]||{runs:0,wickets:0,catches:0,runouts:0,stumpings:0};return `↩ ${h} (${hs.runs+hs.wickets*25+hs.catches*5+(hs.runouts||0)*5+(hs.stumpings||0)*5}pts)`;}).join(', ')}</div>`:'';
-          const curSc=state.seasonScores[bd.current]||{runs:0,wickets:0,catches:0,runouts:0,stumpings:0};
-          const playerObj = bd.current ? IPL_TEAMS[k].players.find(pl=>pl.name===bd.current) : null;
-          return `<div class="detail-chip">
-            <div class="dc-team">${k} ${playerObj?.foreign?'🌍':'🇮🇳'} <span class="dc-pts">${bd.slotPts}pts</span></div>
-            <div>${bd.current||'—'}</div>
-            ${bd.current?`<div style="font-size:.7rem;color:var(--muted)">${curSc.runs}r · ${curSc.wickets}w · ${curSc.catches}c · ${curSc.runouts||0}ro · ${curSc.stumpings||0}st</div>`:''}
-            ${histLine}
-          </div>`;
-        }).join('')}
-        ${p.teamPick
-          ? `<div class="detail-chip" style="border-color:rgba(255,214,0,.3)">
-               <div class="dc-team" style="color:var(--gold)">🏆 TEAM DRAFT <span class="dc-pts" style="color:var(--gold)">${p.teamPts}pts</span></div>
-               <div>${IPL_TEAMS[p.teamPick]?.name||p.teamPick} (${p.teamPick})</div>
-               <div style="font-size:.7rem;color:var(--muted)">${p.teamWinData?.wins||0} wins · ${p.teamWinData?.draws||0} draws</div>
-             </div>`
-          : `<div class="detail-chip" style="opacity:.4"><div class="dc-team">🏆 TEAM — not picked</div></div>`}
-      </div>
-    </td></tr>`;
+    </tr>`;
   }).join('');
 
-  el.innerHTML=`<table class="lb-table">
-    <thead><tr><th>#</th><th>Participant</th><th>Top Picks</th><th>Season Pts</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+  // Catches leaderboard
+  const catchData = [];
+  state.participants.forEach(p => {
+    TEAM_KEYS.forEach(k => {
+      const name = p.picks[k]; if (!name) return;
+      const sc = state.seasonScores[name]||{};
+      if ((sc.catches||0) > 0) catchData.push({ player: name, team: k, catches: sc.catches||0 });
+    });
+  });
+  // Deduplicate (a player may be drafted by multiple fantasy teams)
+  const seenCatch = new Set();
+  const uniqueCatch = catchData.filter(d => { if (seenCatch.has(d.player)) return false; seenCatch.add(d.player); return true; });
+  uniqueCatch.sort((a,b)=>b.catches-a.catches);
+  const catchRows = uniqueCatch.slice(0,10).map((d,i)=>
+    `<tr><td><span class="rank-badge" style="font-size:.9rem;width:26px;height:26px">${i+1}</span></td>
+     <td><strong>${d.player}</strong> <span style="font-size:.72rem;color:var(--muted)">${d.team}</span></td>
+     <td style="color:var(--green);font-weight:700">${d.catches} 🧤</td></tr>`
+  ).join('');
+
+  el.innerHTML=`
+    <table class="lb-table" style="margin-bottom:2rem">
+      <thead><tr><th>#</th><th>Fantasy Team</th><th>Season Pts</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="subsection" style="margin-top:1.5rem">🧤 Top Catches — Drafted Players</div>
+    ${catchRows
+      ? `<table class="lb-table"><thead><tr><th>#</th><th>Player</th><th>Catches</th></tr></thead><tbody>${catchRows}</tbody></table>`
+      : '<div class="empty-state">No catches recorded yet.</div>'}
+  `;
 }
 
-function toggleDetail(rank) {
-  document.getElementById(`detail-${rank}`).classList.toggle('open');
+function openParticipantDetail(participantIdx) {
+  const p = state.participants[participantIdx];
+  const {breakdown, teamPick, teamWinData, teamPts, playerPts, total} = calcSeasonPoints(p);
+  document.getElementById('modalTitle').textContent = p.name + ' — Season Breakdown';
+
+  // Build match-by-match breakdown per player slot
+  let html = `<div style="margin-bottom:1rem;font-size:.85rem;color:var(--muted)">
+    Total: <strong style="color:var(--green);font-size:1.1rem">${total} pts</strong>
+    &nbsp;(${playerPts} player${teamPts ? ` + <span style="color:var(--gold)">${teamPts} team</span>` : ''})
+  </div>`;
+
+  TEAM_KEYS.forEach(k => {
+    const bd = breakdown[k]; if (!bd) return;
+    const playerObj = bd.current ? IPL_TEAMS[k]?.players.find(pl=>pl.name===bd.current) : null;
+    const flag = playerObj?.foreign ? '🌍' : '🇮🇳';
+    html += `<div style="margin-bottom:1rem">
+      <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.35rem">${k} — ${IPL_TEAMS[k]?.name||k}</div>`;
+
+    // Show history players then current
+    const allSlot = [...(bd.history||[]).map(n=>({name:n,isCurrent:false})), ...(bd.current?[{name:bd.current,isCurrent:true}]:[])];
+    allSlot.forEach(({name, isCurrent}) => {
+      const sc = state.seasonScores[name]||{};
+      // Per-match breakdown from matchHistory
+      const matchRows = state.matchHistory.filter(m =>
+        (m.updates||[]).some(u => u.player === name)
+      ).map(m => {
+        const u = m.updates.find(u => u.player === name);
+        const pts = u.pts || (u.runs + u.wkts*25 + u.catches*5 + (u.runouts||0)*5 + (u.stumpings||0)*5 + (u.motm||0)*MOTM_PTS);
+        return `<div class="match-breakdown-row">
+          <span style="color:var(--muted);font-size:.75rem">${m.date}</span>
+          <span style="flex:1;margin:0 .8rem">${m.title}</span>
+          <span style="font-size:.75rem;color:var(--muted)">${u.runs}r ${u.wkts}w ${u.catches}c${u.motm?' ⭐':''}</span>
+          <span class="match-breakdown-pts">+${pts}</span>
+        </div>`;
+      }).join('');
+
+      const totalPts = (sc.runs||0)+(sc.wickets||0)*25+(sc.catches||0)*5+(sc.runouts||0)*5+(sc.stumpings||0)*5+(sc.motm||0)*MOTM_PTS;
+      html += `<div style="margin-bottom:.5rem">
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem">
+          ${!isCurrent?'<span style="font-size:.7rem;color:var(--muted)">↩</span>':''}
+          <span style="font-weight:600">${flag} ${name}</span>
+          <span style="font-size:.75rem;color:var(--gold)">${totalPts} pts total</span>
+          ${isCurrent?'<span style="font-size:.65rem;background:rgba(0,200,83,.15);color:var(--green);padding:.1rem .4rem;border-radius:4px">ACTIVE</span>':''}
+        </div>
+        ${matchRows || '<div style="font-size:.75rem;color:var(--muted);padding:.2rem .7rem">No matches played yet</div>'}
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  // Team pick section
+  if (teamPick) {
+    const tw = teamWinData || {wins:0, draws:0};
+    html += `<div style="background:rgba(255,214,0,.06);border:1px solid rgba(255,214,0,.2);border-radius:8px;padding:.8rem;margin-top:.5rem">
+      <div style="font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:var(--gold);margin-bottom:.4rem">🏆 Team Draft — ${IPL_TEAMS[teamPick]?.name||teamPick}</div>
+      <div style="font-size:.85rem;color:var(--muted)">${tw.wins} wins × 30 pts + ${tw.draws} draws × 15 pts = <strong style="color:var(--gold)">${teamPts} pts</strong></div>
+    </div>`;
+  }
+
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('detailModal').classList.add('open');
+}
+
+function closeDetailModal(e) {
+  if (!e || e.target === document.getElementById('detailModal')) {
+    document.getElementById('detailModal').classList.remove('open');
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1478,6 +1610,7 @@ async function resetEverything() {
     state.swapHistory = [];
     state.teamWins = {};
     state.iplWinner = null;
+    setMode('ipl', false);
     state.activeParticipant = null;
     state.activeRedraftParticipant = null;
     state.pendingImport = null;
