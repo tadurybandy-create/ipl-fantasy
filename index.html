@@ -307,6 +307,9 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
       <br>Tip: You can also just copy the batting + bowling tables section for cleaner results.
     </div>
     <div class="import-row" style="flex-direction:column;gap:.6rem">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:.2rem">
+        Open the ESPNcricinfo scorecard page → click the <strong style="color:var(--text)">Scorecard tab</strong> → select all (Ctrl+A) → copy (Ctrl+C) → paste below. Make sure both innings are visible before copying.
+      </div>
       <textarea id="scorecardText" rows="8" placeholder="Paste scorecard text here…" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.7rem;border-radius:8px;font-family:monospace;font-size:.78rem;resize:vertical;line-height:1.5"></textarea>
       <div style="display:flex;justify-content:flex-end">
         <button class="btn-import" id="importBtn" onclick="importScorecard()"><span id="importIcon">📋</span> Parse & Import</button>
@@ -719,6 +722,7 @@ function getDraftCounts() {
 // Count foreign players in a participant's current active picks
 function countForeignPicks(participant, excludeTeamKey=null) {
   if (state.mode === 'worldcup') return 0; // no foreign limit in WC mode
+  if (!participant || !participant.picks) return 0;
   let count = 0;
   TEAM_KEYS.forEach(k => {
     if (k === excludeTeamKey) return;
@@ -988,6 +992,7 @@ function renderPicksSummary() {
   const ai = state.activeParticipant;
   const el = document.getElementById('picksSummary');
   if (!el) return;
+  if (!state.participants[ai]) { el.innerHTML = ''; return; }
   if (ai===null) { el.style.display='none'; return; }
   el.style.display='block';
   const p = state.participants[ai];
@@ -1254,6 +1259,7 @@ async function importScorecard() {
   if (!state.participants.length) { setImportStatus('error','Complete the draft first!'); return; }
   const scorecardText = document.getElementById('scorecardText').value.trim();
   if (!scorecardText) { setImportStatus('error','Please paste the scorecard text first.'); return; }
+  const isUrlMode = false;
 
   const btn = document.getElementById('importBtn');
   btn.disabled=true; document.getElementById('importIcon').textContent='⏳';
@@ -1299,8 +1305,7 @@ IMPORTANT: Respond ONLY with valid JSON, no markdown, no explanation, no backtic
 {"match_title":"CSK vs MI","t1_name":"Chennai Super Kings","t2_name":"Mumbai Indians","winner":"Chennai Super Kings","players":[{"name":"Player","team":"Team","runs":0,"wickets":0,"catches":0,"runouts":0,"stumpings":0,"motm":0}]}`;
 
   try {
-    // Call our Netlify proxy — keeps the API key off GitHub
-    // Sanitise pasted text — strip symbols that confuse Claude or break JSON
+    // Sanitise pasted text
     const cleanedScorecard = scorecardText
       .replace(/\u2020/g, '')     // dagger †
       .replace(/\u2192|\u2190|\u2191|\u2193/g, '') // arrows
@@ -1819,6 +1824,10 @@ async function resetEverything() {
     state.swapHistory = [];
     state.teamWins = {};
     state.iplWinner = null;
+    state.activeParticipant = null;
+    state.activeRedraftParticipant = null;
+    state.pendingImport = null;
+    state.pendingResult = null;
     setMode('ipl', false);
     state.activeParticipant = null;
     state.activeRedraftParticipant = null;
