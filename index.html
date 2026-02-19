@@ -1099,18 +1099,13 @@ Respond ONLY with valid JSON, no other text:
         .replace(/<style[\s\S]*?<\/style>/gi, '')
         .replace(/<[^>]+>/g, ' ')
         .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
-        .replace(/\s{3,}/g, '
-').trim().slice(0, 25000);
+        .replace(/\s{3,}/g, '\n').trim().slice(0, 25000);
     } catch(fetchErr) {
       throw new Error(`Could not load scorecard page. Try a Cricbuzz URL instead. (${fetchErr.message})`);
     }
 
     setImportStatus('loading', 'Parsing scorecard with AI…');
-    const fullPrompt = prompt + '
-
-Here is the scorecard page text:
-
-' + scorecardText;
+    const fullPrompt = prompt + '\n\nHere is the scorecard page text:\n\n' + scorecardText;
 
     const response = await fetch('/.netlify/functions/anthropic', {
       method:'POST', headers:{'Content-Type':'application/json'},
