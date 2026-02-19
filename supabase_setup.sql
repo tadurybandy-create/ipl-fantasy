@@ -130,3 +130,12 @@ alter table season_scores add column if not exists motm integer not null default
 -- MIGRATION: Add mode column to settings
 -- ══════════════════════════════════════════════════════
 alter table settings add column if not exists mode text not null default 'ipl';
+
+-- ══════════════════════════════════════════════════════
+-- MIGRATION: Add mode column to squads table
+-- ══════════════════════════════════════════════════════
+alter table squads add column if not exists mode text not null default 'ipl';
+-- Index for fast mode-based filtering
+create index if not exists squads_mode_idx on squads(mode);
+-- Update existing rows to be ipl mode
+update squads set mode = 'ipl' where mode = 'ipl' or mode is null;

@@ -335,9 +335,22 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
   <div class="card" style="margin-bottom:1.5rem">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem">
       <div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">📋 Import IPL Squads</div>
-        <div style="font-size:.85rem;color:var(--muted);max-width:540px">Re-imports the IPL 2026 squad data from the app into Supabase for reference. Useful if squads are updated mid-season or a new season begins. This does <strong style="color:var(--text)">not</strong> affect any existing draft picks or scores.</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">📋 Import Squads</div>
+        <div style="font-size:.85rem;color:var(--muted);max-width:540px">
+          <strong style="color:var(--text)">IPL mode:</strong> Re-imports built-in IPL 2026 squads into Supabase.<br>
+          <strong style="color:var(--text)">World Cup mode:</strong> Use the squad scraper URL box below to import World Cup nation squads.<br>
+          This does <strong style="color:var(--text)">not</strong> affect existing draft picks or scores.
+        </div>
         <div id="importSquadsStatus" style="margin-top:.6rem;font-size:.82rem;min-height:1rem"></div>
+        <!-- WC squad URL importer — only visible in WC mode -->
+        <div id="wcSquadImporter" style="display:none;margin-top:.8rem">
+          <div style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem">Paste an ESPNcricinfo squad URL for each nation and click Import:</div>
+          <div style="display:flex;gap:.5rem">
+            <input type="url" id="wcSquadUrl" placeholder="https://www.espncricinfo.com/series/icc-cricket-world-cup-...">
+            <button class="btn btn-sm" onclick="importWCSquad()" id="wcSquadBtn">🌍 Import</button>
+          </div>
+          <div id="wcSquadStatus" style="margin-top:.4rem;font-size:.8rem;min-height:1rem"></div>
+        </div>
       </div>
       <button class="btn" onclick="importSquads()" id="importSquadsBtn" style="white-space:nowrap;align-self:center">📋 Import Squads</button>
     </div>
@@ -498,9 +511,27 @@ function setMode(mode, save=true) {
   if (foreignInfo) foreignInfo.style.display = isWC ? 'none' : '';
   const foreignKey = document.getElementById('foreignKeySpan');
   if (foreignKey) foreignKey.style.display = isWC ? 'none' : '';
-  // Re-render everything
-  renderAll();
-  if (save) dbPatch('settings', { mode }, '?id=eq.global').catch(()=>{});
+  const wcImporter = document.getElementById('wcSquadImporter');
+  if (wcImporter) wcImporter.style.display = isWC ? 'block' : 'none';
+  const importBtn = document.getElementById('importSquadsBtn');
+  if (importBtn) importBtn.style.display = isWC ? 'none' : '';
+  if (save) {
+    dbPatch('settings', { mode }, '?id=eq.global').catch(()=>{});
+    // Reload squads for this mode from Supabase
+    dbGet('squads', `?mode=eq.${mode}&order=team_key.asc,player_name.asc`).then(rows => {
+      if (!rows || rows.length === 0) {
+        IPL_TEAMS = {};
+        TEAM_KEYS.length = 0;
+      } else {
+        IPL_TEAMS = buildIPLTeamsFromRows(rows);
+        TEAM_KEYS.length = 0;
+        Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
+      }
+      renderAll();
+    }).catch(() => renderAll());
+  } else {
+    renderAll();
+  }
 }
 
 function setSyncStatus(state, msg) {
@@ -516,16 +547,18 @@ function setSyncStatus(state, msg) {
 async function loadAll() {
   setSyncStatus('loading', 'Syncing…');
   try {
-    // Load squads first — seed from SQUAD_SEED if table is empty
-    let squadRows = await dbGet('squads', '?order=team_key.asc,player_name.asc');
-    if (!squadRows || squadRows.length === 0) {
-      // First run — seed the squads table in batches
-      for (let i = 0; i < SQUAD_SEED.length; i += 50) {
-        await sb('POST', 'squads', SQUAD_SEED.slice(i, i + 50), '', { 'Prefer': 'return=minimal' });
+    // Load squads filtered by mode — seed IPL from SQUAD_SEED if empty
+    const squadMode = state.mode || 'ipl';
+    let squadRows = await dbGet('squads', `?mode=eq.${squadMode}&order=team_key.asc,player_name.asc`);
+    if ((!squadRows || squadRows.length === 0) && squadMode === 'ipl') {
+      // First run — seed IPL squads
+      const seeded = SQUAD_SEED.map(r => ({...r, mode:'ipl'}));
+      for (let i = 0; i < seeded.length; i += 50) {
+        await sb('POST', 'squads', seeded.slice(i, i + 50), '', { 'Prefer': 'return=minimal' });
       }
-      squadRows = SQUAD_SEED;
+      squadRows = seeded;
     }
-    IPL_TEAMS = buildIPLTeamsFromRows(squadRows);
+    IPL_TEAMS = buildIPLTeamsFromRows(squadRows||[]);
     TEAM_KEYS.length = 0;
     Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
     const [participants, picks, scores, matches, swaps, settings] = await Promise.all([
@@ -670,6 +703,25 @@ function renderDraftGrid() {
   const ai = state.activeParticipant;
   const active = ai!==null ? state.participants[ai] : null;
   const foreignCount = active ? countForeignPicks(active) : 0;
+
+  if (TEAM_KEYS.length === 0) {
+    document.getElementById('teamDraftGrid').innerHTML = `
+      <div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--muted)">
+        <div style="font-size:2rem;margin-bottom:.8rem">🏏</div>
+        <div style="font-size:1rem;font-weight:600;color:var(--text);margin-bottom:.4rem">
+          No ${state.mode === 'worldcup' ? 'World Cup' : 'IPL'} squads loaded yet
+        </div>
+        <div style="font-size:.85rem;margin-bottom:1rem">
+          Go to <strong>Settings → Import Squads</strong> to load the ${state.mode === 'worldcup' ? 'World Cup nation' : 'IPL team'} squads first.
+        </div>
+        <button class="btn btn-sm" onclick="showScreen('settings',document.querySelector('[onclick*=settings]'))">⚙️ Go to Settings</button>
+      </div>`;
+    if (active) {
+      const existing = document.getElementById('foreignCounter');
+      if (existing) existing.remove();
+    }
+    return;
+  }
 
   document.getElementById('teamDraftGrid').innerHTML = TEAM_KEYS.map(key => {
     const team = IPL_TEAMS[key];
@@ -1553,23 +1605,82 @@ async function importSquads() {
 
   try {
     // Delete all existing rows first, then re-insert clean
-    await dbDelete('squads', '?team_key=neq.__never__');
+    await dbDelete('squads', `?mode=eq.${state.mode}`);
 
     // Insert in batches of 50
-    for (let i = 0; i < SQUAD_SEED.length; i += 50) {
-      const batch = SQUAD_SEED.slice(i, i + 50);
+    const seededWithMode = SQUAD_SEED.map(r => ({...r, mode:'ipl'}));
+    for (let i = 0; i < seededWithMode.length; i += 50) {
+      const batch = seededWithMode.slice(i, i + 50);
       await sb('POST', 'squads', batch, '', { 'Prefer': 'return=minimal' });
     }
 
     // Reload squads into live IPL_TEAMS
-    const squadRows = await dbGet('squads', '?order=team_key.asc,player_name.asc');
+    const squadRows = await dbGet('squads', '?mode=eq.ipl&order=team_key.asc,player_name.asc');
     IPL_TEAMS = buildIPLTeamsFromRows(squadRows);
     TEAM_KEYS.length = 0;
     Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
 
     renderDraftGrid();
 
-    status.innerHTML = `<span style="color:var(--green)">✓ ${SQUAD_SEED.length} players across ${TEAM_KEYS.length} teams synced successfully.</span>`;
+    status.innerHTML = `<span style="color:var(--green)">✓ ${TEAM_KEYS.length} teams synced for ${state.mode === 'worldcup' ? 'World Cup' : 'IPL'} mode.</span>`;
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+    console.error(e);
+  }
+  btn.disabled = false;
+}
+
+async function importWCSquad() {
+  const btn = document.getElementById('wcSquadBtn');
+  const status = document.getElementById('wcSquadStatus');
+  const url = document.getElementById('wcSquadUrl').value.trim();
+  if (!url) { status.innerHTML = '<span style="color:var(--red)">Please enter a squad URL.</span>'; return; }
+  btn.disabled = true;
+  status.innerHTML = '<span style="color:var(--gold)">⏳ Fetching squad via AI…</span>';
+  try {
+    const prompt = `You are a cricket squad scraper. Fetch the squad page at this URL: ${url}
+Extract the team name and all player names. For World Cup squads, all players are treated equally (no foreign distinction — set is_foreign to false for all).
+Respond ONLY with valid JSON, no markdown:
+{"team_key":"IND","team_name":"India","players":[{"player_name":"Rohit Sharma","is_foreign":false}]}`;
+
+    const response = await fetch('/.netlify/functions/anthropic', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:3000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const fullText = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Could not parse response');
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!parsed.team_key || !parsed.players?.length) throw new Error('Invalid squad data returned');
+
+    // Delete existing WC squad for this team then insert fresh
+    await dbDelete('squads', `?mode=eq.worldcup&team_key=eq.${parsed.team_key}`);
+    const rows = parsed.players.map(pl => ({
+      team_key: parsed.team_key,
+      team_name: parsed.team_name,
+      player_name: pl.player_name,
+      is_foreign: false,
+      mode: 'worldcup'
+    }));
+    for (let i = 0; i < rows.length; i += 50) {
+      await sb('POST', 'squads', rows.slice(i, i+50), '', { 'Prefer': 'return=minimal' });
+    }
+
+    // Reload into live TEAM_KEYS
+    const freshRows = await dbGet('squads', '?mode=eq.worldcup&order=team_key.asc,player_name.asc');
+    IPL_TEAMS = buildIPLTeamsFromRows(freshRows||[]);
+    TEAM_KEYS.length = 0;
+    Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
+    renderDraftGrid();
+
+    status.innerHTML = `<span style="color:var(--green)">✓ ${parsed.team_name} (${parsed.team_key}) — ${parsed.players.length} players imported.</span>`;
+    document.getElementById('wcSquadUrl').value = '';
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
     console.error(e);
