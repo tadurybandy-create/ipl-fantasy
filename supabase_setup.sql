@@ -163,3 +163,8 @@ create index if not exists picks_mode_idx on picks(mode);
 create index if not exists season_scores_mode_idx on season_scores(mode);
 create index if not exists match_history_mode_idx on match_history(mode);
 create index if not exists swap_history_mode_idx on swap_history(mode);
+
+-- ══════════════════════════════════════════════════════
+-- MIGRATION: Add password column to settings
+-- ══════════════════════════════════════════════════════
+alter table settings add column if not exists password text not null default 'cricket';

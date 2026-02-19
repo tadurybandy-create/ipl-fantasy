@@ -50,6 +50,19 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* LOGIN */
+.login-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;
+  background-image:radial-gradient(ellipse 60% 40% at 50% -10%,rgba(0,200,83,.15) 0%,transparent 70%);}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2.5rem 2rem;max-width:380px;width:100%;text-align:center;}
+.login-logo{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;letter-spacing:4px;background:linear-gradient(135deg,var(--green),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.3rem;}
+.login-tagline{font-size:.8rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:2rem;}
+.login-input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.75rem 1rem;border-radius:8px;font-size:1rem;text-align:center;letter-spacing:3px;outline:none;transition:border-color .2s;margin-bottom:.8rem;}
+.login-input:focus{border-color:var(--green);}
+.login-input.error{border-color:var(--red);animation:shake .3s ease;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.login-btn{width:100%;background:linear-gradient(135deg,var(--dark-green),var(--green));color:#000;border:none;padding:.8rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:2px;cursor:pointer;transition:all .2s;}
+.login-btn:hover{filter:brightness(1.1);}
+.login-err{color:var(--red);font-size:.82rem;margin-top:.5rem;min-height:1.1rem;}
 /* DRAFT */
 .draft-layout{display:grid;grid-template-columns:240px 1fr;gap:1.5rem;}
 @media(max-width:780px){.draft-layout{grid-template-columns:1fr;}}
@@ -356,6 +369,21 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
     </div>
   </div>
 
+  <!-- Password / Auth -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">🔐 Access & Password</div>
+    <div style="font-size:.85rem;color:var(--muted);max-width:540px;margin-bottom:.8rem">Change the shared password for this league. Default is <strong style="color:var(--text)">cricket</strong>.</div>
+    <div style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+      <div class="input-group" style="flex:1;min-width:160px">
+        <label>New Password</label>
+        <input type="password" id="newPasswordInput" placeholder="Enter new password">
+      </div>
+      <button class="btn btn-sm" onclick="changePassword()">🔐 Update Password</button>
+      <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="logout()">🚪 Log Out</button>
+    </div>
+    <div id="passwordStatus" style="margin-top:.5rem;font-size:.82rem;min-height:1rem"></div>
+  </div>
+
   <!-- Mode Info -->
   <div class="card" style="margin-bottom:1.5rem;border-color:rgba(0,200,83,.25)">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">🌍 World Cup Mode</div>
@@ -388,6 +416,18 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 </div>
 
 </div><!-- /container -->
+
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">⚡ Cricket Fantasy</div>
+    <div class="login-tagline">Pick Smart. Score Big.</div>
+    <input class="login-input" id="loginInput" type="password" placeholder="Enter password"
+      onkeydown="if(event.key==='Enter')attemptLogin()">
+    <button class="login-btn" onclick="attemptLogin()">Enter →</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
 
 <!-- PARTICIPANT DETAIL MODAL -->
 <div class="modal-overlay" id="detailModal" onclick="closeDetailModal(event)">
@@ -492,6 +532,48 @@ let state = {
 // ═══════════════════════════════════════════════════════
 // SYNC STATUS UI
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════════════════
+const SESSION_KEY = 'cfa_auth';
+
+function isLoggedIn() {
+  return sessionStorage.getItem(SESSION_KEY) === 'true';
+}
+
+async function attemptLogin() {
+  const input = document.getElementById('loginInput');
+  const errEl = document.getElementById('loginErr');
+  const password = input.value.trim();
+  if (!password) return;
+
+  errEl.textContent = '';
+  try {
+    const settings = await dbGet('settings', '?id=eq.global');
+    const storedPw = (settings||[])[0]?.password || 'cricket';
+    if (password === storedPw) {
+      sessionStorage.setItem(SESSION_KEY, 'true');
+      document.getElementById('loginOverlay').style.display = 'none';
+      loadAll();
+    } else {
+      input.classList.add('error');
+      errEl.textContent = 'Incorrect password. Try again.';
+      input.value = '';
+      setTimeout(() => input.classList.remove('error'), 400);
+    }
+  } catch(e) {
+    errEl.textContent = 'Connection error. Please try again.';
+  }
+}
+
+function checkLoginAndBoot() {
+  if (isLoggedIn()) {
+    document.getElementById('loginOverlay').style.display = 'none';
+    loadAll();
+  }
+  // else overlay stays visible, loadAll is called after successful login
+}
+
 // ═══════════════════════════════════════════════════════
 // MODE (IPL / WORLD CUP)
 // ═══════════════════════════════════════════════════════
@@ -1595,6 +1677,24 @@ function closeDetailModal(e) {
 // ═══════════════════════════════════════════════════════
 // SETTINGS
 // ═══════════════════════════════════════════════════════
+async function changePassword() {
+  const newPw = document.getElementById('newPasswordInput').value.trim();
+  const status = document.getElementById('passwordStatus');
+  if (!newPw) { status.innerHTML = '<span style="color:var(--red)">Please enter a new password.</span>'; return; }
+  try {
+    await dbPatch('settings', { password: newPw }, '?id=eq.global');
+    document.getElementById('newPasswordInput').value = '';
+    status.innerHTML = '<span style="color:var(--green)">✓ Password updated successfully.</span>';
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem(SESSION_KEY);
+  location.reload();
+}
+
 async function importSquads() {
   const btn = document.getElementById('importSquadsBtn');
   const status = document.getElementById('importSquadsStatus');
@@ -1749,9 +1849,9 @@ function showScreen(name,btn) {
   if (name==='redraft') renderRedraftScreen();
 }
 // ═══════════════════════════════════════════════════════
-// BOOT — load from Supabase
+// BOOT — check login then load from Supabase
 // ═══════════════════════════════════════════════════════
-loadAll();
+checkLoginAndBoot();
 </script>
 </body>
 </html>
