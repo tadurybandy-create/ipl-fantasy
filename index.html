@@ -517,18 +517,8 @@ function setMode(mode, save=true) {
   if (importBtn) importBtn.style.display = isWC ? 'none' : '';
   if (save) {
     dbPatch('settings', { mode }, '?id=eq.global').catch(()=>{});
-    // Reload squads for this mode from Supabase
-    dbGet('squads', `?mode=eq.${mode}&order=team_key.asc,player_name.asc`).then(rows => {
-      if (!rows || rows.length === 0) {
-        IPL_TEAMS = {};
-        TEAM_KEYS.length = 0;
-      } else {
-        IPL_TEAMS = buildIPLTeamsFromRows(rows);
-        TEAM_KEYS.length = 0;
-        Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
-      }
-      renderAll();
-    }).catch(() => renderAll());
+    // Full reload to get mode-specific participants, picks, scores, matches
+    loadAll();
   } else {
     renderAll();
   }
@@ -561,16 +551,20 @@ async function loadAll() {
     IPL_TEAMS = buildIPLTeamsFromRows(squadRows||[]);
     TEAM_KEYS.length = 0;
     Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
-    const [participants, picks, scores, matches, swaps, settings] = await Promise.all([
-      dbGet('participants', '?order=created_at.asc'),
-      dbGet('picks', '?order=created_at.asc'),
-      dbGet('season_scores', ''),
-      dbGet('match_history', '?order=created_at.asc'),
-      dbGet('swap_history', '?order=created_at.asc'),
+    const [settingsRes] = await Promise.all([
       dbGet('settings', '?id=eq.global').catch(()=>[]),
     ]);
-    const savedMode = (settings||[])[0]?.mode || 'ipl';
+    const savedMode = (settingsRes||[])[0]?.mode || 'ipl';
     if (savedMode !== state.mode) setMode(savedMode, false);
+    const m = state.mode;
+
+    const [participants, picks, scores, matches, swaps] = await Promise.all([
+      dbGet('participants', `?mode=eq.${m}&order=created_at.asc`),
+      dbGet('picks', `?mode=eq.${m}&order=created_at.asc`),
+      dbGet('season_scores', `?mode=eq.${m}`),
+      dbGet('match_history', `?mode=eq.${m}&order=created_at.asc`),
+      dbGet('swap_history', `?mode=eq.${m}&order=created_at.asc`),
+    ]);
 
     state.participants = (participants||[]).map(p => {
       const myPicks = (picks||[]).filter(pk => pk.participant_id === p.id);
@@ -662,7 +656,7 @@ async function addParticipant() {
   if (state.participants.find(p => p.name.toLowerCase()===name.toLowerCase())) { alert('Name already exists'); return; }
   try {
     setSyncStatus('loading','Saving…');
-    const [row] = await dbPost('participants', { name });
+    const [row] = await dbPost('participants', { name, mode: state.mode });
     state.participants.push({ id: row.id, name, winPick: null, picks: {}, pickHistory: {} });
     document.getElementById('newPName').value = '';
     setSyncStatus('ok','Synced');
@@ -833,7 +827,7 @@ async function togglePlayerPick(teamKey, player) {
       if (p.picks[teamKey]) {
         await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
       }
-      await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: player, is_active: true });
+      await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: player, is_active: true, mode: state.mode });
       p.picks[teamKey] = player;
     }
     setSyncStatus('ok','Synced');
@@ -1110,7 +1104,7 @@ async function executeSwap(participantIdx, teamKey) {
     }
 
     // Insert new active pick
-    await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: newPlayer, is_active: true });
+    await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: newPlayer, is_active: true, mode: state.mode });
 
     // Log the swap
     await dbPost('swap_history', {
@@ -1121,12 +1115,13 @@ async function executeSwap(participantIdx, teamKey) {
       old_player: oldPlayer||'(none)',
       new_player: newPlayer,
       frozen_pts: frozenPts,
-      swap_date: new Date().toLocaleDateString()
+      swap_date: new Date().toLocaleDateString(),
+      mode: state.mode
     });
 
     // Ensure new player has score entry
     if (!state.seasonScores[newPlayer]) {
-      await dbPost('season_scores', { player_name: newPlayer, runs: 0, wickets: 0, catches: 0 });
+      await dbPost('season_scores', { player_name: newPlayer, runs: 0, wickets: 0, catches: 0, mode: state.mode });
       state.seasonScores[newPlayer] = {runs:0,wickets:0,catches:0};
     }
 
@@ -1366,10 +1361,10 @@ async function applyMatch() {
       const existing = state.seasonScores[u.player];
       if (existing) {
         const newRuns=existing.runs+u.runs, newWkts=existing.wickets+u.wkts, newCtch=existing.catches+u.catches, newRnout=(existing.runouts||0)+u.runouts, newStmp=(existing.stumpings||0)+u.stumpings, newMotm=(existing.motm||0)+(u.motm||0);
-        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp, motm:newMotm }, `?player_name=eq.${encodeURIComponent(u.player)}`);
+        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp, motm:newMotm }, `?player_name=eq.${encodeURIComponent(u.player)}&mode=eq.${state.mode}`);
         state.seasonScores[u.player] = { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp, motm:newMotm };
       } else {
-        await dbPost('season_scores', { player_name:u.player, runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts, stumpings:u.stumpings, motm:u.motm||0 });
+        await dbPost('season_scores', { player_name:u.player, runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts, stumpings:u.stumpings, motm:u.motm||0, mode:state.mode });
         state.seasonScores[u.player] = { runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts, stumpings:u.stumpings, motm:u.motm||0 };
       }
     }
@@ -1381,7 +1376,8 @@ async function applyMatch() {
       result: state.pendingResult,
       t1_name: imp.t1name,
       t2_name: imp.t2name,
-      updates
+      updates,
+      mode: state.mode
     });
 
     const newMatch = { id:matchRow.id, title:matchRow.title, date:matchRow.match_date, result:matchRow.result, t1name:matchRow.t1_name, t2name:matchRow.t2_name, updates };
@@ -1434,7 +1430,7 @@ async function removeMatch(id) {
       const sc = state.seasonScores[u.player];
       if (sc) {
         const newRuns=sc.runs-u.runs, newWkts=sc.wickets-u.wkts, newCtch=sc.catches-u.catches, newRnout=(sc.runouts||0)-u.runouts, newStmp=(sc.stumpings||0)-u.stumpings, newMotm=(sc.motm||0)-(u.motm||0);
-        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp, motm:newMotm }, `?player_name=eq.${encodeURIComponent(u.player)}`);
+        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp, motm:newMotm }, `?player_name=eq.${encodeURIComponent(u.player)}&mode=eq.${state.mode}`);
         state.seasonScores[u.player]={runs:newRuns,wickets:newWkts,catches:newCtch,runouts:newRnout,stumpings:newStmp,motm:newMotm};
       }
     }

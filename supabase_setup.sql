@@ -139,3 +139,27 @@ alter table squads add column if not exists mode text not null default 'ipl';
 create index if not exists squads_mode_idx on squads(mode);
 -- Update existing rows to be ipl mode
 update squads set mode = 'ipl' where mode = 'ipl' or mode is null;
+
+-- ══════════════════════════════════════════════════════
+-- MIGRATION: Add mode column to all league tables
+-- This separates IPL and World Cup as fully independent leagues
+-- ══════════════════════════════════════════════════════
+alter table participants add column if not exists mode text not null default 'ipl';
+alter table picks add column if not exists mode text not null default 'ipl';
+alter table season_scores add column if not exists mode text not null default 'ipl';
+alter table match_history add column if not exists mode text not null default 'ipl';
+alter table swap_history add column if not exists mode text not null default 'ipl';
+
+-- Update all existing rows to ipl (they were created before mode existed)
+update participants set mode = 'ipl' where mode is null or mode = 'ipl';
+update picks set mode = 'ipl' where mode is null or mode = 'ipl';
+update season_scores set mode = 'ipl' where mode is null or mode = 'ipl';
+update match_history set mode = 'ipl' where mode is null or mode = 'ipl';
+update swap_history set mode = 'ipl' where mode is null or mode = 'ipl';
+
+-- Indexes for performance
+create index if not exists participants_mode_idx on participants(mode);
+create index if not exists picks_mode_idx on picks(mode);
+create index if not exists season_scores_mode_idx on season_scores(mode);
+create index if not exists match_history_mode_idx on match_history(mode);
+create index if not exists swap_history_mode_idx on swap_history(mode);
