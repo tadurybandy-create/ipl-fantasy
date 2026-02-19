@@ -1125,7 +1125,7 @@ IMPORTANT: Respond ONLY with valid JSON, no markdown, no explanation. Use plain 
       const sanitised = jsonMatch[0]
         .replace(/[\u0000-\u001F\u007F]/g, ' ') // control chars
         .replace(/†/g, '')                          // dagger symbol from scorecard
-        .replace(/[^ -]/g, '')              // any remaining non-ASCII
+        .replace(/[^\x00-\x7F]/g, '')              // any remaining non-ASCII
         .replace(/,\s*([}\]])/g, '$1');            // trailing commas
       try {
         parsed = JSON.parse(sanitised);
