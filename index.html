@@ -1063,7 +1063,7 @@ async function importScorecard() {
 
   const prompt = `You are a cricket scorecard parser for an IPL fantasy league.
 
-The scorecard page text is appended at the end of this message. Read it carefully.
+Fetch and read the scorecard at this URL: ${url}
 
 The fantasy league has drafted these players across all 10 IPL teams. Only players from the two teams PLAYING TODAY will appear in the scorecard:
 ${playerList}
@@ -1087,33 +1087,11 @@ Respond ONLY with valid JSON, no other text:
 
   try {
     // Call our Netlify proxy — keeps the API key off GitHub
-    // Fetch the scorecard page from the browser (avoids server-side 403 blocks)
-    setImportStatus('loading', 'Fetching scorecard page…');
-    let scorecardText = '';
-    try {
-      const pageRes = await fetch(url, { headers: { 'Accept': 'text/html' } });
-      if (!pageRes.ok) throw new Error(`Page fetch failed: ${pageRes.status}`);
-      let html = await pageRes.text();
-      scorecardText = html
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
-        .replace(/\s{3,}/g, '\n').trim().slice(0, 25000);
-    } catch(fetchErr) {
-      throw new Error(`Could not load scorecard page. Try a Cricbuzz URL instead. (${fetchErr.message})`);
-    }
-
-    setImportStatus('loading', 'Parsing scorecard with AI…');
-    const fullPrompt = prompt + '\n\nHere is the scorecard page text:\n\n' + scorecardText;
-
     const response = await fetch('/.netlify/functions/anthropic', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
-        messages: [{role:'user', content:fullPrompt}]
-      })
+      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:3000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:prompt}] })
     });
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);

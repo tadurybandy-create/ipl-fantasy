@@ -2,4 +2,4 @@
   directory = "netlify/functions"
 
 [functions.anthropic]
-  timeout = 20
+  timeout = 26
