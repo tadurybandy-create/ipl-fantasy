@@ -349,31 +349,36 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 
   <!-- Import Squads -->
   <div class="card" style="margin-bottom:1.5rem">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem">
-      <div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">📋 Import Squads</div>
-        <div style="font-size:.85rem;color:var(--muted);max-width:540px">
-          <strong style="color:var(--text)">IPL mode:</strong> Re-imports built-in IPL 2026 squads into Supabase.<br>
-          <strong style="color:var(--text)">World Cup mode:</strong> Use the squad scraper URL box below to import World Cup nation squads.<br>
-          This does <strong style="color:var(--text)">not</strong> affect existing draft picks or scores.
-        </div>
-        <div id="importSquadsStatus" style="margin-top:.6rem;font-size:.82rem;min-height:1rem"></div>
-        <!-- WC squad importer — only visible in WC mode -->
-        <div id="wcSquadImporter" style="display:none;margin-top:.8rem">
-          <div style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem">
-            Type a nation name and Claude will search for their World Cup squad automatically:
-          </div>
-          <div style="display:flex;gap:.5rem">
-            <input type="text" id="wcSquadNation" placeholder="e.g. India, Australia, England…"
-              style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem"
-              onkeydown="if(event.key==='Enter')importWCSquad()">
-            <button class="btn btn-sm" onclick="importWCSquad()" id="wcSquadBtn">🌍 Import</button>
-          </div>
-          <div id="wcSquadStatus" style="margin-top:.4rem;font-size:.8rem;min-height:1rem"></div>
-        </div>
-      </div>
-      <button class="btn" onclick="importSquads()" id="importSquadsBtn" style="white-space:nowrap;align-self:center">📋 Import Squads</button>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">📋 Import Squads</div>
+    <div style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
+      Type a team name and Claude will search for their current squad automatically. Does <strong style="color:var(--text)">not</strong> affect existing picks or scores.
     </div>
+
+    <!-- IPL squad importer — visible in IPL mode -->
+    <div id="iplSquadImporter">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem">Type an IPL team name to import their squad:</div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
+        <input type="text" id="iplSquadTeam" placeholder="e.g. Chennai Super Kings, Mumbai Indians…"
+          style="flex:1;min-width:200px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem"
+          onkeydown="if(event.key==='Enter')importIPLSquad()">
+        <button class="btn btn-sm" onclick="importIPLSquad()" id="iplSquadBtn">🏏 Import Team</button>
+        <button class="btn btn-sm" onclick="importAllIPLSquads()" id="iplAllBtn" style="background:rgba(0,200,83,.15);border:1px solid var(--green)">🏏 Import All 10 Teams</button>
+      </div>
+      <div id="iplSquadStatus" style="font-size:.82rem;min-height:1.2rem"></div>
+    </div>
+
+    <!-- WC squad importer — visible in WC mode -->
+    <div id="wcSquadImporter" style="display:none">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem">Type a nation name to import their World Cup squad:</div>
+      <div style="display:flex;gap:.5rem">
+        <input type="text" id="wcSquadNation" placeholder="e.g. India, Australia, England…"
+          style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem"
+          onkeydown="if(event.key==='Enter')importWCSquad()">
+        <button class="btn btn-sm" onclick="importWCSquad()" id="wcSquadBtn">🌍 Import Nation</button>
+      </div>
+      <div id="wcSquadStatus" style="margin-top:.4rem;font-size:.82rem;min-height:1.2rem"></div>
+    </div>
+    <div id="importSquadsStatus" style="margin-top:.4rem;font-size:.82rem;min-height:1rem"></div>
   </div>
 
   <!-- Password / Auth -->
@@ -602,8 +607,8 @@ function setMode(mode, save=true) {
   if (foreignKey) foreignKey.style.display = isWC ? 'none' : '';
   const wcImporter = document.getElementById('wcSquadImporter');
   if (wcImporter) wcImporter.style.display = isWC ? 'block' : 'none';
-  const importBtn = document.getElementById('importSquadsBtn');
-  if (importBtn) importBtn.style.display = isWC ? 'none' : '';
+  const iplImporter = document.getElementById('iplSquadImporter');
+  if (iplImporter) iplImporter.style.display = isWC ? 'none' : 'block';
   if (save) {
     dbPatch('settings', { mode }, '?id=eq.global').catch(()=>{});
     // Full reload to get mode-specific participants, picks, scores, matches
@@ -1735,6 +1740,85 @@ async function importSquads() {
     console.error(e);
   }
   btn.disabled = false;
+}
+
+async function importIPLSquad(teamName) {
+  const btn = document.getElementById('iplSquadBtn');
+  const status = document.getElementById('iplSquadStatus');
+  const name = teamName || document.getElementById('iplSquadTeam')?.value.trim();
+  if (!name) { status.innerHTML = '<span style="color:var(--red)">Please enter a team name.</span>'; return; }
+  if (btn) btn.disabled = true;
+  status.innerHTML = `<span style="color:var(--gold)">⏳ Searching for ${name} squad…</span>`;
+  try {
+    const prompt = `Search for the current IPL 2026 squad for ${name}.
+Find the full squad with all player names. Mark overseas/foreign players correctly (is_foreign: true).
+Use the standard 2-3 letter team key (CSK, MI, RCB, KKR, SRH, DC, GT, PBKS, RR, LSG).
+Respond ONLY with valid JSON, no markdown:
+{"team_key":"CSK","team_name":"Chennai Super Kings","players":[{"player_name":"MS Dhoni","is_foreign":false},{"player_name":"Devon Conway","is_foreign":true}]}`;
+
+    const response = await fetch('/.netlify/functions/anthropic', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:2000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    if (!response.ok) throw new Error(`Server error ${response.status}`);
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const fullText = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Could not parse squad data. Try again.');
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!parsed.team_key || !parsed.players?.length) throw new Error('No players found in response.');
+
+    // Delete existing IPL squad for this team then insert fresh
+    await dbDelete('squads', `?mode=eq.ipl&team_key=eq.${parsed.team_key}`);
+    const rows = parsed.players.map(pl => ({
+      team_key: parsed.team_key,
+      team_name: parsed.team_name,
+      player_name: pl.player_name,
+      is_foreign: pl.is_foreign || false,
+      mode: 'ipl'
+    }));
+    for (let i = 0; i < rows.length; i += 50) {
+      await sb('POST', 'squads', rows.slice(i, i+50), '', { 'Prefer': 'return=minimal' });
+    }
+    // Reload live squads
+    const freshRows = await dbGet('squads', '?mode=eq.ipl&order=team_key.asc,player_name.asc');
+    IPL_TEAMS = buildIPLTeamsFromRows(freshRows||[]);
+    TEAM_KEYS.length = 0;
+    Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
+    renderDraftGrid();
+    status.innerHTML = `<span style="color:var(--green)">✓ ${parsed.team_name} — ${parsed.players.length} players imported.</span>`;
+    if (document.getElementById('iplSquadTeam')) document.getElementById('iplSquadTeam').value = '';
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+    console.error(e);
+  }
+  if (btn) btn.disabled = false;
+}
+
+const IPL_TEAMS_LIST = [
+  'Chennai Super Kings', 'Delhi Capitals', 'Gujarat Titans',
+  'Kolkata Knight Riders', 'Lucknow Super Giants', 'Mumbai Indians',
+  'Punjab Kings', 'Rajasthan Royals', 'Royal Challengers Bengaluru', 'Sunrisers Hyderabad'
+];
+
+async function importAllIPLSquads() {
+  const allBtn = document.getElementById('iplAllBtn');
+  const status = document.getElementById('iplSquadStatus');
+  allBtn.disabled = true;
+  for (let i = 0; i < IPL_TEAMS_LIST.length; i++) {
+    const team = IPL_TEAMS_LIST[i];
+    status.innerHTML = `<span style="color:var(--gold)">⏳ Importing ${i+1}/10: ${team}…</span>`;
+    await importIPLSquad(team);
+    // small pause between calls to avoid rate limits
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  status.innerHTML = '<span style="color:var(--green)">✓ All 10 IPL teams imported successfully!</span>';
+  allBtn.disabled = false;
 }
 
 async function importWCSquad() {
