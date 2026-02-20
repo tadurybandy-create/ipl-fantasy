@@ -358,11 +358,15 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
           This does <strong style="color:var(--text)">not</strong> affect existing draft picks or scores.
         </div>
         <div id="importSquadsStatus" style="margin-top:.6rem;font-size:.82rem;min-height:1rem"></div>
-        <!-- WC squad URL importer — only visible in WC mode -->
+        <!-- WC squad importer — only visible in WC mode -->
         <div id="wcSquadImporter" style="display:none;margin-top:.8rem">
-          <div style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem">Paste an ESPNcricinfo squad URL for each nation and click Import:</div>
+          <div style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem">
+            Type a nation name and Claude will search for their World Cup squad automatically:
+          </div>
           <div style="display:flex;gap:.5rem">
-            <input type="url" id="wcSquadUrl" placeholder="https://www.espncricinfo.com/series/icc-cricket-world-cup-...">
+            <input type="text" id="wcSquadNation" placeholder="e.g. India, Australia, England…"
+              style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem"
+              onkeydown="if(event.key==='Enter')importWCSquad()">
             <button class="btn btn-sm" onclick="importWCSquad()" id="wcSquadBtn">🌍 Import</button>
           </div>
           <div id="wcSquadStatus" style="margin-top:.4rem;font-size:.8rem;min-height:1rem"></div>
@@ -1736,31 +1740,38 @@ async function importSquads() {
 async function importWCSquad() {
   const btn = document.getElementById('wcSquadBtn');
   const status = document.getElementById('wcSquadStatus');
-  const url = document.getElementById('wcSquadUrl').value.trim();
-  if (!url) { status.innerHTML = '<span style="color:var(--red)">Please enter a squad URL.</span>'; return; }
+  const nation = document.getElementById('wcSquadNation').value.trim();
+  if (!nation) { status.innerHTML = '<span style="color:var(--red)">Please enter a nation name.</span>'; return; }
   btn.disabled = true;
-  status.innerHTML = '<span style="color:var(--gold)">⏳ Fetching squad via AI…</span>';
+  status.innerHTML = '<span style="color:var(--gold)">⏳ Searching for squad…</span>';
   try {
-    const prompt = `You are a cricket squad scraper. Fetch the squad page at this URL: ${url}
-Extract the team name and all player names. For World Cup squads, all players are treated equally (no foreign distinction — set is_foreign to false for all).
-Respond ONLY with valid JSON, no markdown:
+    const prompt = `Search for the current ICC World Cup T20 2026 squad for ${nation} cricket team.
+Find the official 15-player squad with all player names.
+Use a short 2-3 letter team key (e.g. IND, AUS, ENG, PAK, SA, NZ, WI, SL, BAN, AFG, IRE, ZIM, SCO, NAM, UAE).
+Respond ONLY with valid JSON, no markdown, no explanation:
 {"team_key":"IND","team_name":"India","players":[{"player_name":"Rohit Sharma","is_foreign":false}]}`;
 
     const response = await fetch('/.netlify/functions/anthropic', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        model:'claude-sonnet-4-20250514', max_tokens:3000,
+        model:'claude-sonnet-4-20250514', max_tokens:2000,
         tools:[{type:'web_search_20250305',name:'web_search'}],
         messages:[{role:'user',content:prompt}]
       })
     });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Server error ${response.status}: ${errText.slice(0,200)}`);
+    }
+
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
     const fullText = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
     const jsonMatch = fullText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Could not parse response');
+    if (!jsonMatch) throw new Error('Could not find JSON in response. Try again.');
     const parsed = JSON.parse(jsonMatch[0]);
-    if (!parsed.team_key || !parsed.players?.length) throw new Error('Invalid squad data returned');
+    if (!parsed.team_key || !parsed.players?.length) throw new Error('Invalid squad data returned — no players found.');
 
     // Delete existing WC squad for this team then insert fresh
     await dbDelete('squads', `?mode=eq.worldcup&team_key=eq.${parsed.team_key}`);
@@ -1783,7 +1794,7 @@ Respond ONLY with valid JSON, no markdown:
     renderDraftGrid();
 
     status.innerHTML = `<span style="color:var(--green)">✓ ${parsed.team_name} (${parsed.team_key}) — ${parsed.players.length} players imported.</span>`;
-    document.getElementById('wcSquadUrl').value = '';
+    document.getElementById('wcSquadNation').value = '';
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
     console.error(e);
