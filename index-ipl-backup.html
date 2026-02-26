@@ -1,0 +1,1961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPL 2026 Fantasy League</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--green:#00C853;--dark-green:#007B33;--gold:#FFD600;--red:#FF1744;--purple:#a259ff;--bg:#0d1a0d;--card:#132213;--border:#1f3d1f;--text:#e8f5e9;--muted:#6a9b6a;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;
+  background-image:radial-gradient(ellipse 60% 40% at 50% -10%,rgba(0,200,83,.15) 0%,transparent 70%),
+  repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(0,200,83,.02) 40px,rgba(0,200,83,.02) 41px),
+  repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(0,200,83,.02) 40px,rgba(0,200,83,.02) 41px);}
+header{text-align:center;padding:2rem 1rem 1.2rem;border-bottom:1px solid var(--border);}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,7vw,4rem);letter-spacing:4px;
+  background:linear-gradient(135deg,var(--green),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;}
+.tagline{color:var(--muted);font-size:.82rem;letter-spacing:3px;text-transform:uppercase;margin-top:.3rem;}
+.sync-status{display:inline-flex;align-items:center;gap:.4rem;font-size:.75rem;margin-top:.4rem;padding:.2rem .7rem;border-radius:99px;border:1px solid var(--border);}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
+.sync-dot.ok{background:var(--green);}
+.sync-dot.err{background:var(--red);}
+.sync-dot.loading{background:var(--gold);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+nav{display:flex;justify-content:center;gap:.5rem;padding:1rem;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.tab-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1.2rem;border-radius:99px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.85rem;transition:all .2s;}
+.tab-btn.active,.tab-btn:hover{background:var(--green);border-color:var(--green);color:#000;font-weight:600;}
+.container{max-width:1200px;margin:0 auto;padding:1.5rem 1rem;}
+.screen{display:none;}.screen.active{display:block;}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:2px;color:var(--green);margin-bottom:1rem;}
+.subsection{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:1.5px;color:var(--muted);margin:1.2rem 0 .6rem;}
+input,select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:.6rem .85rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s;width:100%;}
+input:focus,select:focus{border-color:var(--green);}input::placeholder{color:var(--muted);}
+label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);display:block;margin-bottom:.3rem;}
+.input-group{display:flex;flex-direction:column;gap:.3rem;}
+.btn{background:var(--green);color:#000;border:none;padding:.7rem 1.8rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:.5rem;}
+.btn:hover{background:var(--gold);transform:translateY(-1px);}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.btn-sm{padding:.45rem 1rem;font-size:.85rem;letter-spacing:1px;}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.45rem 1rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.82rem;cursor:pointer;transition:all .2s;}
+.btn-ghost:hover{border-color:var(--green);color:var(--green);}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;}
+.info-box{background:rgba(0,200,83,.07);border:1px solid rgba(0,200,83,.2);border-radius:10px;padding:.9rem 1.1rem;font-size:.85rem;color:var(--muted);margin-bottom:1.2rem;}
+.info-box strong{color:var(--text);}
+.scoring-key{display:flex;gap:.7rem;margin-bottom:1.2rem;flex-wrap:wrap;}
+.key-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.45rem .9rem;font-size:.8rem;display:flex;align-items:center;gap:.5rem;}
+.key-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.empty-state{text-align:center;color:var(--muted);padding:2rem 1rem;font-size:.88rem;}
+.btn-row{display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* LOGIN */
+.login-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;
+  background-image:radial-gradient(ellipse 60% 40% at 50% -10%,rgba(0,200,83,.15) 0%,transparent 70%);}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2.5rem 2rem;max-width:380px;width:100%;text-align:center;}
+.login-logo{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;letter-spacing:4px;background:linear-gradient(135deg,var(--green),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.3rem;}
+.login-tagline{font-size:.8rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:2rem;}
+.login-input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.75rem 1rem;border-radius:8px;font-size:1rem;text-align:center;letter-spacing:3px;outline:none;transition:border-color .2s;margin-bottom:.8rem;}
+.login-input:focus{border-color:var(--green);}
+.login-input.error{border-color:var(--red);animation:shake .3s ease;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.login-btn{width:100%;background:linear-gradient(135deg,var(--dark-green),var(--green));color:#000;border:none;padding:.8rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:2px;cursor:pointer;transition:all .2s;}
+.login-btn:hover{filter:brightness(1.1);}
+.login-err{color:var(--red);font-size:.82rem;margin-top:.5rem;min-height:1.1rem;}
+/* DRAFT */
+.draft-layout{display:grid;grid-template-columns:240px 1fr;gap:1.5rem;}
+@media(max-width:780px){.draft-layout{grid-template-columns:1fr;}}
+.participant-sidebar .card{position:sticky;top:1rem;}
+.participant-list{display:flex;flex-direction:column;gap:.4rem;max-height:420px;overflow-y:auto;margin-bottom:.8rem;}
+.p-item{display:flex;align-items:center;justify-content:space-between;padding:.5rem .7rem;border-radius:7px;font-size:.88rem;cursor:pointer;border:1px solid transparent;transition:all .15s;}
+.p-item:hover{border-color:var(--border);}
+.p-item.active{background:rgba(0,200,83,.1);border-color:var(--green);color:var(--green);}
+.p-item .p-progress{font-size:.72rem;color:var(--muted);}
+.p-item.active .p-progress{color:var(--green);}
+.p-item.complete .p-name::after{content:' ✓';color:var(--green);}
+.team-draft-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:1rem;}
+.team-draft-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem;}
+.team-draft-card h4{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1px;margin-bottom:.7rem;display:flex;align-items:center;justify-content:space-between;}
+.team-abbr{font-size:.65rem;padding:.15rem .45rem;border-radius:4px;background:rgba(0,200,83,.12);color:var(--green);}
+.player-pick-list{display:flex;flex-direction:column;gap:.28rem;max-height:190px;overflow-y:auto;}
+.player-opt{display:flex;align-items:center;justify-content:space-between;padding:.32rem .6rem;border-radius:5px;font-size:.81rem;cursor:pointer;border:1px solid transparent;transition:all .12s;}
+.player-opt:hover{background:rgba(0,200,83,.06);border-color:rgba(0,200,83,.2);}
+.player-opt.disabled{opacity:.35;cursor:not-allowed;pointer-events:none;}
+.player-opt.selected-by-me{background:rgba(0,200,83,.12);border-color:var(--green);color:var(--green);}
+.draft-pips{display:flex;gap:2px;}
+.mini-pip{width:7px;height:7px;border-radius:50%;background:var(--border);}
+.mini-pip.filled{background:var(--green);}
+.win-opt{display:flex;align-items:center;justify-content:space-between;padding:.5rem .9rem;border-radius:8px;font-size:.88rem;cursor:pointer;border:1px solid var(--border);background:var(--bg);transition:all .15s;margin-bottom:.4rem;}
+.win-opt:hover{border-color:var(--gold);color:var(--gold);}
+.win-opt.selected{background:rgba(255,214,0,.1);border-color:var(--gold);color:var(--gold);}
+.win-opt.disabled{opacity:.35;cursor:not-allowed;}
+.picks-summary{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.8rem;margin-top:1rem;}
+.picks-summary h5{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.6rem;}
+.pick-row{display:flex;align-items:center;gap:.5rem;font-size:.8rem;padding:.2rem 0;}
+.pick-row .team-tag{min-width:42px;font-size:.68rem;padding:.1rem .35rem;border-radius:3px;background:rgba(0,200,83,.1);color:var(--green);text-align:center;font-weight:600;}
+.pick-row .no-pick{color:var(--muted);font-style:italic;}
+
+/* REDRAFT */
+.redraft-layout{display:grid;grid-template-columns:220px 1fr;gap:1.5rem;}
+@media(max-width:700px){.redraft-layout{grid-template-columns:1fr;}}
+.swap-slot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:.8rem;}
+.swap-slot-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.9rem;}
+.swap-slot-card h5{font-family:'Bebas Neue',sans-serif;font-size:.95rem;letter-spacing:1px;margin-bottom:.6rem;display:flex;align-items:center;justify-content:space-between;}
+.current-player-row{display:flex;align-items:center;justify-content:space-between;background:rgba(0,200,83,.07);border:1px solid rgba(0,200,83,.18);border-radius:6px;padding:.45rem .7rem;margin-bottom:.5rem;}
+.current-player-name{font-weight:600;font-size:.88rem;}
+.frozen-pts{font-size:.72rem;color:var(--gold);}
+.history-player-row{font-size:.75rem;color:var(--muted);padding:.15rem 0;display:flex;justify-content:space-between;}
+.swap-select-wrap{display:flex;gap:.4rem;margin-top:.5rem;}
+.swap-select-wrap select{flex:1;font-size:.8rem;}
+.btn-swap{background:rgba(255,214,0,.15);border:1px solid rgba(255,214,0,.3);color:var(--gold);padding:.4rem .8rem;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-swap:hover{background:var(--gold);color:#000;}
+.swap-log{display:flex;flex-direction:column;gap:.5rem;margin-top:.8rem;}
+.mode-toggle{display:inline-flex;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:3px;gap:2px;}
+.mode-btn{background:transparent;border:none;color:var(--muted);padding:.3rem 1rem;border-radius:99px;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s;}
+.mode-btn.active{background:var(--green);color:#000;}
+.mode-btn:not(.active):hover{color:var(--text);}
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:1rem;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;max-width:760px;width:100%;max-height:85vh;overflow-y:auto;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;color:var(--green);}
+.modal-close{background:transparent;border:1px solid var(--border);color:var(--muted);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;}
+.modal-close:hover{border-color:var(--red);color:var(--red);}
+/* Match breakdown in modal */
+.match-breakdown-row{display:flex;align-items:center;justify-content:space-between;padding:.45rem .7rem;border-radius:6px;background:var(--bg);border:1px solid var(--border);margin-bottom:.3rem;font-size:.82rem;}
+.match-breakdown-pts{font-weight:700;color:var(--gold);min-width:50px;text-align:right;}
+.swap-entry{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.7rem 1rem;font-size:.82rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;}
+.swap-arrow{color:var(--gold);font-size:1rem;}
+.swap-meta{color:var(--muted);font-size:.75rem;margin-left:auto;}
+
+/* SCORING */
+.import-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem 1.4rem;margin-bottom:1.5rem;position:relative;overflow:hidden;}
+.import-box::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,200,83,.04) 0%,transparent 60%);pointer-events:none;}
+.import-header{display:flex;align-items:center;gap:.6rem;margin-bottom:.7rem;}
+.import-title{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;color:var(--green);}
+.ai-badge{background:linear-gradient(135deg,var(--green),var(--gold));color:#000;font-size:.65rem;font-weight:700;padding:.15rem .5rem;border-radius:99px;letter-spacing:1px;text-transform:uppercase;}
+.import-row{display:flex;gap:.6rem;}
+.import-row input{flex:1;font-size:.85rem;width:auto;}
+.btn-import{background:linear-gradient(135deg,var(--dark-green),var(--green));color:#000;border:none;padding:.6rem 1.2rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;cursor:pointer;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:.4rem;}
+.btn-import:hover{filter:brightness(1.15);transform:translateY(-1px);}
+.btn-import:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.import-status{margin-top:.6rem;font-size:.82rem;min-height:1.1rem;display:flex;align-items:center;gap:.5rem;}
+.status-loading{color:var(--gold);}.status-success{color:var(--green);}.status-error{color:var(--red);}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,214,0,.3);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+.import-preview{margin-top:1rem;display:none;}.import-preview.show{display:block;}
+.preview-title{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.5rem;}
+.preview-player-row{display:flex;align-items:center;justify-content:space-between;padding:.35rem .65rem;border-radius:6px;font-size:.8rem;margin-bottom:.3rem;}
+.preview-player-row.hit{background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.2);}
+.preview-player-row.miss{background:rgba(255,23,68,.06);border:1px solid rgba(255,23,68,.15);color:var(--muted);}
+.preview-stats{display:flex;gap:.7rem;font-size:.75rem;color:var(--muted);}
+.preview-stats span{color:var(--text);}
+.badge-found{font-size:.68rem;padding:.1rem .4rem;border-radius:3px;font-weight:600;background:rgba(0,200,83,.2);color:var(--green);}
+.badge-miss{font-size:.68rem;padding:.1rem .4rem;border-radius:3px;font-weight:600;background:rgba(255,23,68,.15);color:var(--red);}
+.result-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.8rem;}
+.res-btn{flex:1;min-width:100px;background:var(--bg);border:2px solid var(--border);color:var(--muted);padding:.55rem .8rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:.9rem;cursor:pointer;transition:all .2s;text-align:center;}
+.res-btn:hover{border-color:var(--gold);color:var(--gold);}
+.res-btn.sel-t1{background:rgba(41,121,255,.15);border-color:#2979FF;color:#82b1ff;}
+.res-btn.sel-t2{background:rgba(255,109,0,.15);border-color:#FF6D00;color:#ffab40;}
+.res-btn.sel-draw{background:rgba(255,214,0,.1);border-color:var(--gold);color:var(--gold);}
+.match-log{display:flex;flex-direction:column;gap:.6rem;margin-top:1rem;}
+.match-entry{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.9rem 1.1rem;}
+.match-entry-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;}
+.match-title-text{font-weight:600;font-size:.95rem;}
+.match-date-text{font-size:.75rem;color:var(--muted);}
+.match-result-chip{font-size:.75rem;padding:.15rem .55rem;border-radius:99px;font-weight:600;}
+.chip-t1{background:rgba(41,121,255,.15);color:#82b1ff;}
+.chip-t2{background:rgba(255,109,0,.15);color:#ffab40;}
+.chip-draw{background:rgba(255,214,0,.1);color:var(--gold);}
+.match-player-updates{display:flex;flex-wrap:wrap;gap:.35rem;}
+.player-update-chip{font-size:.73rem;padding:.15rem .5rem;border-radius:5px;background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.15);}
+
+/* LEADERBOARD */
+.lb-table{width:100%;border-collapse:separate;border-spacing:0 .4rem;}
+.lb-table th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:0 .9rem .4rem;}
+.lb-table td{background:var(--card);padding:.85rem .9rem;font-size:.88rem;}
+.lb-table tr td:first-child{border-radius:10px 0 0 10px;}
+.lb-table tr td:last-child{border-radius:0 10px 10px 0;}
+.rank-badge{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--border);color:var(--muted);}
+.rank-1{background:var(--gold);color:#000;}.rank-2{background:#b0bec5;color:#000;}.rank-3{background:#a1714b;color:#fff;}
+.pts-big{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--green);}
+.pts-breakdown{font-size:.72rem;color:var(--muted);margin-top:.1rem;}
+.pts-gold{color:var(--gold);}
+.picks-mini{font-size:.75rem;color:var(--muted);line-height:1.7;}
+.picks-mini strong{color:var(--text);}
+.detail-row td{background:rgba(19,34,19,.6);padding:.6rem 1rem;}
+.detail-row{display:none;}
+.detail-row.open{display:table-row;}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.4rem;}
+.detail-chip{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.35rem .6rem;font-size:.76rem;}
+.detail-chip .dc-team{color:var(--muted);font-size:.68rem;}
+.detail-chip .dc-pts{float:right;color:var(--gold);font-weight:600;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ Cricket Fantasy App</div>
+  <div class="tagline" id="appTagline">Pick Smart. Score Big. Rule the Season.</div>
+  <div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-top:.6rem;flex-wrap:wrap">
+    <div class="mode-toggle" id="modeToggle">
+      <button class="mode-btn active" id="modeIPL" onclick="setMode('ipl')">🏏 IPL</button>
+      <button class="mode-btn" id="modeWC" onclick="setMode('worldcup')">🌍 World Cup</button>
+    </div>
+    <span class="sync-status" id="syncStatus">
+      <span class="sync-dot loading" id="syncDot"></span>
+      <span id="syncText">Connecting…</span>
+    </span>
+  </div>
+</header>
+
+<nav>
+  <button class="tab-btn active" onclick="showScreen('draft',this)">🎯 Draft</button>
+  <button class="tab-btn" onclick="showScreen('redraft',this)">🔄 Redraft / Swap</button>
+  <button class="tab-btn" onclick="showScreen('scoring',this)">📊 Match Scoring</button>
+  <button class="tab-btn" onclick="showScreen('leaderboard',this)">🏆 Leaderboard</button>
+  <button class="tab-btn" onclick="showScreen('settings',this)">⚙️ Settings</button>
+</nav>
+
+<div class="container">
+
+<!-- DRAFT -->
+<div id="screen-draft" class="screen active">
+  <div class="section-title">Season Draft</div>
+  <div class="scoring-key">
+    <div class="key-item"><span class="key-dot" style="background:var(--green)"></span>1 Run = 1 pt</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--red)"></span>1 Wicket = 25 pts</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--gold)"></span>1 Catch = 5 pts</div>
+    <div class="key-item"><span class="key-dot" style="background:#ff9800"></span>1 Run-out = 5 pts (both fielders)</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--purple)"></span>1 Stumping = 5 pts</div>
+    <div class="key-item"><span class="key-dot" style="background:#e91e63"></span>Man of the Match = 5 pts</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--muted)"></span>Max 2 drafts per player <span id="foreignKeySpan"> · Max 4 foreign per fantasy team</span></div>
+    <div class="key-item"><span class="key-dot" style="background:var(--gold)"></span>Draft 1 Team: Win = 30 pts · Draw = 15 pts · Max 2 drafts per team</div>
+  </div>
+  <div class="info-box" id="draftInfoBox">
+    Each of the <strong>16 fantasy players</strong> picks <strong>1 player from each team</strong>.
+    <span id="foreignInfoSpan">Max <strong>4 foreign players</strong> per fantasy team.</span>
+    <strong>All picks sync automatically</strong> for everyone.
+  </div>
+  <div class="card" style="margin-bottom:1.2rem">
+    <div style="display:flex;gap:.7rem;align-items:flex-end">
+      <div class="input-group" style="flex:1">
+        <label>Add Fantasy Participant</label>
+        <input type="text" id="newPName" placeholder="e.g. Priya" onkeydown="if(event.key==='Enter')addParticipant()">
+      </div>
+      <button class="btn btn-sm" onclick="addParticipant()">+ Add</button>
+      <span id="pCount" style="color:var(--muted);font-size:.82rem;white-space:nowrap;padding-bottom:.1rem">0/16</span>
+    </div>
+  </div>
+  <div class="draft-layout">
+    <div class="participant-sidebar">
+      <div class="card">
+        <div class="subsection" style="margin-top:0">Participants</div>
+        <div class="participant-list" id="participantList"></div>
+        <div style="font-size:.75rem;color:var(--muted)">Click a name to make their picks.</div>
+      </div>
+    </div>
+    <div>
+      <div id="draftActiveLabel" style="font-size:.88rem;color:var(--muted);margin-bottom:.8rem">← Select a participant to start drafting</div>
+      <div class="team-draft-grid" id="teamDraftGrid"></div>
+      <div class="picks-summary" id="picksSummary" style="display:none">
+        <h5>Current Picks for <span id="picksSummaryName"></span> &nbsp; <span id="picksSummaryForeign" style="font-size:.75rem;color:var(--muted)"></span></h5>
+        <div id="picksSummaryRows"></div>
+        <div style="margin-top:.8rem"><button class="btn btn-sm" onclick="savePicks()">💾 Save Picks</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REDRAFT -->
+<div id="screen-redraft" class="screen">
+  <div class="section-title">Redraft / Swap Players</div>
+  <div class="info-box">
+    Mid-season player swap or injury replacement. <strong>Frozen points from the old player remain.</strong>
+    The new player earns points from their next match onwards. Swaps stay within the same IPL team. Max 2 drafts per player applies. You can also swap your <strong>drafted IPL team</strong> here.
+  </div>
+  <div class="redraft-layout">
+    <div>
+      <div class="card" style="position:sticky;top:1rem">
+        <div class="subsection" style="margin-top:0">Select Participant</div>
+        <div id="redraftParticipantList" class="participant-list"></div>
+      </div>
+    </div>
+    <div>
+      <div id="redraftActiveLabel" style="font-size:.88rem;color:var(--muted);margin-bottom:.8rem">← Select a participant to manage their picks</div>
+      <div id="swapSlotGrid" class="swap-slot-grid"></div>
+      <div id="swapHistorySection" style="display:none;margin-top:1.5rem">
+        <div class="subsection">Swap History</div>
+        <div id="swapLog" class="swap-log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MATCH SCORING -->
+<div id="screen-scoring" class="screen">
+  <div class="section-title">Match Scoring</div>
+  <div class="info-box">Paste a scorecard link for today's match. Claude will read it and update all drafted players' season totals automatically.</div>
+  <div class="import-box">
+    <div class="import-header">
+      <span class="import-title">⚡ Import Match Scorecard</span>
+      <span class="ai-badge">AI Powered</span>
+    </div>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:.8rem">
+      Open the ESPNcricinfo scorecard page → select all text (Ctrl+A) → copy (Ctrl+C) → paste below.
+      <br>Tip: You can also just copy the batting + bowling tables section for cleaner results.
+    </div>
+    <div class="import-row" style="flex-direction:column;gap:.6rem">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:.2rem">
+        Open the ESPNcricinfo scorecard page → click the <strong style="color:var(--text)">Scorecard tab</strong> → select all (Ctrl+A) → copy (Ctrl+C) → paste below. Make sure both innings are visible before copying.
+      </div>
+      <textarea id="scorecardText" rows="8" placeholder="Paste scorecard text here…" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.7rem;border-radius:8px;font-family:monospace;font-size:.78rem;resize:vertical;line-height:1.5"></textarea>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn-import" id="importBtn" onclick="importScorecard()"><span id="importIcon">📋</span> Parse & Import</button>
+      </div>
+    </div>
+    <div style="margin-top:.9rem">
+      <label>Match Result</label>
+      <div class="result-row">
+        <button class="res-btn" id="res-t1" onclick="setPendingResult('t1')">— Team 1 Won</button>
+        <button class="res-btn" id="res-draw" onclick="setPendingResult('draw')">🤝 Draw / No Result</button>
+        <button class="res-btn" id="res-t2" onclick="setPendingResult('t2')">— Team 2 Won</button>
+      </div>
+    </div>
+    <div class="import-status" id="importStatus"></div>
+    <div class="import-preview" id="importPreview">
+      <div class="preview-title">Players found in draft — <span id="previewCount"></span></div>
+      <div id="previewList"></div>
+      <div style="margin-top:.9rem" class="btn-row">
+        <button class="btn btn-sm" onclick="applyMatch()">✅ Apply to Season</button>
+        <span style="font-size:.8rem;color:var(--muted)" id="applyNote"></span>
+      </div>
+    </div>
+  </div>
+  <div class="subsection">Match History</div>
+  <div id="matchLog" class="match-log"><div class="empty-state">No matches scored yet.</div></div>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="screen-leaderboard" class="screen">
+  <div class="section-title">🏆 Season Leaderboard</div>
+  <div id="leaderboardContent"><div class="empty-state">Complete the draft first.</div></div>
+</div>
+
+<!-- SETTINGS -->
+<div id="screen-settings" class="screen">
+  <div class="section-title">⚙️ Settings</div>
+
+  <!-- Import Squads -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">📋 Import Squads</div>
+    <div style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
+      Type a team name and Claude will search for their current squad automatically. Does <strong style="color:var(--text)">not</strong> affect existing picks or scores.
+    </div>
+
+    <!-- IPL squad importer — visible in IPL mode -->
+    <div id="iplSquadImporter">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem">Type an IPL team name to import their squad:</div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
+        <input type="text" id="iplSquadTeam" placeholder="e.g. Chennai Super Kings, Mumbai Indians…"
+          style="flex:1;min-width:200px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem"
+          onkeydown="if(event.key==='Enter')importIPLSquad()">
+        <button class="btn btn-sm" onclick="importIPLSquad()" id="iplSquadBtn">🏏 Import Team</button>
+        <button class="btn btn-sm" onclick="importAllIPLSquads()" id="iplAllBtn" style="background:rgba(0,200,83,.15);border:1px solid var(--green)">🏏 Import All 10 Teams</button>
+      </div>
+      <div id="iplSquadStatus" style="font-size:.82rem;min-height:1.2rem"></div>
+    </div>
+
+    <!-- WC squad importer — visible in WC mode -->
+    <div id="wcSquadImporter" style="display:none">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem">Type a nation name to import their World Cup squad:</div>
+      <div style="display:flex;gap:.5rem">
+        <input type="text" id="wcSquadNation" placeholder="e.g. India, Australia, England…"
+          style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem"
+          onkeydown="if(event.key==='Enter')importWCSquad()">
+        <button class="btn btn-sm" onclick="importWCSquad()" id="wcSquadBtn">🌍 Import Nation</button>
+      </div>
+      <div id="wcSquadStatus" style="margin-top:.4rem;font-size:.82rem;min-height:1.2rem"></div>
+    </div>
+    <div id="importSquadsStatus" style="margin-top:.4rem;font-size:.82rem;min-height:1rem"></div>
+  </div>
+
+  <!-- Password / Auth -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">🔐 Access & Password</div>
+    <div style="font-size:.85rem;color:var(--muted);max-width:540px;margin-bottom:.8rem">Change the shared password for this league. Default is <strong style="color:var(--text)">cricket</strong>.</div>
+    <div style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+      <div class="input-group" style="flex:1;min-width:160px">
+        <label>New Password</label>
+        <input type="password" id="newPasswordInput" placeholder="Enter new password">
+      </div>
+      <button class="btn btn-sm" onclick="changePassword()">🔐 Update Password</button>
+      <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="logout()">🚪 Log Out</button>
+    </div>
+    <div id="passwordStatus" style="margin-top:.5rem;font-size:.82rem;min-height:1rem"></div>
+  </div>
+
+  <!-- Mode Info -->
+  <div class="card" style="margin-bottom:1.5rem;border-color:rgba(0,200,83,.25)">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">🌍 World Cup Mode</div>
+    <div style="font-size:.85rem;color:var(--muted);max-width:540px;margin-bottom:.8rem">
+      Switch to World Cup mode using the toggle in the header. In World Cup mode, <strong style="color:var(--text)">foreign player limits are removed</strong> — all players are equal. 
+      The squad structure works the same: 1 player per nation. Use the squad import below to load World Cup team squads.
+    </div>
+    <div style="font-size:.82rem;color:var(--muted)">
+      To set up a World Cup league: (1) Reset everything, (2) Switch to World Cup mode, (3) Import WC squads via the squad importer with each nation as a "team_key", (4) Start drafting.
+    </div>
+  </div>
+
+  <!-- Reset Everything -->
+  <div class="card" style="border-color:rgba(255,23,68,.3);background:rgba(255,23,68,.04)">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--red);margin-bottom:.4rem">🗑️ Reset Everything</div>
+        <div style="font-size:.85rem;color:var(--muted);max-width:540px">
+          Permanently wipes <strong style="color:var(--text)">all data</strong> from Supabase — participants, picks, scores, match history, swaps, and settings. Use this to clear test data before the real season, or to start a fresh league.
+        </div>
+        <div style="margin-top:.5rem;font-size:.8rem;color:var(--red)">⚠️ This cannot be undone.</div>
+        <div id="resetStatus" style="margin-top:.6rem;font-size:.82rem;min-height:1rem"></div>
+      </div>
+      <button class="btn" onclick="resetEverything()" id="resetBtn"
+        style="background:var(--red);white-space:nowrap;align-self:center;color:#fff">
+        🗑️ Reset Everything
+      </button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">⚡ Cricket Fantasy</div>
+    <div class="login-tagline">Pick Smart. Score Big.</div>
+    <input class="login-input" id="loginInput" type="password" placeholder="Enter password"
+      onkeydown="if(event.key==='Enter')attemptLogin()">
+    <button class="login-btn" onclick="attemptLogin()">Enter →</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- PARTICIPANT DETAIL MODAL -->
+<div class="modal-overlay" id="detailModal" onclick="closeDetailModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">—</span>
+      <button class="modal-close" onclick="closeDetailModal()">✕</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// SUPABASE CONFIG
+// ═══════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://oecyxuygrhtdnypmunae.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lY3l4dXlncmh0ZG55cG11bmFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzg5OTYsImV4cCI6MjA4Njk1NDk5Nn0.bHzTsY59yXshCZ_VSGK1W7iVzhn3GJQcBfby9XWSt80';
+// Anthropic API key is stored securely in Netlify environment variables.
+// All AI calls go through /.netlify/functions/anthropic (server-side proxy).
+
+async function sb(method, table, body=null, params='', extraHeaders={}) {
+  const url = `${SUPABASE_URL}/rest/v1/${table}${params}`;
+  const opts = {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+      ...extraHeaders
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`${method} ${table}: ${err}`);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// Convenience wrappers
+const dbGet = (table, params='') => sb('GET', table, null, params);
+const dbPost = (table, body) => sb('POST', table, body);
+const dbPatch = (table, body, params) => sb('PATCH', table, body, params);
+const dbDelete = (table, params) => sb('DELETE', table, null, params);
+
+// ═══════════════════════════════════════════════════════
+// IPL 2026 SQUADS — loaded from Supabase, seeded on first run
+// ═══════════════════════════════════════════════════════
+// Fallback seed data used to populate Supabase if squads table is empty
+const SQUAD_SEED = [
+  {team_key:'CSK',team_name:'Chennai Super Kings',player_name:'MS Dhoni',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Ruturaj Gaikwad',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Sanju Samson',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Ayush Mhatre',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Dewald Brevis',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Shivam Dube',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Urvil Patel',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Noor Ahmad',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Nathan Ellis',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Shreyas Gopal',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Khaleel Ahmed',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Ramakrishna Ghosh',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Mukesh Choudhary',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Jamie Overton',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Gurjapneet Singh',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Anshul Kamboj',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Prashant Veer',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Kartik Sharma',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Rahul Chahar',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Akeal Hosein',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Matt Henry',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Matthew Short',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Sarfaraz Khan',is_foreign:false},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Zak Foulkes',is_foreign:true},{team_key:'CSK',team_name:'Chennai Super Kings',player_name:'Aman Khan',is_foreign:false},
+  {team_key:'DC',team_name:'Delhi Capitals',player_name:'KL Rahul',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Axar Patel',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Kuldeep Yadav',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Mitchell Starc',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Tristan Stubbs',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Abhishek Porel',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Karun Nair',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Nitish Rana',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Ashutosh Sharma',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'T Natarajan',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Mukesh Kumar',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Sameer Rizvi',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Vipraj Nigam',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Tripurana Vijay',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Dushmantha Chameera',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Madhav Tiwari',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Ajay Mandal',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Auqib Nabi Dar',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Pathum Nissanka',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'David Miller',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Ben Duckett',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Lungi Ngidi',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Kyle Jamieson',is_foreign:true},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Prithvi Shaw',is_foreign:false},{team_key:'DC',team_name:'Delhi Capitals',player_name:'Sahil Parikh',is_foreign:false},
+  {team_key:'GT',team_name:'Gujarat Titans',player_name:'Shubman Gill',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Sai Sudharsan',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Rashid Khan',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Jos Buttler',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Glenn Phillips',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Rahul Tewatia',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Shahrukh Khan',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Kagiso Rabada',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Mohammed Siraj',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Washington Sundar',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Prasidh Krishna',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'R Sai Kishore',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Nishant Sindhu',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Kumar Kushagra',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Anuj Rawat',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Manav Suthar',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Jayant Yadav',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Gurnoor Brar',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Ishant Sharma',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Arshad Khan',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Jason Holder',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Tom Banton',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Ashok Sharma',is_foreign:false},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Luke Wood',is_foreign:true},{team_key:'GT',team_name:'Gujarat Titans',player_name:'Prithvi Raj',is_foreign:false},
+  {team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Ajinkya Rahane',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Sunil Narine',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Varun Chakravarthy',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Rinku Singh',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Angkrish Raghuvanshi',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Rovman Powell',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Ramandeep Singh',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Harshit Rana',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Vaibhav Arora',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Umran Malik',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Anukul Roy',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Manish Pandey',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Cameron Green',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Matheesha Pathirana',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Finn Allen',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Rachin Ravindra',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Tim Seifert',is_foreign:true},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Akash Deep',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Rahul Tripathi',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Tejasvi Singh',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Daksh Kamra',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Sarthak Ranjan',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Prashant Solanki',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Kartik Tyagi',is_foreign:false},{team_key:'KKR',team_name:'Kolkata Knight Riders',player_name:'Mustafizur Rahman',is_foreign:true},
+  {team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Rishabh Pant',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Aiden Markram',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Mitchell Marsh',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Nicholas Pooran',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Ayush Badoni',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Abdul Samad',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Mayank Yadav',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Mohammed Shami',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Avesh Khan',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Shahbaz Ahmed',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Mohsin Khan',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Digvesh Rathi',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Arshin Kulkarni',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Himmat Singh',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Manimaran Siddharth',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Matthew Breetzke',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Akash Singh',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Arjun Tendulkar',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Wanindu Hasaranga',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Josh Inglis',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Anrich Nortje',is_foreign:true},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Mukul Choudhary',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Akshat Raghuwanshi',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Naman Tiwari',is_foreign:false},{team_key:'LSG',team_name:'Lucknow Super Giants',player_name:'Prince Yadav',is_foreign:false},
+  {team_key:'MI',team_name:'Mumbai Indians',player_name:'Rohit Sharma',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Suryakumar Yadav',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Hardik Pandya',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Jasprit Bumrah',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Tilak Varma',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Naman Dhir',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Raj Angad Bawa',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Robin Minz',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Ryan Rickelton',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Quinton de Kock',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Shardul Thakur',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Sherfane Rutherford',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Corbin Bosch',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Mitchell Santner',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Will Jacks',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Atharva Ankolekar',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Mayank Markande',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Allah Ghazanfar',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Raghu Sharma',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Ashwani Kumar',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Deepak Chahar',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Trent Boult',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Romario Shepherd',is_foreign:true},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Danish Malewar',is_foreign:false},{team_key:'MI',team_name:'Mumbai Indians',player_name:'Bevon Jacobs',is_foreign:true},
+  {team_key:'PBKS',team_name:'Punjab Kings',player_name:'Shreyas Iyer',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Priyansh Arya',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Prabhsimran Singh',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Nehal Wadhera',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Shashank Singh',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Arshdeep Singh',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Yuzvendra Chahal',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Marco Jansen',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Marcus Stoinis',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Azmatullah Omarzai',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Lockie Ferguson',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Harpreet Brar',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Vyshak Vijaykumar',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Yash Thakur',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Cooper Connolly',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Ben Dwarshuis',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Mitchell Owen',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Vishnu Vinod',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Harnoor Pannu',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Musheer Khan',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Pyla Avinash',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Suryansh Shedge',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Xavier Bartlett',is_foreign:true},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Pravin Dubey',is_foreign:false},{team_key:'PBKS',team_name:'Punjab Kings',player_name:'Vishal Nishad',is_foreign:false},
+  {team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Virat Kohli',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Rajat Patidar',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Devdutt Padikkal',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Phil Salt',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Jitesh Sharma',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Krunal Pandya',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Tim David',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Venkatesh Iyer',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Jacob Bethell',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Josh Hazlewood',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Yash Dayal',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Bhuvneshwar Kumar',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Nuwan Thushara',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Rasikh Salam',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Swapnil Singh',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Suyash Sharma',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Satwik Deswal',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Mangesh Yadav',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Jordan Cox',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Vicky Ostwal',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Kanishk Chouhan',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Vihaan Malhotra',is_foreign:false},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Jacob Duffy',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Romario Shepherd',is_foreign:true},{team_key:'RCB',team_name:'Royal Challengers Bengaluru',player_name:'Abhinandan Singh',is_foreign:false},
+  {team_key:'RR',team_name:'Rajasthan Royals',player_name:'Yashasvi Jaiswal',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Vaibhav Suryavanshi',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Riyan Parag',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Ravindra Jadeja',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Sam Curran',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Dhruv Jurel',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Shimron Hetmyer',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Jofra Archer',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Ravi Bishnoi',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Sandeep Sharma',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Nandre Burger',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Kwena Maphaka',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Shubham Dubey',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Donovan Ferreira',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Yudhvir Singh Charak',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Lhuan-dre Pretorius',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Ravi Singh',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Brijesh Sharma',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Adam Milne',is_foreign:true},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Sushant Mishra',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Aman Rao Perala',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Vignesh Puthur',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Yash Raj Punja',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Kuldeep Sen',is_foreign:false},{team_key:'RR',team_name:'Rajasthan Royals',player_name:'Tushar Deshpande',is_foreign:false},
+  {team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Pat Cummins',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Travis Head',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Heinrich Klaasen',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Abhishek Sharma',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Nitish Kumar Reddy',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Ishan Kishan',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Aniket Verma',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Brydon Carse',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Harshal Patel',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Kamindu Mendis',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Liam Livingstone',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Jaydev Unadkat',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Shivam Mavi',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Jack Edwards',is_foreign:true},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Harsh Dubey',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Salil Arora',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Smaran Ravichandran',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Zeeshan Ansari',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Amit Kumar',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Eshan Malinga',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Shivang Kumar',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Praful Hinge',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Onkar Tarmale',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Sakib Hussain',is_foreign:false},{team_key:'SRH',team_name:'Sunrisers Hyderabad',player_name:'Simarjeet Singh',is_foreign:false}
+];
+
+// IPL_TEAMS is built dynamically from Supabase squads on load
+let IPL_TEAMS = {};
+let TEAM_KEYS = [];
+
+function buildIPLTeamsFromRows(rows) {
+  const teams = {};
+  rows.forEach(r => {
+    if (!teams[r.team_key]) teams[r.team_key] = { name: r.team_name, players: [] };
+    teams[r.team_key].players.push({ name: r.player_name, foreign: r.is_foreign });
+  });
+  return teams;
+}
+
+const MAX_PLAYER_DRAFTS = 2;
+const MAX_FOREIGN_PER_FANTASY = 4;
+const MAX_TEAM_DRAFTS = 2;
+const TEAM_WIN_PTS = 30;
+const TEAM_DRAW_PTS = 15;
+
+// ═══════════════════════════════════════════════════════
+// LOCAL STATE (populated from DB on load)
+// ═══════════════════════════════════════════════════════
+let state = {
+  participants: [],   // [{id, name, picks:{CSK:'Player',...}, pickHistory:{CSK:['Old'...]}, teamPick:'MI'}]
+  seasonScores: {},   // player_name -> {runs,wickets,catches,runouts,stumpings,motm}
+  teamWins: {},       // team_key -> {wins, draws}
+  matchHistory: [],
+  swapHistory: [],
+  activeParticipant: null,
+  activeRedraftParticipant: null,
+  pendingImport: null,
+  pendingResult: null,
+  mode: 'ipl',        // 'ipl' | 'worldcup'
+};
+
+// ═══════════════════════════════════════════════════════
+// SYNC STATUS UI
+// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════════════════
+const SESSION_KEY = 'cfa_auth';
+
+function isLoggedIn() {
+  return sessionStorage.getItem(SESSION_KEY) === 'true';
+}
+
+async function attemptLogin() {
+  const input = document.getElementById('loginInput');
+  const errEl = document.getElementById('loginErr');
+  const password = input.value.trim();
+  if (!password) return;
+
+  errEl.textContent = '';
+  try {
+    const settings = await dbGet('settings', '?id=eq.global');
+    const storedPw = (settings||[])[0]?.password || 'cricket';
+    if (password === storedPw) {
+      sessionStorage.setItem(SESSION_KEY, 'true');
+      document.getElementById('loginOverlay').style.display = 'none';
+      loadAll();
+    } else {
+      input.classList.add('error');
+      errEl.textContent = 'Incorrect password. Try again.';
+      input.value = '';
+      setTimeout(() => input.classList.remove('error'), 400);
+    }
+  } catch(e) {
+    errEl.textContent = 'Connection error. Please try again.';
+  }
+}
+
+function checkLoginAndBoot() {
+  if (isLoggedIn()) {
+    document.getElementById('loginOverlay').style.display = 'none';
+    loadAll();
+  }
+  // else overlay stays visible, loadAll is called after successful login
+}
+
+// ═══════════════════════════════════════════════════════
+// MODE (IPL / WORLD CUP)
+// ═══════════════════════════════════════════════════════
+const MOTM_PTS = 5;
+
+function setMode(mode, save=true) {
+  state.mode = mode;
+  document.getElementById('modeIPL').classList.toggle('active', mode==='ipl');
+  document.getElementById('modeWC').classList.toggle('active', mode==='worldcup');
+  const isWC = mode === 'worldcup';
+  // Update tagline
+  document.getElementById('appTagline').textContent = isWC
+    ? 'Pick Smart. Score Big. Own the World Cup.' 
+    : 'Pick Smart. Score Big. Rule the Season.';
+  // Show/hide foreign limit info
+  const foreignInfo = document.getElementById('foreignInfoSpan');
+  if (foreignInfo) foreignInfo.style.display = isWC ? 'none' : '';
+  const foreignKey = document.getElementById('foreignKeySpan');
+  if (foreignKey) foreignKey.style.display = isWC ? 'none' : '';
+  const wcImporter = document.getElementById('wcSquadImporter');
+  if (wcImporter) wcImporter.style.display = isWC ? 'block' : 'none';
+  const iplImporter = document.getElementById('iplSquadImporter');
+  if (iplImporter) iplImporter.style.display = isWC ? 'none' : 'block';
+  if (save) {
+    dbPatch('settings', { mode }, '?id=eq.global').catch(()=>{});
+    // Full reload to get mode-specific participants, picks, scores, matches
+    loadAll();
+  } else {
+    renderAll();
+  }
+}
+
+function setSyncStatus(state, msg) {
+  const dot = document.getElementById('syncDot');
+  const text = document.getElementById('syncText');
+  dot.className = `sync-dot ${state}`;
+  text.textContent = msg;
+}
+
+// ═══════════════════════════════════════════════════════
+// LOAD ALL DATA FROM SUPABASE
+// ═══════════════════════════════════════════════════════
+async function loadAll() {
+  setSyncStatus('loading', 'Syncing…');
+  try {
+    // Load squads filtered by mode — seed IPL from SQUAD_SEED if empty
+    const squadMode = state.mode || 'ipl';
+    let squadRows = await dbGet('squads', `?mode=eq.${squadMode}&order=team_key.asc,player_name.asc`);
+    if ((!squadRows || squadRows.length === 0) && squadMode === 'ipl') {
+      // First run — seed IPL squads
+      const seeded = SQUAD_SEED.map(r => ({...r, mode:'ipl'}));
+      for (let i = 0; i < seeded.length; i += 50) {
+        await sb('POST', 'squads', seeded.slice(i, i + 50), '', { 'Prefer': 'return=minimal' });
+      }
+      squadRows = seeded;
+    }
+    IPL_TEAMS = buildIPLTeamsFromRows(squadRows||[]);
+    TEAM_KEYS.length = 0;
+    Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
+    const [settingsRes] = await Promise.all([
+      dbGet('settings', '?id=eq.global').catch(()=>[]),
+    ]);
+    const savedMode = (settingsRes||[])[0]?.mode || 'ipl';
+    if (savedMode !== state.mode) setMode(savedMode, false);
+    const m = state.mode;
+
+    const [participants, picks, scores, matches, swaps] = await Promise.all([
+      dbGet('participants', `?mode=eq.${m}&order=created_at.asc`),
+      dbGet('picks', `?mode=eq.${m}&order=created_at.asc`),
+      dbGet('season_scores', `?mode=eq.${m}`),
+      dbGet('match_history', `?mode=eq.${m}&order=created_at.asc`),
+      dbGet('swap_history', `?mode=eq.${m}&order=created_at.asc`),
+    ]);
+
+    state.participants = (participants||[]).map(p => {
+      const myPicks = (picks||[]).filter(pk => pk.participant_id === p.id);
+      const activePicks = {}, pickHistory = {};
+      myPicks.forEach(pk => {
+        if (pk.is_active) activePicks[pk.team_key] = pk.player_name;
+        else {
+          if (!pickHistory[pk.team_key]) pickHistory[pk.team_key] = [];
+          pickHistory[pk.team_key].push(pk.player_name);
+        }
+      });
+      return { id: p.id, name: p.name, picks: activePicks, pickHistory, teamPick: p.team_pick||null };
+    });
+
+    state.seasonScores = {};
+    (scores||[]).forEach(s => {
+      state.seasonScores[s.player_name] = { runs:s.runs, wickets:s.wickets, catches:s.catches, runouts:s.runouts||0, stumpings:s.stumpings||0, motm:s.motm||0 };
+    });
+
+    state.matchHistory = (matches||[]).map(m => ({
+      id:m.id, title:m.title, date:m.match_date,
+      result:m.result, t1name:m.t1_name, t2name:m.t2_name, updates:m.updates||[]
+    }));
+
+    // Recompute teamWins from full match history
+    state.teamWins = {};
+    state.matchHistory.forEach(m => applyMatchResultToTeamWins(m, true));
+
+    state.swapHistory = (swaps||[]).map(s => ({
+      id:s.id, participantName:s.participant_name, teamKey:s.team_key,
+      teamName:s.team_name, oldPlayer:s.old_player, newPlayer:s.new_player,
+      frozenPts:s.frozen_pts, date:s.swap_date
+    }));
+
+    setSyncStatus('ok', 'Synced');
+    renderAll();
+  } catch(e) {
+    console.error(e);
+    setSyncStatus('err', 'Sync failed — check console');
+  }
+}
+
+function renderAll() {
+  renderParticipantList();
+  renderDraftGrid();
+  renderPicksSummary();
+  renderRedraftScreen();
+  renderMatchLog();
+  renderLeaderboard();
+}
+
+// Auto-refresh every 30 seconds so all viewers stay in sync
+setInterval(loadAll, 30000);
+
+// ═══════════════════════════════════════════════════════
+// DRAFT COUNTS (from local state)
+// ═══════════════════════════════════════════════════════
+function getDraftCounts() {
+  const pc = {}, tc = {};
+  state.participants.forEach(p => {
+    TEAM_KEYS.forEach(k => {
+      if (p.picks[k]) pc[p.picks[k]] = (pc[p.picks[k]]||0)+1;
+      (p.pickHistory?.[k]||[]).forEach(name => { pc[name] = (pc[name]||0)+1; });
+    });
+    if (p.teamPick) tc[p.teamPick] = (tc[p.teamPick]||0)+1;
+  });
+  return { pc, tc };
+}
+
+// Count foreign players in a participant's current active picks
+function countForeignPicks(participant, excludeTeamKey=null) {
+  if (state.mode === 'worldcup') return 0; // no foreign limit in WC mode
+  if (!participant || !participant.picks) return 0;
+  let count = 0;
+  TEAM_KEYS.forEach(k => {
+    if (k === excludeTeamKey) return;
+    const pick = participant.picks[k];
+    if (!pick) return;
+    const playerObj = (IPL_TEAMS[k]?.players||[]).find(p => p.name === pick);
+    if (playerObj?.foreign) count++;
+  });
+  return count;
+}
+
+
+async function addParticipant() {
+  if (state.participants.length >= 16) { alert('Max 16 participants!'); return; }
+  const name = document.getElementById('newPName').value.trim();
+  if (!name) return;
+  if (state.participants.find(p => p.name.toLowerCase()===name.toLowerCase())) { alert('Name already exists'); return; }
+  try {
+    setSyncStatus('loading','Saving…');
+    const [row] = await dbPost('participants', { name, mode: state.mode });
+    state.participants.push({ id: row.id, name, winPick: null, picks: {}, pickHistory: {} });
+    document.getElementById('newPName').value = '';
+    setSyncStatus('ok','Synced');
+    renderParticipantList();
+    setActiveParticipant(state.participants.length-1);
+  } catch(e) { setSyncStatus('err','Save failed'); alert(e.message); }
+}
+
+function renderParticipantList() {
+  document.getElementById('pCount').textContent = `${state.participants.length}/16`;
+  const el = document.getElementById('participantList');
+  if (!state.participants.length) { el.innerHTML='<div class="empty-state" style="padding:.5rem">No participants yet.</div>'; return; }
+  el.innerHTML = state.participants.map((p,i) => {
+    const pickCount = TEAM_KEYS.filter(k=>p.picks[k]).length;
+    const complete = pickCount===10;
+    const active = state.activeParticipant===i;
+    return `<div class="p-item ${active?'active':''} ${complete?'complete':''}" onclick="setActiveParticipant(${i})">
+      <span class="p-name">${p.name}</span>
+      <span class="p-progress">${pickCount}/10</span>
+    </div>`;
+  }).join('');
+}
+
+function setActiveParticipant(i) {
+  state.activeParticipant = i;
+  renderParticipantList();
+  renderDraftGrid();
+  renderPicksSummary();
+  document.getElementById('draftActiveLabel').innerHTML =
+    `Drafting for <strong style="color:var(--green)">${state.participants[i].name}</strong>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// DRAFT GRID
+// ═══════════════════════════════════════════════════════
+function renderDraftGrid() {
+  const {pc} = getDraftCounts();
+  const ai = state.activeParticipant;
+  const active = ai!==null ? state.participants[ai] : null;
+  const foreignCount = active ? countForeignPicks(active) : 0;
+
+  if (TEAM_KEYS.length === 0) {
+    document.getElementById('teamDraftGrid').innerHTML = `
+      <div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--muted)">
+        <div style="font-size:2rem;margin-bottom:.8rem">🏏</div>
+        <div style="font-size:1rem;font-weight:600;color:var(--text);margin-bottom:.4rem">
+          No ${state.mode === 'worldcup' ? 'World Cup' : 'IPL'} squads loaded yet
+        </div>
+        <div style="font-size:.85rem;margin-bottom:1rem">
+          Go to <strong>Settings → Import Squads</strong> to load the ${state.mode === 'worldcup' ? 'World Cup nation' : 'IPL team'} squads first.
+        </div>
+        <button class="btn btn-sm" onclick="showScreen('settings',document.querySelector('[onclick*=settings]'))">⚙️ Go to Settings</button>
+      </div>`;
+    if (active) {
+      const existing = document.getElementById('foreignCounter');
+      if (existing) existing.remove();
+    }
+    return;
+  }
+
+  document.getElementById('teamDraftGrid').innerHTML = TEAM_KEYS.map(key => {
+    const team = IPL_TEAMS[key];
+    const myPickName = active ? active.picks[key] : null;
+    // Foreign count excluding this slot (so we can show if picking this slot's foreign would breach limit)
+    const foreignExcludingSlot = active ? countForeignPicks(active, key) : 0;
+
+    const rows = team.players.map(playerObj => {
+      const {name: player, foreign} = playerObj;
+      const count = pc[player]||0;
+      const full = count>=MAX_PLAYER_DRAFTS;
+      const isMe = myPickName===player;
+      const wouldBreachForeign = state.mode !== 'worldcup' && foreign && !isMe && foreignExcludingSlot >= MAX_FOREIGN_PER_FANTASY;
+      const disabled = !active || (full&&!isMe) || wouldBreachForeign;
+      const flag = foreign ? '🌍' : '🇮🇳';
+      const foreignTag = foreign
+        ? `<span style="font-size:.65rem;background:rgba(255,152,0,.15);color:#ff9800;border-radius:3px;padding:.05rem .3rem">OVS</span>`
+        : '';
+      return `<div class="player-opt ${disabled?'disabled':''} ${isMe?'selected-by-me':''}"
+          onclick="${disabled?'':`togglePlayerPick('${key}','${player.replace(/'/g,"\\'")}')` }" title="${wouldBreachForeign?'Foreign player limit reached (max 4)':''}">
+        <span>${flag} ${player} ${foreignTag}</span>
+        <span style="display:flex;align-items:center;gap:4px">
+          <span class="draft-pips">${[0,1].map(j=>`<span class="mini-pip ${j<count?'filled':''}"></span>`).join('')}</span>
+          ${isMe?'<span style="font-size:.9rem">✓</span>':''}
+        </span>
+      </div>`;
+    }).join('');
+
+    return `<div class="team-draft-card">
+      <h4>${team.name} <span class="team-abbr">${key}</span></h4>
+      <div class="player-pick-list">${rows}</div>
+    </div>`;
+  }).join('');
+
+  // Team pick card — appended after all player cards
+  const {tc} = getDraftCounts();
+  const myTeamPick = active ? active.teamPick : null;
+  const teamCardRows = TEAM_KEYS.map(key => {
+    const count = tc[key]||0;
+    const full = count >= MAX_TEAM_DRAFTS;
+    const isMe = myTeamPick === key;
+    const disabled = !active || (full && !isMe);
+    const wins = state.teamWins[key]?.wins||0;
+    const draws = state.teamWins[key]?.draws||0;
+    const earnedPts = wins*TEAM_WIN_PTS + draws*TEAM_DRAW_PTS;
+    return `<div class="player-opt ${disabled?'disabled':''} ${isMe?'selected-by-me':''}"
+        onclick="${disabled?'':`toggleTeamPick('${key}')`}" title="${full&&!isMe?'Team already drafted '+MAX_TEAM_DRAFTS+' times':''}">
+      <span>🏏 ${IPL_TEAMS[key].name} <span style="font-size:.65rem;background:rgba(0,200,83,.12);color:var(--green);border-radius:3px;padding:.05rem .3rem">${key}</span></span>
+      <span style="display:flex;align-items:center;gap:4px">
+        <span style="font-size:.7rem;color:var(--muted)">${earnedPts?earnedPts+'pts':''}</span>
+        <span class="draft-pips">${[0,1].map(j=>`<span class="mini-pip ${j<count?'filled':''}" style="${isMe&&j===0?'background:#FFD600':''}""></span>`).join('')}</span>
+        ${isMe?'<span style="font-size:.9rem">✓</span>':''}
+      </span>
+    </div>`;
+  }).join('');
+
+  // Append team card to grid — IPL mode only
+  if (state.mode === 'worldcup') return;
+  const teamCard = `<div class="team-draft-card" style="border-color:rgba(255,214,0,.3);background:rgba(255,214,0,.04)">
+    <h4 style="color:var(--gold)">🏆 Draft a Team <span class="team-abbr" style="background:rgba(255,214,0,.15);color:var(--gold)">+30 pts/win</span></h4>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:.5rem">Each IPL team win = 30 pts · Draw = 15 pts · Max 2 drafts per team</div>
+    <div class="player-pick-list">${teamCardRows}</div>
+  </div>`;
+  document.getElementById('teamDraftGrid').innerHTML += teamCard;
+
+  // Foreign counter badge for active participant
+  if (active) {
+    const existing = document.getElementById('foreignCounter');
+    const badge = `<div id="foreignCounter" style="margin-bottom:.8rem;display:flex;align-items:center;gap:.6rem">
+      <span style="font-size:.82rem;color:var(--muted)">Foreign players in your team:</span>
+      <span style="font-weight:600;color:${foreignCount>=MAX_FOREIGN_PER_FANTASY?'#ff9800':'var(--green)'}">
+        ${foreignCount} / ${MAX_FOREIGN_PER_FANTASY}
+      </span>
+      ${foreignCount>=MAX_FOREIGN_PER_FANTASY?'<span style="font-size:.75rem;color:#ff9800">⚠ Limit reached</span>':''}
+    </div>`;
+    if (existing) existing.outerHTML = badge;
+    else document.getElementById('draftActiveLabel').insertAdjacentHTML('afterend', badge);
+  } else {
+    const existing = document.getElementById('foreignCounter');
+    if (existing) existing.remove();
+  }
+}
+
+
+async function togglePlayerPick(teamKey, player) {
+  const ai = state.activeParticipant;
+  if (ai===null) return;
+  const p = state.participants[ai];
+  const {pc} = getDraftCounts();
+  const isDeselect = p.picks[teamKey]===player;
+
+  if (!isDeselect && (pc[player]||0)>=MAX_PLAYER_DRAFTS) { alert(`${player} is already drafted ${MAX_PLAYER_DRAFTS} times!`); return; }
+
+  // Check foreign player limit (exclude this slot since it's being replaced)
+  if (!isDeselect && state.mode !== 'worldcup') {
+    const playerObj = (IPL_TEAMS[teamKey]?.players||[]).find(pl => pl.name === player);
+    if (playerObj?.foreign && countForeignPicks(p, teamKey) >= MAX_FOREIGN_PER_FANTASY) {
+      alert(`Max ${MAX_FOREIGN_PER_FANTASY} foreign players per fantasy team! Choose an Indian player instead.`);
+      return;
+    }
+  }
+
+  try {
+    setSyncStatus('loading','Saving…');
+    if (isDeselect) {
+      await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
+      delete p.picks[teamKey];
+    } else {
+      if (p.picks[teamKey]) {
+        await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
+      }
+      await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: player, is_active: true, mode: state.mode });
+      p.picks[teamKey] = player;
+    }
+    setSyncStatus('ok','Synced');
+  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); return; }
+
+  // Only re-render if this participant is still active (user may have switched)
+  if (state.activeParticipant === ai) {
+    renderDraftGrid();
+    renderPicksSummary();
+    renderParticipantList();
+  } else {
+    // Still update participant list progress counts
+    renderParticipantList();
+  }
+}
+
+async function toggleTeamPick(teamKey) {
+  const ai = state.activeParticipant;
+  if (ai===null) return;
+  const p = state.participants[ai];
+  const {tc} = getDraftCounts();
+  const isDeselect = p.teamPick === teamKey;
+
+  if (!isDeselect && (tc[teamKey]||0) >= MAX_TEAM_DRAFTS) {
+    alert(`${IPL_TEAMS[teamKey].name} has already been drafted ${MAX_TEAM_DRAFTS} times!`); return;
+  }
+
+  try {
+    setSyncStatus('loading','Saving…');
+    const newVal = isDeselect ? null : teamKey;
+    await dbPatch('participants', { team_pick: newVal }, `?id=eq.${p.id}`);
+    p.teamPick = newVal;
+    setSyncStatus('ok','Synced');
+  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); return; }
+
+  if (state.activeParticipant === ai) {
+    renderDraftGrid();
+    renderPicksSummary();
+    renderParticipantList();
+  } else {
+    renderParticipantList();
+  }
+}
+
+// Apply a match result to teamWins state (additive or subtractive)
+function applyMatchResultToTeamWins(m, add=true) {
+  const delta = add ? 1 : -1;
+  if (!m.t1name || !m.t2name) return;
+  // Find team keys from names
+  const findKey = name => TEAM_KEYS.find(k => IPL_TEAMS[k]?.name?.toLowerCase() === name?.toLowerCase());
+  const t1key = findKey(m.t1name);
+  const t2key = findKey(m.t2name);
+  if (!t1key || !t2key) return; // team name not found in TEAM_KEYS — skip silently
+  if (!state.teamWins[t1key]) state.teamWins[t1key] = {wins:0,draws:0};
+  if (!state.teamWins[t2key]) state.teamWins[t2key] = {wins:0,draws:0};
+  if (m.result === 'draw') {
+    if (t1key) state.teamWins[t1key].draws = Math.max(0, (state.teamWins[t1key]?.draws||0)+delta);
+    if (t2key) state.teamWins[t2key].draws = Math.max(0, (state.teamWins[t2key]?.draws||0)+delta);
+  } else if (m.result === 't1' && t1key) {
+    state.teamWins[t1key].wins = Math.max(0, (state.teamWins[t1key]?.wins||0)+delta);
+  } else if (m.result === 't2' && t2key) {
+    state.teamWins[t2key].wins = Math.max(0, (state.teamWins[t2key]?.wins||0)+delta);
+  }
+}
+
+function savePicks() {
+  const ai = state.activeParticipant;
+  if (ai===null) return;
+  const p = state.participants[ai];
+  const done = TEAM_KEYS.filter(k=>p.picks[k]).length;
+  if (done<10) { alert(`${p.name} still needs ${10-done} more player pick(s).`); return; }
+  alert(`✓ All 10 picks saved for ${p.name}!`);
+}
+
+function renderPicksSummary() {
+  const ai = state.activeParticipant;
+  const el = document.getElementById('picksSummary');
+  if (!el) return;
+  if (!state.participants[ai]) { el.innerHTML = ''; return; }
+  if (ai===null) { el.style.display='none'; return; }
+  el.style.display='block';
+  const p = state.participants[ai];
+  const foreignCount = countForeignPicks(p);
+
+  // Update both the name span and foreign count together
+  const nameEl = document.getElementById('picksSummaryName');
+  if (nameEl) nameEl.textContent = p.name;
+
+  const foreignEl = document.getElementById('picksSummaryForeign');
+  if (foreignEl) {
+    foreignEl.textContent = `🌍 ${foreignCount}/${MAX_FOREIGN_PER_FANTASY} foreign`;
+    foreignEl.style.color = foreignCount >= MAX_FOREIGN_PER_FANTASY ? '#ff9800' : 'var(--muted)';
+  }
+
+  const rows = TEAM_KEYS.map(k => {
+    const pick = p.picks[k];
+    const players = IPL_TEAMS[k]?.players || [];
+    const playerObj = pick ? players.find(pl => pl.name === pick) : null;
+    return `<div class="pick-row">
+      <span class="team-tag">${k}</span>
+      ${pick
+        ? `<span>${playerObj?.foreign ? '🌍' : '🇮🇳'} ${pick}</span>`
+        : `<span class="no-pick">not picked</span>`}
+    </div>`;
+  }).join('');
+
+  const teamRow = `<div class="pick-row" style="border-top:1px solid var(--border);margin-top:.4rem;padding-top:.4rem">
+    <span class="team-tag" style="background:rgba(255,214,0,.12);color:var(--gold)">TEAM</span>
+    ${p.teamPick
+      ? `<span>🏆 ${IPL_TEAMS[p.teamPick]?.name||p.teamPick} <span style="font-size:.7rem;color:var(--muted)">(${p.teamPick})</span></span>`
+      : `<span class="no-pick">no team picked</span>`}
+  </div>`;
+  document.getElementById('picksSummaryRows').innerHTML = rows + teamRow;
+}
+
+// ═══════════════════════════════════════════════════════
+// REDRAFT / SWAP
+// ═══════════════════════════════════════════════════════
+function renderRedraftScreen() {
+  const listEl = document.getElementById('redraftParticipantList');
+  if (!state.participants.length) { listEl.innerHTML='<div class="empty-state" style="padding:.5rem">No participants yet.</div>'; return; }
+  listEl.innerHTML = state.participants.map((p,i) => {
+    const active = state.activeRedraftParticipant===i;
+    return `<div class="p-item ${active?'active':''}" onclick="setActiveRedraft(${i})">
+      <span class="p-name">${p.name}</span>
+    </div>`;
+  }).join('');
+  const grid = document.getElementById('swapSlotGrid');
+  if (state.activeRedraftParticipant!==null) {
+    renderSwapSlots();
+  } else {
+    if (grid) grid.innerHTML = '';
+  }
+  renderSwapHistory();
+}
+
+function setActiveRedraft(i) {
+  state.activeRedraftParticipant = i;
+  document.getElementById('redraftActiveLabel').innerHTML =
+    `Managing picks for <strong style="color:var(--gold)">${state.participants[i].name}</strong>`;
+  renderRedraftScreen();
+}
+
+function renderSwapSlots() {
+  const ai = state.activeRedraftParticipant;
+  if (ai===null) return;
+  const p = state.participants[ai];
+  const {pc} = getDraftCounts();
+
+  document.getElementById('swapSlotGrid').innerHTML = TEAM_KEYS.map(key => {
+    const team = IPL_TEAMS[key];
+    const current = p.picks[key];
+    const history = p.pickHistory?.[key]||[];
+    const frozenPts = history.reduce((sum,name) => {
+      const sc = state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0};
+      return sum + sc.runs + sc.wickets*25 + sc.catches*5 + (sc.runouts||0)*5 + (sc.stumpings||0)*5 + (sc.motm||0)*MOTM_PTS;
+    }, 0);
+    const curSc = current ? (state.seasonScores[current]||{runs:0,wickets:0,catches:0,runouts:0}) : null;
+    const curPts = curSc ? curSc.runs+curSc.wickets*25+curSc.catches*5+(curSc.runouts||0)*5+(curSc.stumpings||0)*5+(curSc.motm||0)*MOTM_PTS : 0;
+
+    const playerOpts = team.players.map(playerObj => {
+      const {name: player, foreign} = playerObj;
+      if (player===current) return '';
+      const count = pc[player]||0;
+      const full = count>=MAX_PLAYER_DRAFTS;
+      // Foreign limit check for swap
+      const foreignLimitReached = foreign && countForeignPicks(p, key) >= MAX_FOREIGN_PER_FANTASY;
+      const disabled2 = full || foreignLimitReached;
+      const flag = foreign ? '🌍' : '🇮🇳';
+      if (foreignLimitReached) return ''; // Hide foreign options entirely when limit reached
+      return `<option value="${player}" ${disabled2?'disabled':''}>${flag} ${player}${full?' (FULL)':count===1?' ·1 left':''}</option>`;
+    }).filter(Boolean).join('');
+
+    const historyRows = history.map(name => {
+      const sc = state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0};
+      const pts = sc.runs+sc.wickets*25+sc.catches*5+(sc.runouts||0)*5;
+      return `<div class="history-player-row"><span>↩ ${name}</span><span>${pts} pts frozen</span></div>`;
+    }).join('');
+
+    return `<div class="swap-slot-card">
+      <h5>${key} <span style="font-size:.7rem;color:var(--muted)">${team.name}</span></h5>
+      ${history.length ? `<div style="margin-bottom:.4rem">${historyRows}</div>` : ''}
+      <div class="current-player-row">
+        <span class="current-player-name">${current||'— not picked —'}</span>
+        <span class="frozen-pts">${current?curPts+' pts':''}</span>
+      </div>
+      ${history.length ? `<div style="font-size:.72rem;color:var(--muted);margin-bottom:.4rem">+ ${frozenPts} frozen pts from prev.</div>` : ''}
+      <div class="swap-select-wrap">
+        <select id="swapSel_${key}">
+          <option value="">— ${current?'swap to':'pick'} player… —</option>
+          ${playerOpts}
+        </select>
+        <button class="btn-swap" onclick="executeSwap(${ai},'${key}')">${current?'Swap':'Pick'}</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Team pick swap card — IPL mode only
+  if (state.mode === 'worldcup') return;
+  const {tc} = getDraftCounts();
+  const myTeam = p.teamPick;
+  const teamOpts = TEAM_KEYS.map(k => {
+    if (k === myTeam) return '';
+    const count = tc[k]||0;
+    const full = count >= MAX_TEAM_DRAFTS;
+    const wins = state.teamWins[k]?.wins||0;
+    const draws = state.teamWins[k]?.draws||0;
+    return `<option value="${k}" ${full?'disabled':''}>${IPL_TEAMS[k].name} (${k})${full?' — FULL':''}  ${wins}W ${draws}D</option>`;
+  }).filter(Boolean).join('');
+
+  const teamWins = myTeam ? (state.teamWins[myTeam]?.wins||0) : 0;
+  const teamDraws = myTeam ? (state.teamWins[myTeam]?.draws||0) : 0;
+  const teamPts = teamWins*TEAM_WIN_PTS + teamDraws*TEAM_DRAW_PTS;
+
+  document.getElementById('swapSlotGrid').innerHTML += `<div class="swap-slot-card" style="border-color:rgba(255,214,0,.3);background:rgba(255,214,0,.04)">
+    <h5 style="color:var(--gold)">🏆 <span style="font-size:.7rem;color:var(--muted)">Team Draft</span></h5>
+    <div class="current-player-row" style="background:rgba(255,214,0,.07);border-color:rgba(255,214,0,.2)">
+      <span class="current-player-name">${myTeam ? IPL_TEAMS[myTeam]?.name+' ('+myTeam+')' : '— not picked —'}</span>
+      <span class="frozen-pts">${myTeam ? teamPts+' pts ('+teamWins+'W '+teamDraws+'D)' : ''}</span>
+    </div>
+    <div class="swap-select-wrap">
+      <select id="swapSel_TEAM">
+        <option value="">— ${myTeam?'swap to':'pick a'} team… —</option>
+        ${teamOpts}
+      </select>
+      <button class="btn-swap" onclick="executeTeamSwap(${ai})">${myTeam?'Swap':'Pick'}</button>
+    </div>
+  </div>`;
+}
+
+async function executeTeamSwap(participantIdx) {
+  const p = state.participants[participantIdx];
+  const newTeam = document.getElementById('swapSel_TEAM')?.value;
+  if (!newTeam) { alert('Select a team.'); return; }
+  const {tc} = getDraftCounts();
+  if ((tc[newTeam]||0) >= MAX_TEAM_DRAFTS) { alert(`${IPL_TEAMS[newTeam].name} is already drafted ${MAX_TEAM_DRAFTS} times!`); return; }
+  try {
+    setSyncStatus('loading','Saving…');
+    await dbPatch('participants', { team_pick: newTeam }, `?id=eq.${p.id}`);
+    p.teamPick = newTeam;
+    setSyncStatus('ok','Synced');
+    renderRedraftScreen();
+    renderLeaderboard();
+  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); alert(e.message); }
+}
+
+async function executeSwap(participantIdx, teamKey) {
+  const p = state.participants[participantIdx];
+  const newPlayer = document.getElementById(`swapSel_${teamKey}`)?.value;
+  if (!newPlayer) { alert('Select a player to swap in.'); return; }
+
+  const {pc} = getDraftCounts();
+  if ((pc[newPlayer]||0)>=MAX_PLAYER_DRAFTS) { alert(`${newPlayer} is already drafted ${MAX_PLAYER_DRAFTS} times!`); return; }
+
+  // Foreign limit check — count foreigners excluding this slot (since old player is being replaced)
+  if (state.mode !== 'worldcup') {
+    const newPlayerObj = (IPL_TEAMS[teamKey]?.players||[]).find(pl => pl.name === newPlayer);
+    if (newPlayerObj?.foreign && countForeignPicks(p, teamKey) >= MAX_FOREIGN_PER_FANTASY) {
+      alert(`Can't swap in ${newPlayer} — ${p.name} already has ${MAX_FOREIGN_PER_FANTASY} foreign players!`);
+      return;
+    }
+  }
+
+  const oldPlayer = p.picks[teamKey];
+  const frozenSc = oldPlayer ? (state.seasonScores[oldPlayer]||{runs:0,wickets:0,catches:0,runouts:0,stumpings:0}) : null;
+  const frozenPts = frozenSc ? frozenSc.runs+frozenSc.wickets*25+frozenSc.catches*5+(frozenSc.runouts||0)*5+(frozenSc.stumpings||0)*5 : 0;
+
+  try {
+    setSyncStatus('loading','Saving swap…');
+
+    // Mark old pick as inactive
+    if (oldPlayer) {
+      await dbPatch('picks', { is_active: false, swapped_at: new Date().toISOString() },
+        `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
+    }
+
+    // Insert new active pick
+    await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: newPlayer, is_active: true, mode: state.mode });
+
+    // Log the swap
+    await dbPost('swap_history', {
+      participant_id: p.id,
+      participant_name: p.name,
+      team_key: teamKey,
+      team_name: IPL_TEAMS[teamKey].name,
+      old_player: oldPlayer||'(none)',
+      new_player: newPlayer,
+      frozen_pts: frozenPts,
+      swap_date: new Date().toLocaleDateString(),
+      mode: state.mode
+    });
+
+    // Ensure new player has score entry
+    if (!state.seasonScores[newPlayer]) {
+      await dbPost('season_scores', { player_name: newPlayer, runs: 0, wickets: 0, catches: 0, mode: state.mode });
+      state.seasonScores[newPlayer] = {runs:0,wickets:0,catches:0};
+    }
+
+    setSyncStatus('ok','Synced');
+
+    // Update local state
+    if (!p.pickHistory) p.pickHistory = {};
+    if (!p.pickHistory[teamKey]) p.pickHistory[teamKey] = [];
+    if (oldPlayer) p.pickHistory[teamKey].push(oldPlayer);
+    p.picks[teamKey] = newPlayer;
+    state.swapHistory.push({ participantName:p.name, teamKey, teamName:IPL_TEAMS[teamKey].name, oldPlayer:oldPlayer||'(none)', newPlayer, frozenPts, date:new Date().toLocaleDateString() });
+
+    renderRedraftScreen();
+    renderParticipantList();
+    renderLeaderboard();
+  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); alert(e.message); }
+}
+
+function renderSwapHistory() {
+  const section = document.getElementById('swapHistorySection');
+  const logEl = document.getElementById('swapLog');
+  if (!state.swapHistory.length) { section.style.display='none'; return; }
+  section.style.display='block';
+  logEl.innerHTML = [...state.swapHistory].reverse().map(s =>
+    `<div class="swap-entry">
+      <strong>${s.participantName}</strong>
+      <span style="color:var(--muted);font-size:.78rem">${s.teamKey}</span>
+      <span>${s.oldPlayer}</span>
+      <span class="swap-arrow">→</span>
+      <span style="color:var(--green)">${s.newPlayer}</span>
+      ${s.frozenPts ? `<span style="color:var(--gold);font-size:.78rem">(${s.frozenPts}pts frozen)</span>` : ''}
+      <span class="swap-meta">${s.date}</span>
+    </div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// MATCH SCORING
+// ═══════════════════════════════════════════════════════
+function setPendingResult(r) {
+  state.pendingResult = r;
+  ['t1','draw','t2'].forEach(k => {
+    document.getElementById(`res-${k}`).className = 'res-btn'+(r===k?` sel-${k}`:'');
+  });
+}
+
+async function importScorecard() {
+  if (!state.participants.length) { setImportStatus('error','Complete the draft first!'); return; }
+  const scorecardText = document.getElementById('scorecardText').value.trim();
+  if (!scorecardText) { setImportStatus('error','Please paste the scorecard text first.'); return; }
+  const isUrlMode = false;
+
+  const btn = document.getElementById('importBtn');
+  btn.disabled=true; document.getElementById('importIcon').textContent='⏳';
+  document.getElementById('importPreview').classList.remove('show');
+  setImportStatus('loading','Parsing scorecard…');
+
+  const allDrafted = [];
+  const seen = new Set();
+  TEAM_KEYS.forEach(k => {
+    state.participants.forEach(p => {
+      if (p.picks[k] && !seen.has(p.picks[k])) {
+        seen.add(p.picks[k]);
+        allDrafted.push({ player: p.picks[k], team: IPL_TEAMS[k].name, teamKey: k });
+      }
+    });
+  });
+
+  const playerList = allDrafted.map(d => `- ${d.player} (${d.team})`).join('\n');
+
+  const prompt = `You are a cricket scorecard parser for an IPL fantasy league.
+
+Below is pasted scorecard text from an IPL match. Read it carefully.
+
+The fantasy league has drafted these players across all 10 IPL teams. Only players from the two teams in this match will appear in the scorecard:
+${playerList}
+
+Tasks:
+1. Identify which two IPL teams are playing.
+2. For each player listed who played today, extract:
+   - runs: runs scored while batting
+   - wickets: wickets taken while bowling
+   - catches: count of catches taken (look for "c [their name]" in dismissal descriptions, NOT stumpings)
+   - runouts: count of run-outs they were involved in. IMPORTANT — if a dismissal shows "run out (PlayerA/PlayerB)", BOTH PlayerA AND PlayerB each get 1 run-out credit (full 5 pts each). Count every run-out dismissal where their name appears anywhere in the brackets.
+   - stumpings: count of stumpings made (look for "st [their name]" in dismissal descriptions — this is always the wicketkeeper)
+   - motm: 1 if this player was named Man of the Match, 0 otherwise. Look for "Player Of The Match" near the top of the scorecard.
+3. ONLY include players who actually played in this match — do NOT include players with not_in_match:true. Skip them entirely.
+4. Players who played but scored 0 everywhere: all fields 0.
+5. Detect the match winner.
+
+Scoring reminder: runs×1 + wickets×25 + catches×5 + runouts×5 + stumpings×5 + motm×5
+
+IMPORTANT: Respond ONLY with valid JSON, no markdown, no explanation, no backticks. Use plain ASCII only — no special symbols. Player names must be plain text only.
+{"match_title":"CSK vs MI","t1_name":"Chennai Super Kings","t2_name":"Mumbai Indians","winner":"Chennai Super Kings","players":[{"name":"Player","team":"Team","runs":0,"wickets":0,"catches":0,"runouts":0,"stumpings":0,"motm":0}]}`;
+
+  try {
+    // Sanitise pasted text
+    const cleanedScorecard = scorecardText
+      .replace(/\u2020/g, '')     // dagger †
+      .replace(/\u2192|\u2190|\u2191|\u2193/g, '') // arrows
+      .replace(/\u00a0/g, ' ')    // non-breaking space
+      .replace(/\(c\)/gi, '')     // captain marker
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // control chars
+      .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+      .replace(/[ \t]{3,}/g, '  ')
+      .slice(0, 20000);
+    const fullPrompt = prompt + '\n\n--- SCORECARD TEXT ---\n\n' + cleanedScorecard;
+
+    const response = await fetch('/.netlify/functions/anthropic', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4000,
+        messages: [{role:'user', content:fullPrompt}]
+      })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const fullText = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Could not parse AI response.');
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch(jsonErr) {
+      // Strip any characters that break JSON and retry
+      const sanitised = jsonMatch[0]
+        .replace(/[\u0000-\u001F\u007F]/g, ' ') // control chars
+        .replace(/†/g, '')                          // dagger symbol from scorecard
+        .replace(/[^\x00-\x7F]/g, '')              // any remaining non-ASCII
+        .replace(/,\s*([}\]])/g, '$1');            // trailing commas
+      try {
+        parsed = JSON.parse(sanitised);
+      } catch(e2) {
+        console.error('Raw AI response:', fullText);
+        throw new Error('Could not parse AI response. Check console for details.');
+      }
+    }
+    if (!parsed.players) throw new Error('Unexpected response format.');
+
+    if (parsed.winner) {
+      const wl = parsed.winner.toLowerCase();
+      const t1l = (parsed.t1_name||'').toLowerCase();
+      const t2l = (parsed.t2_name||'').toLowerCase();
+      // Match on full name, first word, or abbreviation
+      const matchT1 = wl.includes(t1l) || wl.includes(t1l.split(' ')[0]) ||
+        TEAM_KEYS.find(k => IPL_TEAMS[k]?.name?.toLowerCase()===t1l && wl.includes(k.toLowerCase()));
+      if (matchT1) setPendingResult('t1');
+      else setPendingResult('t2');
+    }
+    if (parsed.t1_name) document.getElementById('res-t1').textContent=`🔵 ${parsed.t1_name} Won`;
+    if (parsed.t2_name) document.getElementById('res-t2').textContent=`🟠 ${parsed.t2_name} Won`;
+
+    state.pendingImport = { parsed, t1name: parsed.t1_name, t2name: parsed.t2_name };
+    renderImportPreview(parsed, allDrafted);
+    setImportStatus('success', `✓ ${parsed.match_title||'Match'} parsed${parsed.winner?' · Winner: '+parsed.winner:''}`);
+  } catch(e) { console.error(e); setImportStatus('error',`Error: ${e.message}`); }
+
+  btn.disabled=false; document.getElementById('importIcon').textContent='📋';
+}
+
+function setImportStatus(type,msg) {
+  const el=document.getElementById('importStatus');
+  if (type==='loading') el.innerHTML=`<div class="spinner"></div><span class="status-loading">${msg}</span>`;
+  else if (type==='success') el.innerHTML=`<span class="status-success">${msg}</span>`;
+  else el.innerHTML=`<span class="status-error">${msg}</span>`;
+}
+
+function renderImportPreview(parsed, allDrafted) {
+  const inMatch = parsed.players.filter(p=>!p.not_in_match); // not_in_match may be absent — all returned players are in match
+  let hitCount=0;
+  const rows = inMatch.map(p => {
+    const drafted = allDrafted.find(d=>d.player.toLowerCase()===p.name.toLowerCase());
+    if (!drafted) return '';
+    hitCount++;
+    const pts=(p.runs||0)+(p.wickets||0)*25+(p.catches||0)*5+(p.runouts||0)*5+(p.stumpings||0)*5+(p.motm||0)*MOTM_PTS;
+    return `<div class="preview-player-row hit">
+      <div><strong>${p.name}</strong> <span style="color:var(--muted);font-size:.72rem">${p.team}</span></div>
+      <div class="preview-stats"><div>${p.runs||0} <span>runs</span></div><div>${p.wickets||0} <span>wkts</span></div><div>${p.catches||0} <span>ctch</span></div><div>${p.runouts||0} <span>r/o</span></div><div>${p.stumpings||0} <span>st</span></div>${p.motm?'<div style="color:#e91e63;font-weight:600">⭐ MOTM</div>':''}<div style="color:var(--gold);font-weight:600">+${pts} pts</div></div>
+      <span class="badge-found">DRAFTED</span>
+    </div>`;
+  }).filter(Boolean).join('');
+  const missRows = allDrafted.filter(d=>{
+    const f=parsed.players.find(p=>p.name.toLowerCase()===d.player.toLowerCase());
+    return !f||f.not_in_match;
+  }).map(d=>`<div class="preview-player-row miss"><span>${d.player} <span style="font-size:.72rem">${d.teamKey}</span></span><span style="font-size:.72rem">Not in today's match</span><span class="badge-miss">SKIP</span></div>`).join('');
+  document.getElementById('previewCount').textContent=`${hitCount} drafted players found in this match`;
+  document.getElementById('previewList').innerHTML=rows+missRows;
+  document.getElementById('applyNote').textContent=`${hitCount} player(s) will be updated`;
+  document.getElementById('importPreview').classList.add('show');
+}
+
+async function applyMatch() {
+  const imp = state.pendingImport;
+  if (!imp) { alert('Nothing to apply. Import a scorecard first.'); return; }
+  if (!state.pendingResult) {
+    alert('Please select the match result (who won) before applying.');
+    return;
+  }
+  const {parsed} = imp;
+
+  // Duplicate check — same two teams on the same date already in history
+  const today = new Date().toLocaleDateString();
+  const t1 = (imp.t1name||'').toLowerCase().trim();
+  const t2 = (imp.t2name||'').toLowerCase().trim();
+  const duplicate = state.matchHistory.find(m =>
+    m.date === today &&
+    ((m.t1name||'').toLowerCase().trim() === t1 && (m.t2name||'').toLowerCase().trim() === t2 ||
+     (m.t1name||'').toLowerCase().trim() === t2 && (m.t2name||'').toLowerCase().trim() === t1)
+  );
+  if (duplicate) {
+    if (!confirm(`${imp.t1name} vs ${imp.t2name} on ${today} has already been applied. Apply again anyway?`)) return;
+  }
+
+  const updates = [];
+
+  for (const p of parsed.players) {
+    if (p.not_in_match) continue; // skip if present
+    const nameLower = p.name.toLowerCase();
+    let draftedAs = null;
+    TEAM_KEYS.forEach(k => {
+      state.participants.forEach(part => {
+        if (part.picks[k]&&part.picks[k].toLowerCase()===nameLower) draftedAs=part.picks[k];
+      });
+    });
+    if (!draftedAs) continue;
+    const runs=parseInt(p.runs)||0, wkts=parseInt(p.wickets)||0, ctch=parseInt(p.catches)||0, rnout=parseInt(p.runouts)||0, stmp=parseInt(p.stumpings)||0;
+    const motm=parseInt(p.motm)||0;
+    updates.push({ player:draftedAs, team:p.team, runs, wkts, catches:ctch, runouts:rnout, stumpings:stmp, motm, pts:runs+wkts*25+ctch*5+rnout*5+stmp*5+motm*MOTM_PTS });
+  }
+
+  try {
+    setSyncStatus('loading','Saving match…');
+
+    // Upsert season scores
+    for (const u of updates) {
+      const existing = state.seasonScores[u.player];
+      if (existing) {
+        const newRuns=existing.runs+u.runs, newWkts=existing.wickets+u.wkts, newCtch=existing.catches+u.catches, newRnout=(existing.runouts||0)+u.runouts, newStmp=(existing.stumpings||0)+u.stumpings, newMotm=(existing.motm||0)+(u.motm||0);
+        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp, motm:newMotm }, `?player_name=eq.${encodeURIComponent(u.player)}&mode=eq.${state.mode}`);
+        state.seasonScores[u.player] = { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp, motm:newMotm };
+      } else {
+        await dbPost('season_scores', { player_name:u.player, runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts, stumpings:u.stumpings, motm:u.motm||0, mode:state.mode });
+        state.seasonScores[u.player] = { runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts, stumpings:u.stumpings, motm:u.motm||0 };
+      }
+    }
+
+    // Save match to history
+    const [matchRow] = await dbPost('match_history', {
+      title: parsed.match_title||`${imp.t1name} vs ${imp.t2name}`,
+      match_date: new Date().toLocaleDateString(),
+      result: state.pendingResult,
+      t1_name: imp.t1name,
+      t2_name: imp.t2name,
+      updates,
+      mode: state.mode
+    });
+
+    const newMatch = { id:matchRow.id, title:matchRow.title, date:matchRow.match_date, result:matchRow.result, t1name:matchRow.t1_name, t2name:matchRow.t2_name, updates };
+    state.matchHistory.push(newMatch);
+    applyMatchResultToTeamWins(newMatch, true);
+
+    setSyncStatus('ok','Synced');
+
+    // Reset
+    state.pendingImport=null; state.pendingResult=null;
+    document.getElementById('scorecardText').value='';
+    document.getElementById('importPreview').classList.remove('show');
+    ['t1','draw','t2'].forEach(k=>document.getElementById(`res-${k}`).className='res-btn');
+    document.getElementById('res-t1').textContent='— Team 1 Won';
+    document.getElementById('res-t2').textContent='— Team 2 Won';
+    setImportStatus('success',`✓ Match applied! ${updates.length} player score(s) updated.`);
+    renderMatchLog(); renderLeaderboard();
+  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); alert(e.message); }
+}
+
+function renderMatchLog() {
+  const el=document.getElementById('matchLog');
+  if (!state.matchHistory.length) { el.innerHTML='<div class="empty-state">No matches scored yet.</div>'; return; }
+  el.innerHTML=[...state.matchHistory].reverse().map((m,ri)=>{
+    const i=state.matchHistory.length-1-ri;
+    const resultText=m.result==='draw'?'Draw':m.result==='t1'?`${m.t1name} Won`:`${m.t2name} Won`;
+    const chipClass=m.result==='draw'?'chip-draw':m.result==='t1'?'chip-t1':'chip-t2';
+    const chips=(m.updates||[]).map(u=>`<span class="player-update-chip">${u.player}: ${u.runs}r ${u.wkts}w ${u.catches}c ${u.runouts||0}ro ${u.stumpings||0}st${u.motm?` ⭐`:''} = <strong>+${u.pts}pts</strong></span>`).join('');
+    return `<div class="match-entry">
+      <div class="match-entry-header">
+        <div><div class="match-title-text">${m.title}</div><div class="match-date-text">${m.date}</div></div>
+        <div style="display:flex;align-items:center;gap:.6rem">
+          <span class="match-result-chip ${chipClass}">${resultText}</span>
+          <button class="btn-ghost" onclick="removeMatch('${m.id}')">✕ Remove</button>
+        </div>
+      </div>
+      <div class="match-player-updates">${chips||'<span style="color:var(--muted);font-size:.8rem">No drafted players scored</span>'}</div>
+    </div>`;
+  }).join('');
+}
+
+async function removeMatch(id) {
+  if (!confirm('Remove this match and reverse its points?')) return;
+  const i = state.matchHistory.findIndex(m => m.id === id);
+  if (i === -1) { alert('Match not found — try refreshing.'); return; }
+  const m = state.matchHistory[i];
+  try {
+    setSyncStatus('loading','Removing…');
+    for (const u of (m.updates||[])) {
+      const sc = state.seasonScores[u.player];
+      if (sc) {
+        const newRuns=sc.runs-u.runs, newWkts=sc.wickets-u.wkts, newCtch=sc.catches-u.catches, newRnout=(sc.runouts||0)-u.runouts, newStmp=(sc.stumpings||0)-u.stumpings, newMotm=(sc.motm||0)-(u.motm||0);
+        await dbPatch('season_scores', { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp, motm:newMotm }, `?player_name=eq.${encodeURIComponent(u.player)}&mode=eq.${state.mode}`);
+        state.seasonScores[u.player]={runs:newRuns,wickets:newWkts,catches:newCtch,runouts:newRnout,stumpings:newStmp,motm:newMotm};
+      }
+    }
+    await dbDelete('match_history', `?id=eq.${id}`);
+    applyMatchResultToTeamWins(m, false);
+    state.matchHistory.splice(i,1);
+    setSyncStatus('ok','Synced');
+    renderMatchLog(); renderLeaderboard();
+  } catch(e) { setSyncStatus('err','Failed'); console.error(e); }
+}
+
+// ═══════════════════════════════════════════════════════
+// LEADERBOARD
+// ═══════════════════════════════════════════════════════
+function calcSeasonPoints(participant) {
+  let playerPts=0;
+  const breakdown={};
+  TEAM_KEYS.forEach(k => {
+    const current=participant.picks[k];
+    const history=participant.pickHistory?.[k]||[];
+    const allInSlot=[...history,current].filter(Boolean);
+    if (!allInSlot.length) return;
+    let slotPts=0;
+    const slotPlayers=allInSlot.map(name=>{
+      const sc=state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0,stumpings:0};
+      const pts=sc.runs+sc.wickets*25+sc.catches*5+(sc.runouts||0)*5+(sc.stumpings||0)*5+(sc.motm||0)*MOTM_PTS;
+      slotPts+=pts;
+      return {name,sc,pts};
+    });
+    playerPts+=slotPts;
+    breakdown[k]={current,history,slotPlayers,slotPts};
+  });
+
+  // Team pick points — disabled in World Cup mode
+  const tw = (state.mode !== 'worldcup' && participant.teamPick) ? (state.teamWins[participant.teamPick]||{wins:0,draws:0}) : null;
+  const teamPts = tw ? tw.wins*TEAM_WIN_PTS + tw.draws*TEAM_DRAW_PTS : 0;
+  const total = playerPts + teamPts;
+
+  return {playerPts, teamPts, total, breakdown, teamPick:participant.teamPick, teamWinData:tw};
+}
+
+function renderLeaderboard() {
+  const el=document.getElementById('leaderboardContent');
+  if (!state.participants.length) { el.innerHTML='<div class="empty-state">Complete the draft first.</div>'; return; }
+
+  const sorted=state.participants.map((p,i)=>({...p,i,...calcSeasonPoints(p)})).sort((a,b)=>b.total-a.total);
+
+  const rows=sorted.map((p,rank)=>{
+    const rankClass=rank<3?`rank-${rank+1}`:'';
+    return `<tr onclick="openParticipantDetail(${p.i})" style="cursor:pointer">
+      <td><span class="rank-badge ${rankClass}">${rank+1}</span></td>
+      <td><div style="font-weight:600">${p.name}</div>
+          <div style="font-size:.75rem;color:var(--muted)">${p.teamPick?'🏆 '+p.teamPick:''}</div>
+      </td>
+      <td>
+        <div class="pts-big">${p.total}</div>
+        <div class="pts-breakdown">${p.playerPts} player${p.teamPts?` + <span class="pts-gold">${p.teamPts} team</span>`:''}</div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Catches leaderboard
+  const catchData = [];
+  state.participants.forEach(p => {
+    TEAM_KEYS.forEach(k => {
+      const name = p.picks[k]; if (!name) return;
+      const sc = state.seasonScores[name]||{};
+      if ((sc.catches||0) > 0) catchData.push({ player: name, team: k, catches: sc.catches||0 });
+    });
+  });
+  // Deduplicate (a player may be drafted by multiple fantasy teams)
+  const seenCatch = new Set();
+  const uniqueCatch = catchData.filter(d => { if (seenCatch.has(d.player)) return false; seenCatch.add(d.player); return true; });
+  uniqueCatch.sort((a,b)=>b.catches-a.catches);
+  const catchRows = uniqueCatch.slice(0,10).map((d,i)=>
+    `<tr><td><span class="rank-badge" style="font-size:.9rem;width:26px;height:26px">${i+1}</span></td>
+     <td><strong>${d.player}</strong> <span style="font-size:.72rem;color:var(--muted)">${d.team}</span></td>
+     <td style="color:var(--green);font-weight:700">${d.catches} 🧤</td></tr>`
+  ).join('');
+
+  el.innerHTML=`
+    <table class="lb-table" style="margin-bottom:2rem">
+      <thead><tr><th>#</th><th>Fantasy Team</th><th>Season Pts</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="subsection" style="margin-top:1.5rem">🧤 Top Catches — Drafted Players</div>
+    ${catchRows
+      ? `<table class="lb-table"><thead><tr><th>#</th><th>Player</th><th>Catches</th></tr></thead><tbody>${catchRows}</tbody></table>`
+      : '<div class="empty-state">No catches recorded yet.</div>'}
+  `;
+}
+
+function openParticipantDetail(participantIdx) {
+  const p = state.participants[participantIdx];
+  const {breakdown, teamPick, teamWinData, teamPts, playerPts, total} = calcSeasonPoints(p);
+  document.getElementById('modalTitle').textContent = p.name + ' — Season Breakdown';
+
+  // Build match-by-match breakdown per player slot
+  let html = `<div style="margin-bottom:1rem;font-size:.85rem;color:var(--muted)">
+    Total: <strong style="color:var(--green);font-size:1.1rem">${total} pts</strong>
+    &nbsp;(${playerPts} player${teamPts ? ` + <span style="color:var(--gold)">${teamPts} team</span>` : ''})
+  </div>`;
+
+  TEAM_KEYS.forEach(k => {
+    const bd = breakdown[k]; if (!bd) return;
+    const playerObj = bd.current ? IPL_TEAMS[k]?.players.find(pl=>pl.name===bd.current) : null;
+    const flag = playerObj?.foreign ? '🌍' : '🇮🇳';
+    html += `<div style="margin-bottom:1rem">
+      <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.35rem">${k} — ${IPL_TEAMS[k]?.name||k}</div>`;
+
+    // Show history players then current
+    const allSlot = [...(bd.history||[]).map(n=>({name:n,isCurrent:false})), ...(bd.current?[{name:bd.current,isCurrent:true}]:[])];
+    allSlot.forEach(({name, isCurrent}) => {
+      const sc = state.seasonScores[name]||{};
+      // Per-match breakdown from matchHistory
+      const matchRows = state.matchHistory.filter(m =>
+        (m.updates||[]).some(u => u.player === name)
+      ).map(m => {
+        const u = m.updates.find(u => u.player === name);
+        const pts = u.pts || (u.runs + u.wkts*25 + u.catches*5 + (u.runouts||0)*5 + (u.stumpings||0)*5 + (u.motm||0)*MOTM_PTS);
+        return `<div class="match-breakdown-row">
+          <span style="color:var(--muted);font-size:.75rem">${m.date}</span>
+          <span style="flex:1;margin:0 .8rem">${m.title}</span>
+          <span style="font-size:.75rem;color:var(--muted)">${u.runs}r ${u.wkts}w ${u.catches}c${u.motm?' ⭐':''}</span>
+          <span class="match-breakdown-pts">+${pts}</span>
+        </div>`;
+      }).join('');
+
+      const totalPts = (sc.runs||0)+(sc.wickets||0)*25+(sc.catches||0)*5+(sc.runouts||0)*5+(sc.stumpings||0)*5+(sc.motm||0)*MOTM_PTS;
+      html += `<div style="margin-bottom:.5rem">
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem">
+          ${!isCurrent?'<span style="font-size:.7rem;color:var(--muted)">↩</span>':''}
+          <span style="font-weight:600">${flag} ${name}</span>
+          <span style="font-size:.75rem;color:var(--gold)">${totalPts} pts total</span>
+          ${isCurrent?'<span style="font-size:.65rem;background:rgba(0,200,83,.15);color:var(--green);padding:.1rem .4rem;border-radius:4px">ACTIVE</span>':''}
+        </div>
+        ${matchRows || '<div style="font-size:.75rem;color:var(--muted);padding:.2rem .7rem">No matches played yet</div>'}
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  // Team pick section
+  if (teamPick) {
+    const tw = teamWinData || {wins:0, draws:0};
+    html += `<div style="background:rgba(255,214,0,.06);border:1px solid rgba(255,214,0,.2);border-radius:8px;padding:.8rem;margin-top:.5rem">
+      <div style="font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:var(--gold);margin-bottom:.4rem">🏆 Team Draft — ${IPL_TEAMS[teamPick]?.name||teamPick}</div>
+      <div style="font-size:.85rem;color:var(--muted)">${tw.wins} wins × 30 pts + ${tw.draws} draws × 15 pts = <strong style="color:var(--gold)">${teamPts} pts</strong></div>
+    </div>`;
+  }
+
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('detailModal').classList.add('open');
+}
+
+function closeDetailModal(e) {
+  if (!e || e.target === document.getElementById('detailModal')) {
+    document.getElementById('detailModal').classList.remove('open');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════
+async function changePassword() {
+  const newPw = document.getElementById('newPasswordInput').value.trim();
+  const status = document.getElementById('passwordStatus');
+  if (!newPw) { status.innerHTML = '<span style="color:var(--red)">Please enter a new password.</span>'; return; }
+  try {
+    await dbPatch('settings', { password: newPw }, '?id=eq.global');
+    document.getElementById('newPasswordInput').value = '';
+    status.innerHTML = '<span style="color:var(--green)">✓ Password updated successfully.</span>';
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem(SESSION_KEY);
+  location.reload();
+}
+
+async function importSquads() {
+  const btn = document.getElementById('importSquadsBtn');
+  const status = document.getElementById('importSquadsStatus');
+  btn.disabled = true;
+  status.innerHTML = '<span style="color:var(--gold)">⏳ Uploading squads to Supabase…</span>';
+
+  try {
+    // Delete all existing rows first, then re-insert clean
+    await dbDelete('squads', `?mode=eq.${state.mode}`);
+
+    // Insert in batches of 50
+    const seededWithMode = SQUAD_SEED.map(r => ({...r, mode:'ipl'}));
+    for (let i = 0; i < seededWithMode.length; i += 50) {
+      const batch = seededWithMode.slice(i, i + 50);
+      await sb('POST', 'squads', batch, '', { 'Prefer': 'return=minimal' });
+    }
+
+    // Reload squads into live IPL_TEAMS
+    const squadRows = await dbGet('squads', '?mode=eq.ipl&order=team_key.asc,player_name.asc');
+    IPL_TEAMS = buildIPLTeamsFromRows(squadRows);
+    TEAM_KEYS.length = 0;
+    Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
+
+    renderDraftGrid();
+
+    status.innerHTML = `<span style="color:var(--green)">✓ ${TEAM_KEYS.length} teams synced for ${state.mode === 'worldcup' ? 'World Cup' : 'IPL'} mode.</span>`;
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+    console.error(e);
+  }
+  btn.disabled = false;
+}
+
+async function importIPLSquad(teamName) {
+  const btn = document.getElementById('iplSquadBtn');
+  const status = document.getElementById('iplSquadStatus');
+  const name = teamName || document.getElementById('iplSquadTeam')?.value.trim();
+  if (!name) { status.innerHTML = '<span style="color:var(--red)">Please enter a team name.</span>'; return; }
+  if (btn) btn.disabled = true;
+  status.innerHTML = `<span style="color:var(--gold)">⏳ Searching for ${name} squad…</span>`;
+  try {
+    const prompt = `Search for the current IPL 2026 squad for ${name}.
+Find the full squad with all player names. Mark overseas/foreign players correctly (is_foreign: true).
+Use the standard 2-3 letter team key (CSK, MI, RCB, KKR, SRH, DC, GT, PBKS, RR, LSG).
+Respond ONLY with valid JSON, no markdown:
+{"team_key":"CSK","team_name":"Chennai Super Kings","players":[{"player_name":"MS Dhoni","is_foreign":false},{"player_name":"Devon Conway","is_foreign":true}]}`;
+
+    const response = await fetch('/.netlify/functions/anthropic', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:2000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    if (!response.ok) throw new Error(`Server error ${response.status}`);
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const fullText = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Could not parse squad data. Try again.');
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!parsed.team_key || !parsed.players?.length) throw new Error('No players found in response.');
+
+    // Delete existing IPL squad for this team then insert fresh
+    await dbDelete('squads', `?mode=eq.ipl&team_key=eq.${parsed.team_key}`);
+    const rows = parsed.players.map(pl => ({
+      team_key: parsed.team_key,
+      team_name: parsed.team_name,
+      player_name: pl.player_name,
+      is_foreign: pl.is_foreign || false,
+      mode: 'ipl'
+    }));
+    for (let i = 0; i < rows.length; i += 50) {
+      await sb('POST', 'squads', rows.slice(i, i+50), '', { 'Prefer': 'return=minimal' });
+    }
+    // Reload live squads
+    const freshRows = await dbGet('squads', '?mode=eq.ipl&order=team_key.asc,player_name.asc');
+    IPL_TEAMS = buildIPLTeamsFromRows(freshRows||[]);
+    TEAM_KEYS.length = 0;
+    Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
+    renderDraftGrid();
+    status.innerHTML = `<span style="color:var(--green)">✓ ${parsed.team_name} — ${parsed.players.length} players imported.</span>`;
+    if (document.getElementById('iplSquadTeam')) document.getElementById('iplSquadTeam').value = '';
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+    console.error(e);
+  }
+  if (btn) btn.disabled = false;
+}
+
+const IPL_TEAMS_LIST = [
+  'Chennai Super Kings', 'Delhi Capitals', 'Gujarat Titans',
+  'Kolkata Knight Riders', 'Lucknow Super Giants', 'Mumbai Indians',
+  'Punjab Kings', 'Rajasthan Royals', 'Royal Challengers Bengaluru', 'Sunrisers Hyderabad'
+];
+
+async function importAllIPLSquads() {
+  const allBtn = document.getElementById('iplAllBtn');
+  const status = document.getElementById('iplSquadStatus');
+  allBtn.disabled = true;
+  for (let i = 0; i < IPL_TEAMS_LIST.length; i++) {
+    const team = IPL_TEAMS_LIST[i];
+    status.innerHTML = `<span style="color:var(--gold)">⏳ Importing ${i+1}/10: ${team}…</span>`;
+    await importIPLSquad(team);
+    // small pause between calls to avoid rate limits
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  status.innerHTML = '<span style="color:var(--green)">✓ All 10 IPL teams imported successfully!</span>';
+  allBtn.disabled = false;
+}
+
+async function importWCSquad() {
+  const btn = document.getElementById('wcSquadBtn');
+  const status = document.getElementById('wcSquadStatus');
+  const nation = document.getElementById('wcSquadNation').value.trim();
+  if (!nation) { status.innerHTML = '<span style="color:var(--red)">Please enter a nation name.</span>'; return; }
+  btn.disabled = true;
+  status.innerHTML = '<span style="color:var(--gold)">⏳ Searching for squad…</span>';
+  try {
+    const prompt = `Search for the current ICC World Cup T20 2026 squad for ${nation} cricket team.
+Find the official 15-player squad with all player names.
+Use a short 2-3 letter team key (e.g. IND, AUS, ENG, PAK, SA, NZ, WI, SL, BAN, AFG, IRE, ZIM, SCO, NAM, UAE).
+Respond ONLY with valid JSON, no markdown, no explanation:
+{"team_key":"IND","team_name":"India","players":[{"player_name":"Rohit Sharma","is_foreign":false}]}`;
+
+    const response = await fetch('/.netlify/functions/anthropic', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:2000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Server error ${response.status}: ${errText.slice(0,200)}`);
+    }
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const fullText = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Could not find JSON in response. Try again.');
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!parsed.team_key || !parsed.players?.length) throw new Error('Invalid squad data returned — no players found.');
+
+    // Delete existing WC squad for this team then insert fresh
+    await dbDelete('squads', `?mode=eq.worldcup&team_key=eq.${parsed.team_key}`);
+    const rows = parsed.players.map(pl => ({
+      team_key: parsed.team_key,
+      team_name: parsed.team_name,
+      player_name: pl.player_name,
+      is_foreign: false,
+      mode: 'worldcup'
+    }));
+    for (let i = 0; i < rows.length; i += 50) {
+      await sb('POST', 'squads', rows.slice(i, i+50), '', { 'Prefer': 'return=minimal' });
+    }
+
+    // Reload into live TEAM_KEYS
+    const freshRows = await dbGet('squads', '?mode=eq.worldcup&order=team_key.asc,player_name.asc');
+    IPL_TEAMS = buildIPLTeamsFromRows(freshRows||[]);
+    TEAM_KEYS.length = 0;
+    Object.keys(IPL_TEAMS).sort().forEach(k => TEAM_KEYS.push(k));
+    renderDraftGrid();
+
+    status.innerHTML = `<span style="color:var(--green)">✓ ${parsed.team_name} (${parsed.team_key}) — ${parsed.players.length} players imported.</span>`;
+    document.getElementById('wcSquadNation').value = '';
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+    console.error(e);
+  }
+  btn.disabled = false;
+}
+
+async function resetEverything() {
+  const password = prompt('Enter the admin password to reset all data:');
+  if (password === null) return;
+  if (password !== 'INDIA') {
+    alert('❌ Incorrect password. Reset cancelled.');
+    return;
+  }
+  const confirmed = confirm('⚠️ Password accepted. Are you sure you want to wipe ALL league data?\n\nThis cannot be undone.');
+  if (!confirmed) return;
+
+  const btn = document.getElementById('resetBtn');
+  const status = document.getElementById('resetStatus');
+  btn.disabled = true;
+  status.innerHTML = '<span style="color:var(--gold)">⏳ Resetting all tables…</span>';
+
+  try {
+    setSyncStatus('loading', 'Resetting…');
+
+    // Delete all rows from each table in correct order (respecting FK constraints)
+    await dbDelete('swap_history', '?id=neq.00000000-0000-0000-0000-000000000000');
+    await dbDelete('match_history', '?id=neq.00000000-0000-0000-0000-000000000000');
+    await dbDelete('season_scores', '?player_name=neq.__placeholder__');
+    await dbDelete('picks', '?id=neq.00000000-0000-0000-0000-000000000000');
+    await dbDelete('participants', '?id=neq.00000000-0000-0000-0000-000000000000');
+    await dbPatch('settings', { ipl_winner: null }, '?id=eq.global');
+
+    // Reset local state
+    state.participants = [];
+    state.seasonScores = {};
+    state.matchHistory = [];
+    state.swapHistory = [];
+    state.teamWins = {};
+    state.iplWinner = null;
+    state.activeParticipant = null;
+    state.activeRedraftParticipant = null;
+    state.pendingImport = null;
+    state.pendingResult = null;
+    setMode('ipl', false);
+    state.activeParticipant = null;
+    state.activeRedraftParticipant = null;
+    state.pendingImport = null;
+    state.pendingResult = null;
+
+    setSyncStatus('ok', 'Synced');
+    status.innerHTML = '<span style="color:var(--green)">✓ All data has been wiped. Ready for a fresh start!</span>';
+    renderAll();
+  } catch(e) {
+    setSyncStatus('err', 'Reset failed');
+    status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+    console.error(e);
+  }
+  btn.disabled = false;
+}
+
+// ═══════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════
+function showScreen(name,btn) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`screen-${name}`).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name==='leaderboard') renderLeaderboard();
+  if (name==='scoring') renderMatchLog();
+  if (name==='redraft') renderRedraftScreen();
+}
+// ═══════════════════════════════════════════════════════
+// BOOT — check login then load from Supabase
+// ═══════════════════════════════════════════════════════
+checkLoginAndBoot();
+</script>
+</body>
+</html>
