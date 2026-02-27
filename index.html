@@ -232,6 +232,8 @@ body:has(button:hover) #cursor-ring { width: 52px; height: 52px; border-color: v
 .tt-green:hover { box-shadow: 0 8px 24px rgba(122,184,122,0.18); }
 .tt-gold  { color: var(--gold);     border-color: rgba(201,162,74,0.3);   background: rgba(201,162,74,0.06); }
 .tt-gold:hover  { box-shadow: 0 8px 24px rgba(201,162,74,0.18); }
+.tt-run   { color: #7ec8e3;         border-color: rgba(126,200,227,0.3);  background: rgba(126,200,227,0.06); }
+.tt-run:hover   { box-shadow: 0 8px 24px rgba(126,200,227,0.18); }
 
 .title-scroll {
   display: flex; align-items: center; gap: 0.8rem;
@@ -479,7 +481,7 @@ body:has(button:hover) #cursor-ring { width: 52px; height: 52px; border-color: v
 @keyframes gridDrift { to { background-position: 0 80px, 120px 0; } }
 
 .field-wrap { width: 100%; max-width: 1100px; position: relative; z-index: 1; }
-.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2.5rem; align-items: start; }
 
 .field-col { position: relative; }
 
@@ -806,6 +808,7 @@ body:has(button:hover) #cursor-ring { width: 52px; height: 52px; border-color: v
       <span class="ttag tt-rg">💼 12+ Years in Data &amp; BI</span>
       <span class="ttag tt-green">🏏 Cricket Fanatic</span>
       <span class="ttag tt-gold">🎬 Tollywood Buff</span>
+      <span class="ttag tt-run">🏃 Marathon Finisher</span>
     </div>
     <div class="title-scroll">
       <div class="scroll-line"></div>
@@ -837,11 +840,16 @@ body:has(button:hover) #cursor-ring { width: 52px; height: 52px; border-color: v
       </div>
       <div class="id-card sport">
         <div class="id-icon">🏏</div>
-        <div><div class="id-title">Cricket — Not just a sport. A religion.</div><div class="id-desc">IPL season pass holder. Test match purist. Built an entire fantasy app because spreadsheets weren't cutting it.</div></div>
+        <div><div class="id-title">Cricket — Team India 🇮🇳 · SRH 🧡</div><div class="id-desc">Bleeds blue for India, orange for Sunrisers Hyderabad. Test match purist. Built an entire fantasy app because spreadsheets weren't cutting it.</div></div>
       </div>
       <div class="id-card film">
         <div class="id-icon">🎬</div>
         <div><div class="id-title">Tollywood — Telugu cinema devotee</div><div class="id-desc">Rajamouli, Pawan Kalyan, RRR on loop. Will defend Telugu cinema's storytelling against anyone, anywhere.</div></div>
+      </div>
+      <div class="id-card" style="border-color:rgba(126,200,227,0.15);">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:2px;background:#7ec8e3;opacity:0.6;"></div>
+        <div class="id-icon">🏃</div>
+        <div><div class="id-title" style="color:#7ec8e3;">Marathon Finisher — Cincinnati 2024</div><div class="id-desc">26.2 miles. 4:49:39. First marathon, May 5 2024. The same grit that ships data pipelines ran 26 miles.</div></div>
       </div>
     </div>
   </div>
@@ -925,26 +933,62 @@ body:has(button:hover) #cursor-ring { width: 52px; height: 52px; border-color: v
         <h3 class="field-heading fh-cricket">Cricket<br>Is Life</h3>
         <div class="field-body">
           <p>Not a casual fan. A <strong>full-blown cricket obsessive</strong> who schedules life around match days, wakes up for 5am Test starts, and has opinions on every DRS review.</p>
-          <p>Follows the IPL with the same intensity he brings to production deployments. Built his own fantasy app because the existing ones didn't have enough data.</p>
+          <p>I bleed blue for <strong>Team India</strong> and orange for <strong>Sunrisers Hyderabad</strong> in the IPL. I follow the IPL with the same intensity I bring to production deployments. Built my own fantasy app because the existing ones didn't have enough data.</p>
         </div>
         <div class="cricket-score">
-          <div class="cs-box"><span class="cs-val">🏆</span><span class="cs-lbl">IPL Fan</span></div>
+          <div class="cs-box"><span class="cs-val">🇮🇳</span><span class="cs-lbl">Team India</span></div>
+          <div class="cs-box"><span class="cs-val">🧡</span><span class="cs-lbl">SRH</span></div>
           <div class="cs-box"><span class="cs-val">5am</span><span class="cs-lbl">Test Starts</span></div>
-          <div class="cs-box"><span class="cs-val">GM</span><span class="cs-lbl">Fantasy GM</span></div>
         </div>
         <div class="field-chips" style="margin-top:1rem;">
-          <span class="fchip fc-green">IPL Season</span>
+          <span class="fchip fc-green">🇮🇳 Team India</span>
+          <span class="fchip fc-green">🧡 Sunrisers Hyderabad</span>
           <span class="fchip fc-green">Test Purist</span>
-          <span class="fchip fc-green">DRS Analyst</span>
+          <span class="fchip fc-green">Fantasy GM</span>
         </div>
       </div>
       <div class="field-divider"></div>
+      <div class="field-col">
+        <div class="field-icon-big">🏃</div>
+        <h3 class="field-heading" style="color:#7ec8e3;">Marathon<br>Finisher</h3>
+        <div class="field-body">
+          <p>On May 5th, 2024, I crossed the finish line of my <strong>first full marathon</strong> — 26.2 miles in Cincinnati, Ohio. Finished in <strong>4:49:39</strong>, placing 2,307th of 4,897 overall.</p>
+          <p>The same discipline that builds reliable data pipelines built this — months of early mornings, long runs, and trusting the process. The marathon taught me that consistency beats intensity, every time.</p>
+        </div>
+        <!-- Marathon stat card -->
+        <div style="background:rgba(126,200,227,0.06);border:1px solid rgba(126,200,227,0.2);padding:1.1rem 1.3rem;margin-bottom:1rem;">
+          <div style="font-family:var(--display);font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#7ec8e3;margin-bottom:0.8rem;">Cincinnati Marathon · May 5, 2024</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;">
+            <div style="text-align:center;">
+              <div style="font-family:var(--display);font-size:1.6rem;font-weight:800;color:#7ec8e3;line-height:1;">26.2</div>
+              <div style="font-family:var(--display);font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--ash);margin-top:3px;">Miles</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-family:var(--display);font-size:1.6rem;font-weight:800;color:#7ec8e3;line-height:1;">4:49</div>
+              <div style="font-family:var(--display);font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--ash);margin-top:3px;">Finish Time</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-family:var(--display);font-size:1.6rem;font-weight:800;color:#7ec8e3;line-height:1;">11:03</div>
+              <div style="font-family:var(--display);font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--ash);margin-top:3px;">Avg Pace /mi</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-family:var(--display);font-size:1.6rem;font-weight:800;color:#7ec8e3;line-height:1;">2,307</div>
+              <div style="font-family:var(--display);font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--ash);margin-top:3px;">Overall Rank</div>
+            </div>
+          </div>
+        </div>
+        <div class="field-chips">
+          <span class="fchip" style="color:#7ec8e3;border-color:rgba(126,200,227,0.3);background:rgba(126,200,227,0.06);">First Marathon ✅</span>
+          <span class="fchip" style="color:#7ec8e3;border-color:rgba(126,200,227,0.3);background:rgba(126,200,227,0.06);">Cincinnati 2024</span>
+          <span class="fchip" style="color:#7ec8e3;border-color:rgba(126,200,227,0.3);background:rgba(126,200,227,0.06);">Strava Active</span>
+        </div>
+      </div>
       <div class="field-col">
         <div class="field-icon-big">🎬</div>
         <h3 class="field-heading fh-film">Tollywood<br>First</h3>
         <div class="field-body">
           <p>A devoted fan of Telugu cinema — the scale, the emotion, the music. <strong>Megastar Chiranjeevi</strong> is an institution, a legend who defined an entire era of Telugu cinema. SS Rajamouli's RRR is a masterpiece. Pawan Kalyan's energy is unmatched.</p>
-          <p>Has a watchlist longer than most data pipelines and treats new Tollywood releases the way others treat product launches — with first-day tickets and post-screening analysis.</p>
+          <p>I have a watchlist longer than most data pipelines and treat new Tollywood releases the way others treat product launches — with first-day tickets and post-screening analysis.</p>
         </div>
         <div class="film-reel">
           <div class="reel-frame">Chiranjeevi</div>
@@ -972,7 +1016,7 @@ body:has(button:hover) #cursor-ring { width: 52px; height: 52px; border-color: v
     <div class="project-body panel-animate">
       <div class="project-left">
         <div class="project-desc">
-          <p>Bhargav and Claude built this <strong>full-featured fantasy cricket app</strong> in a single weekend because spreadsheets couldn't keep up with the friend group's IPL league.</p>
+          <p>I built this <strong>full-featured fantasy cricket app</strong> with Claude in a single weekend because spreadsheets couldn't keep up with my friend group's IPL league.</p>
           <p>Supports <strong>16 fantasy participants</strong>, AI-powered scorecard parsing, live leaderboards, mid-season swaps, and a World Cup mode.</p>
         </div>
         <div class="feature-list">
@@ -1065,6 +1109,7 @@ body:has(button:hover) #cursor-ring { width: 52px; height: 52px; border-color: v
     <div class="connect-links">
       <a href="https://www.linkedin.com/in/bhargav-tadury/" target="_blank" class="cl-link">LinkedIn</a>
       <a href="https://ipl-fantasy-biscuits.netlify.app/" target="_blank" class="cl-link">🏏 IPL Fantasy App</a>
+      <a href="https://www.strava.com/athletes/34510869" target="_blank" class="cl-link">🏃 Strava</a>
       <a href="#s0" class="cl-link">Back to Top</a>
     </div>
   </div>
