@@ -191,6 +191,20 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 .detail-chip{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.35rem .6rem;font-size:.76rem;}
 .detail-chip .dc-team{color:var(--muted);font-size:.68rem;}
 .detail-chip .dc-pts{float:right;color:var(--gold);font-weight:600;}
+
+/* DRAFT ORDER */
+.do-pick-badge{display:inline-flex;align-items:center;gap:.35rem;background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.25);border-radius:6px;padding:.3rem .65rem;font-size:.8rem;}
+.do-pick-num{font-family:'Bebas Neue',sans-serif;font-size:.95rem;color:var(--green);min-width:18px;}
+.do-round-table th{background:var(--card);padding:.55rem .8rem;font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;}
+.do-round-table th.pick-col{color:var(--green);}
+.do-round-table td{padding:.6rem .8rem;font-size:.82rem;text-align:center;border-bottom:1px solid rgba(255,255,255,.04);}
+.do-round-table tr:last-child td{border-bottom:none;}
+.do-round-table td.round-label{font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--muted);letter-spacing:1px;background:var(--card);}
+.do-round-table tr:nth-child(even) td{background:rgba(0,200,83,.03);}
+.do-round-table tr:nth-child(odd) td{background:transparent;}
+.do-round-table td.highlight-pick{color:var(--gold);font-weight:700;}
+.do-ipl-round td{background:rgba(255,214,0,.06) !important;border-top:1px solid rgba(255,214,0,.2);}
+.do-ipl-round td.round-label{color:var(--gold) !important;}
 </style>
 </head>
 <body>
@@ -212,6 +226,7 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 
 <nav>
   <button class="tab-btn active" onclick="showScreen('draft',this)">🎯 Draft</button>
+  <button class="tab-btn" onclick="showScreen('draftorder',this)">🎲 Draft Order</button>
   <button class="tab-btn" onclick="showScreen('redraft',this)">🔄 Redraft / Swap</button>
   <button class="tab-btn" onclick="showScreen('scoring',this)">📊 Match Scoring</button>
   <button class="tab-btn" onclick="showScreen('leaderboard',this)">🏆 Leaderboard</button>
@@ -341,6 +356,51 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 <div id="screen-leaderboard" class="screen">
   <div class="section-title">🏆 Season Leaderboard</div>
   <div id="leaderboardContent"><div class="empty-state">Complete the draft first.</div></div>
+</div>
+
+<!-- DRAFT ORDER -->
+<div id="screen-draftorder" class="screen">
+  <div class="section-title">🎲 Draft Order</div>
+
+  <div class="card" style="margin-bottom:1.5rem">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.5rem">Fantasy Team Names</div>
+    <div style="font-size:.83rem;color:var(--muted);margin-bottom:.9rem">Enter each fantasy team name on a new line. Order does not matter — the draft order will be randomized. IPL team picks can happen any round at the team's discretion.</div>
+    <textarea id="doTeamInput" rows="12" placeholder="Team Alpha&#10;Team Bravo&#10;Team Charlie&#10;..."
+      style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;resize:vertical;line-height:1.7"
+      oninput="doUpdateCount()"></textarea>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.7rem;flex-wrap:wrap;gap:.5rem">
+      <span id="doTeamCount" style="font-size:.8rem;color:var(--muted)">0 teams entered</span>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="doClearAll()">Clear</button>
+        <button class="btn btn-sm" onclick="doGenerate()">🎲 Generate Draft Order</button>
+      </div>
+    </div>
+    <div id="doError" style="color:var(--red);font-size:.82rem;margin-top:.5rem;min-height:1rem"></div>
+  </div>
+
+  <div id="doDraftResult" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;color:var(--green)">Snake Draft — 11 Rounds</div>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="doGenerate()">🔀 Re-Randomize</button>
+        <button class="btn btn-sm" onclick="doCopyOrder()">📋 Copy to Clipboard</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.2rem;padding:.9rem 1.1rem">
+      <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.6rem">Base Pick Order — Round 1</div>
+      <div id="doBaseOrder" style="display:flex;flex-wrap:wrap;gap:.4rem"></div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="overflow-x:auto">
+        <table id="doRoundTable" style="width:100%;border-collapse:collapse;min-width:500px">
+          <thead id="doRoundHead"></thead>
+          <tbody id="doRoundBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- SETTINGS -->
@@ -1956,6 +2016,114 @@ function showScreen(name,btn) {
 // BOOT — check login then load from Supabase
 // ═══════════════════════════════════════════════════════
 checkLoginAndBoot();
+
+// ── DRAFT ORDER ──────────────────────────────────────────────────────────────
+const DO_ROUNDS = 11;
+let doTeams = [];
+let doOrder = [];
+
+function doUpdateCount() {
+  const lines = document.getElementById('doTeamInput').value
+    .split('\n').map(l => l.trim()).filter(Boolean);
+  const el = document.getElementById('doTeamCount');
+  el.textContent = lines.length + ' team' + (lines.length !== 1 ? 's' : '') + ' entered';
+  el.style.color = lines.length >= 2 ? 'var(--green)' : 'var(--muted)';
+}
+
+function doClearAll() {
+  document.getElementById('doTeamInput').value = '';
+  document.getElementById('doTeamCount').textContent = '0 teams entered';
+  document.getElementById('doDraftResult').style.display = 'none';
+  document.getElementById('doError').textContent = '';
+}
+
+function doShuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function doGenerate() {
+  const errEl = document.getElementById('doError');
+  errEl.textContent = '';
+  const lines = document.getElementById('doTeamInput').value
+    .split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) { errEl.textContent = 'Enter at least 2 team names.'; return; }
+  const unique = [...new Set(lines)];
+  if (unique.length !== lines.length) {
+    errEl.textContent = 'Duplicate names found — kept first occurrence of each.';
+  }
+  doTeams = unique;
+  doOrder = doShuffle(doTeams);
+  doRender();
+}
+
+function doGetRoundOrder(round) {
+  // Snake: odd rounds go 1→N, even rounds go N→1
+  return round % 2 === 1 ? [...doOrder] : [...doOrder].reverse();
+}
+
+function doRender() {
+  const result = document.getElementById('doDraftResult');
+  result.style.display = 'block';
+  result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const n = doTeams.length;
+
+  // Base order badges
+  document.getElementById('doBaseOrder').innerHTML = doOrder.map((t, i) =>
+    `<div class="do-pick-badge"><span class="do-pick-num">${i+1}</span>${t}</div>`
+  ).join('');
+
+  // Table: rows = rounds, columns = pick slots
+  const thead = document.getElementById('doRoundHead');
+  const tbody = document.getElementById('doRoundBody');
+
+  let headHtml = '<tr><th style="text-align:left;background:var(--card);padding:.55rem .8rem;font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--border)">Round</th>';
+  for (let p = 1; p <= n; p++) {
+    headHtml += `<th style="background:var(--card);padding:.55rem .8rem;font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--green);text-align:center;border-bottom:1px solid var(--border);white-space:nowrap">Pick ${p}</th>`;
+  }
+  headHtml += '</tr>';
+  thead.innerHTML = headHtml;
+
+  let bodyHtml = '';
+  for (let r = 1; r <= DO_ROUNDS; r++) {
+    const order = doGetRoundOrder(r);
+    const dir = r % 2 === 1 ? '→' : '←';
+    const rowBg = r % 2 === 0 ? 'rgba(0,200,83,.03)' : 'transparent';
+    bodyHtml += `<tr style="background:${rowBg}">`;
+    bodyHtml += `<td style="padding:.6rem .8rem;font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--muted);letter-spacing:1px;background:var(--card);border-bottom:1px solid rgba(255,255,255,.04);white-space:nowrap">Round ${r} <span style="font-size:.7rem;color:var(--border)">${dir}</span></td>`;
+    order.forEach(team => {
+      bodyHtml += `<td style="padding:.6rem .8rem;font-size:.82rem;text-align:center;border-bottom:1px solid rgba(255,255,255,.04)">${team}</td>`;
+    });
+    bodyHtml += '</tr>';
+  }
+  tbody.innerHTML = bodyHtml;
+}
+
+function doCopyOrder() {
+  if (!doOrder.length) return;
+  let text = 'SNAKE DRAFT ORDER — 11 ROUNDS\n';
+  text += '(Each round: pick a player or an IPL team — your choice)\n';
+  text += '='.repeat(44) + '\n\n';
+  for (let r = 1; r <= DO_ROUNDS; r++) {
+    const order = doGetRoundOrder(r);
+    text += `Round ${r}:\n`;
+    order.forEach((t, i) => { text += `  Pick ${i+1}: ${t}\n`; });
+    text += '\n';
+  }
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '\u2713 Copied!';
+    btn.style.background = 'var(--green)';
+    btn.style.color = '#000';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = ''; btn.style.color = ''; }, 2000);
+  });
+}
+
 </script>
 </body>
 </html>
