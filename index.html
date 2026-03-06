@@ -230,10 +230,12 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
   <div class="logo">⚡ Cricket Fantasy App</div>
   <div class="tagline" id="appTagline">Pick Smart. Score Big. Rule the Season.</div>
   <div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-top:.6rem;flex-wrap:wrap">
+    <!-- WORLD CUP MODE TOGGLE — commented out until WC season
     <div class="mode-toggle" id="modeToggle">
       <button class="mode-btn active" id="modeIPL" onclick="setMode('ipl')">🏏 IPL</button>
       <button class="mode-btn" id="modeWC" onclick="setMode('worldcup')">🌍 World Cup</button>
     </div>
+    -->
     <span class="sync-status" id="syncStatus">
       <span class="sync-dot loading" id="syncDot"></span>
       <span id="syncText">Connecting…</span>
@@ -449,7 +451,7 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
       <div id="iplSquadStatus" style="font-size:.82rem;min-height:1.2rem"></div>
     </div>
 
-    <!-- WC squad importer — visible in WC mode -->
+    <!-- WC SQUAD IMPORTER — commented out until WC season
     <div id="wcSquadImporter" style="display:none">
       <div style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem">Type a nation name to import their World Cup squad:</div>
       <div style="display:flex;gap:.5rem">
@@ -460,22 +462,24 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
       </div>
       <div id="wcSquadStatus" style="margin-top:.4rem;font-size:.82rem;min-height:1.2rem"></div>
     </div>
+    -->
     <div id="importSquadsStatus" style="margin-top:.4rem;font-size:.82rem;min-height:1rem"></div>
   </div>
 
   <!-- Password / Auth -->
 
-  <!-- Mode Info -->
+  <!-- WORLD CUP MODE INFO CARD — commented out until WC season
   <div class="card" style="margin-bottom:1.5rem;border-color:rgba(0,200,83,.25)">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">🌍 World Cup Mode</div>
     <div style="font-size:.85rem;color:var(--muted);max-width:540px;margin-bottom:.8rem">
-      Switch to World Cup mode using the toggle in the header. In World Cup mode, <strong style="color:var(--text)">foreign player limits are removed</strong> — all players are equal. 
+      Switch to World Cup mode using the toggle in the header. In World Cup mode, <strong style="color:var(--text)">foreign player limits are removed</strong> — all players are equal.
       The squad structure works the same: 1 player per nation. Use the squad import below to load World Cup team squads.
     </div>
     <div style="font-size:.82rem;color:var(--muted)">
       To set up a World Cup league: (1) Reset everything, (2) Switch to World Cup mode, (3) Import WC squads via the squad importer with each nation as a "team_key", (4) Start drafting.
     </div>
   </div>
+  -->
 
   <!-- Allowlist Management (admin only) -->
   <div class="card admin-only" style="margin-bottom:1.5rem" id="allowlistCard">
@@ -501,7 +505,7 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
       <div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--red);margin-bottom:.4rem">🗑️ Reset Everything</div>
         <div style="font-size:.85rem;color:var(--muted);max-width:540px">
-          Permanently wipes <strong style="color:var(--text)">all data</strong> from Supabase — participants, picks, scores, match history, swaps, and settings. Use this to clear test data before the real season, or to start a fresh league.
+          Wipes <strong style="color:var(--text)">picks, scores, match history, swaps and draft order</strong>. Participant names are preserved so everyone can re-draft for a new season.
         </div>
         <div style="margin-top:.5rem;font-size:.8rem;color:var(--red)">⚠️ This cannot be undone.</div>
         <div id="resetStatus" style="margin-top:.6rem;font-size:.82rem;min-height:1rem"></div>
@@ -776,6 +780,7 @@ function checkLoginAndBoot() { initAuth(); }
 // ═══════════════════════════════════════════════════════
 const MOTM_PTS = 5;
 
+/* WC_DISABLED
 function setMode(mode, save=true) {
   state.mode = mode;
   document.getElementById('modeIPL').classList.toggle('active', mode==='ipl');
@@ -802,6 +807,7 @@ function setMode(mode, save=true) {
     renderAll();
   }
 }
+WC_DISABLED */
 
 function setSyncStatus(state, msg) {
   const dot = document.getElementById('syncDot');
@@ -944,7 +950,8 @@ function showConfirmPickBtn() {
   const ai = state.activeParticipant;
   const p = ai !== null ? state.participants[ai] : null;
   const pickCount = p ? TEAM_KEYS.filter(k => p.picks[k]).length : 0;
-  if (!p || pickCount === 0) { el.innerHTML = ''; return; }
+  const baseline = state.picksAtTurnStart !== undefined ? state.picksAtTurnStart : 0;
+  if (!p || pickCount <= baseline) { el.innerHTML = ''; return; }
 
   el.innerHTML = `<button onclick="confirmPickAndAdvance()"
     style="width:100%;padding:.85rem;background:linear-gradient(135deg,var(--dark-green),var(--green));
@@ -956,6 +963,15 @@ function showConfirmPickBtn() {
 }
 
 async function confirmPickAndAdvance() {
+  // Guard: must have made at least one pick since turn started
+  const ai = state.activeParticipant;
+  const p = ai !== null ? state.participants[ai] : null;
+  const pickCount = p ? TEAM_KEYS.filter(k => p.picks[k]).length : 0;
+  const baseline = state.picksAtTurnStart !== undefined ? state.picksAtTurnStart : 0;
+  if (pickCount <= baseline) {
+    alert('Pick a player first before ending your turn!');
+    return;
+  }
   const btn = document.querySelector('#confirmPickSlot button');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   await advanceTurn();
@@ -994,7 +1010,12 @@ function renderDraftBanner() {
   const picker = draftCurrentPicker();
   const myTurn = isMyDraftTurn();
   const bannerClass = myTurn ? 'my-turn' : 'waiting';
-  const roundLabel = `Round ${state.draftRound} / ${DRAFT_TOTAL_ROUNDS}`;
+  // Derive actual round from highest pick count among participants (source of truth)
+  const maxPicksMade = state.participants.length
+    ? Math.max(...state.participants.map(p => Object.keys(p.picks||{}).length))
+    : 0;
+  const actualRound = maxPicksMade + 1;
+  const roundLabel = `Round ${actualRound} / ${DRAFT_TOTAL_ROUNDS}`;
   const pickLabel = `Pick ${state.draftPickIdx + 1} of ${state.draftOrder.length}`;
 
   const adminControls = currentUser?.isAdmin ? `
@@ -1102,6 +1123,14 @@ async function advanceTurn() {
     newRound++;
   }
 
+  // Recompute round from actual picks as source of truth
+  const maxPicksMade = state.participants.length
+    ? Math.max(...state.participants.map(p => Object.keys(p.picks||{}).length))
+    : 0;
+  // After this pick, the completed picks = maxPicksMade, next round = maxPicksMade + 1
+  // Use whichever is higher to avoid going backwards
+  newRound = Math.max(newRound, maxPicksMade + 1);
+
   // Update Supabase
   await sb('PATCH', 'draft_state', { round: newRound, pick_idx: newPickIdx }, `?id=eq.1&mode=eq.${state.mode}`);
   state.draftRound = newRound;
@@ -1156,6 +1185,13 @@ function startDraftPolling() {
         const idx = state.participants.findIndex(p => p.name.toLowerCase() === picker.toLowerCase());
         if (idx >= 0) state.activeParticipant = idx;
       }
+      // Update baseline for new picker
+      const newPicker = draftCurrentPicker();
+      if (newPicker && currentUser?.participantName &&
+          newPicker.toLowerCase() === currentUser.participantName.toLowerCase()) {
+        const pi = state.participants.findIndex(p => p.name.toLowerCase() === newPicker.toLowerCase());
+        if (pi >= 0) state.picksAtTurnStart = TEAM_KEYS.filter(k => state.participants[pi].picks[k]).length;
+      }
       renderDraftBanner();
       renderParticipantListWithLock();
       renderDraftGridWithLock();
@@ -1194,6 +1230,9 @@ function autoSelectMyParticipant() {
   );
   if (idx >= 0) {
     state.activeParticipant = idx;
+    // Record baseline picks so confirm button only shows after a NEW pick this turn
+    const p = state.participants[idx];
+    state.picksAtTurnStart = p ? TEAM_KEYS.filter(k => p.picks[k]).length : 0;
     renderParticipantListWithLock();
     renderPicksSummary();
   }
@@ -2341,7 +2380,8 @@ const IPL_TEAMS_LIST = [
   'Punjab Kings', 'Rajasthan Royals', 'Royal Challengers Bengaluru', 'Sunrisers Hyderabad'
 ];
 
-async function importAllIPLSquads() {
+async /* WC_DISABLED
+function importAllIPLSquads() {
   const allBtn = document.getElementById('iplAllBtn');
   const status = document.getElementById('iplSquadStatus');
   allBtn.disabled = true;
@@ -2355,8 +2395,10 @@ async function importAllIPLSquads() {
   status.innerHTML = '<span style="color:var(--green)">✓ All 10 IPL teams imported successfully!</span>';
   allBtn.disabled = false;
 }
+WC_DISABLED */
 
-async function importWCSquad() {
+async /* WC_DISABLED
+function importWCSquad() {
   const btn = document.getElementById('wcSquadBtn');
   const status = document.getElementById('wcSquadStatus');
   const nation = document.getElementById('wcSquadNation').value.trim();
@@ -2420,6 +2462,7 @@ Respond ONLY with valid JSON, no markdown, no explanation:
   }
   if (btn) btn.disabled = false;
 }
+WC_DISABLED */
 
 async function resetEverything() {
   const password = prompt('Enter the admin password to reset all data:');
@@ -2439,28 +2482,32 @@ async function resetEverything() {
   try {
     setSyncStatus('loading', 'Resetting…');
 
-    // Delete all rows from each table in correct order (respecting FK constraints)
+    // Wipe scores, picks, swaps, matches, draft state — keep participant names
     await dbDelete('swap_history', '?id=neq.00000000-0000-0000-0000-000000000000');
     await dbDelete('match_history', '?id=neq.00000000-0000-0000-0000-000000000000');
     await dbDelete('season_scores', '?player_name=neq.__placeholder__');
     await dbDelete('picks', '?id=neq.00000000-0000-0000-0000-000000000000');
-    await dbDelete('participants', '?id=neq.00000000-0000-0000-0000-000000000000');
+    await dbPatch('participants', { team_pick: null }, '?id=neq.00000000-0000-0000-0000-000000000000');
+    await dbPatch('draft_state', { active: false, order: null, round: 1, pick_idx: 0 }, '?id=eq.1');
     await dbPatch('settings', { ipl_winner: null }, '?id=eq.global');
 
     // Reset local state
-    state.participants = [];
+    // Keep participant names but clear all picks, scores, history, draft
+    state.participants.forEach(p => {
+      p.picks = {};
+      p.pickHistory = {};
+      p.pickOrder = {};
+      p.teamPick = null;
+    });
     state.seasonScores = {};
     state.matchHistory = [];
     state.swapHistory = [];
     state.teamWins = {};
     state.iplWinner = null;
-    state.activeParticipant = null;
-    state.activeRedraftParticipant = null;
-    state.pendingImport = null;
-    state.pendingResult = null;
-    setMode('ipl', false);
-    state.activeParticipant = null;
-    state.activeRedraftParticipant = null;
+    state.draftActive = false;
+    state.draftOrder = [];
+    state.draftRound = 1;
+    state.draftPickIdx = 0;
     state.pendingImport = null;
     state.pendingResult = null;
 
