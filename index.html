@@ -464,19 +464,11 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
     <div id="importSquadsStatus" style="margin-top:.4rem;font-size:.82rem;min-height:1rem"></div>
   </div>
 
-  <!-- Password / Auth -->
+  <!-- Sign Out -->
   <div class="card" style="margin-bottom:1.5rem">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">🔐 Access & Password</div>
-    <div style="font-size:.85rem;color:var(--muted);max-width:540px;margin-bottom:.8rem">Change the shared password for this league. Default is <strong style="color:var(--text)">cricket</strong>.</div>
-    <div style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
-      <div class="input-group admin-only" style="flex:1;min-width:160px">
-        <label>New Password</label>
-        <input type="password" id="newPasswordInput" placeholder="Enter new password">
-      </div>
-      <button class="btn btn-sm admin-only-inline" onclick="changePassword()">🔐 Update Password</button>
-      <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="signOut()">🚪 Sign Out</button>
-    </div>
-    <div id="passwordStatus" style="margin-top:.5rem;font-size:.82rem;min-height:1rem"></div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">🔐 Account</div>
+    <div style="font-size:.85rem;color:var(--muted);margin-bottom:.8rem">You are signed in via Google. Access is managed through the Access List above.</div>
+    <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="signOut()">🚪 Sign Out</button>
   </div>
 
   <!-- Mode Info -->
@@ -992,19 +984,7 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
   </div>
 
   <!-- Password / Auth -->
-  <div class="card" style="margin-bottom:1.5rem">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">🔐 Access & Password</div>
-    <div style="font-size:.85rem;color:var(--muted);max-width:540px;margin-bottom:.8rem">Change the shared password for this league. Default is <strong style="color:var(--text)">cricket</strong>.</div>
-    <div style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
-      <div class="input-group" style="flex:1;min-width:160px">
-        <label>New Password</label>
-        <input type="password" id="newPasswordInput" placeholder="Enter new password">
-      </div>
-      <button class="btn btn-sm" onclick="changePassword()">🔐 Update Password</button>
-      <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="logout()">🚪 Log Out</button>
-    </div>
-    <div id="passwordStatus" style="margin-top:.5rem;font-size:.82rem;min-height:1rem"></div>
-  </div>
+</div>
 
   <!-- Mode Info -->
   <div class="card" style="margin-bottom:1.5rem;border-color:rgba(0,200,83,.25)">
@@ -1039,17 +1019,7 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 
 </div><!-- /container -->
 
-<!-- LOGIN OVERLAY -->
-<div class="login-overlay" id="loginOverlay">
-  <div class="login-box">
-    <div class="login-logo">⚡ Cricket Fantasy</div>
-    <div class="login-tagline">Pick Smart. Score Big.</div>
-    <input class="login-input" id="loginInput" type="password" placeholder="Enter password"
-      onkeydown="if(event.key==='Enter')attemptLogin()">
-    <button class="login-btn" onclick="attemptLogin()">Enter →</button>
-    <div class="login-err" id="loginErr"></div>
-  </div>
-</div>
+
 
 <!-- PARTICIPANT DETAIL MODAL -->
 <div class="modal-overlay" id="detailModal" onclick="closeDetailModal(event)">
@@ -1157,7 +1127,7 @@ let state = {
 // ═══════════════════════════════════════════════════════
 // LOGIN
 // ═══════════════════════════════════════════════════════
-const SESSION_KEY = 'cfa_auth';
+
 
 // ── AUTH — Google OAuth via Supabase ─────────────────────────────────────────
 const _supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -2399,23 +2369,9 @@ function closeDetailModal(e) {
 // ═══════════════════════════════════════════════════════
 // SETTINGS
 // ═══════════════════════════════════════════════════════
-async function changePassword() {
-  const newPw = document.getElementById('newPasswordInput').value.trim();
-  const status = document.getElementById('passwordStatus');
-  if (!newPw) { status.innerHTML = '<span style="color:var(--red)">Please enter a new password.</span>'; return; }
-  try {
-    await dbPatch('settings', { password: newPw }, '?id=eq.global');
-    document.getElementById('newPasswordInput').value = '';
-    status.innerHTML = '<span style="color:var(--green)">✓ Password updated successfully.</span>';
-  } catch(e) {
-    status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
-  }
-}
 
-function logout() {
-  sessionStorage.removeItem(SESSION_KEY);
-  location.reload();
-}
+
+
 
 async function importSquads() {
   const btn = document.getElementById('importSquadsBtn');
