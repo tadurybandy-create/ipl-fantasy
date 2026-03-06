@@ -639,20 +639,22 @@ const _supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let currentUser = null; // { email, name, isAdmin, participantName }
 
 async function initAuth() {
+  // Register listener FIRST — catches the SIGNED_IN event fired after OAuth redirect
+  _supaClient.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session && session.user) {
+      if (!currentUser) await handleAuthUser(session.user);
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      showLoginOverlay();
+    }
+  });
+  // Then check for existing session (handles page refresh while logged in)
   const { data: { session } } = await _supaClient.auth.getSession();
   if (session && session.user) {
     await handleAuthUser(session.user);
   } else {
     showLoginOverlay();
   }
-  _supaClient.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session && session.user) {
-      await handleAuthUser(session.user);
-    } else if (event === 'SIGNED_OUT') {
-      currentUser = null;
-      showLoginOverlay();
-    }
-  });
 }
 
 async function handleAuthUser(user) {
@@ -715,7 +717,7 @@ async function signInWithGoogle() {
   document.getElementById('googleSignInBtn').disabled = true;
   const { error } = await _supaClient.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.href }
+    options: { redirectTo: window.location.origin + window.location.pathname }
   });
   if (error) {
     document.getElementById('loginErr').textContent = error.message;
