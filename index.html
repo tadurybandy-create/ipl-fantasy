@@ -782,8 +782,7 @@ function checkLoginAndBoot() { initAuth(); }
 // ═══════════════════════════════════════════════════════
 const MOTM_PTS = 5;
 
-/* WC_DISABLED
-function setMode(mode, save=true) {
+if (false) {function setMode(mode, save=true) {
   state.mode = mode;
   document.getElementById('modeIPL').classList.toggle('active', mode==='ipl');
   document.getElementById('modeWC').classList.toggle('active', mode==='worldcup');
@@ -808,8 +807,7 @@ function setMode(mode, save=true) {
   } else {
     renderAll();
   }
-}
-WC_DISABLED */
+}}
 
 function setSyncStatus(state, msg) {
   const dot = document.getElementById('syncDot');
@@ -841,8 +839,8 @@ async function loadAll() {
     const [settingsRes] = await Promise.all([
       dbGet('settings', '?id=eq.global').catch(()=>[]),
     ]);
-    const savedMode = (settingsRes||[])[0]?.mode || 'ipl';
-    if (savedMode !== state.mode) setMode(savedMode, false);
+    // WC mode disabled — always IPL
+    state.mode = 'ipl';
     const m = state.mode;
 
     const [participants, picks, scores, matches, swaps, draftStateRes] = await Promise.all([
@@ -2382,8 +2380,7 @@ const IPL_TEAMS_LIST = [
   'Punjab Kings', 'Rajasthan Royals', 'Royal Challengers Bengaluru', 'Sunrisers Hyderabad'
 ];
 
-async /* WC_DISABLED
-function importAllIPLSquads() {
+if (false) {async function importAllIPLSquads() {
   const allBtn = document.getElementById('iplAllBtn');
   const status = document.getElementById('iplSquadStatus');
   allBtn.disabled = true;
@@ -2396,11 +2393,9 @@ function importAllIPLSquads() {
   }
   status.innerHTML = '<span style="color:var(--green)">✓ All 10 IPL teams imported successfully!</span>';
   allBtn.disabled = false;
-}
-WC_DISABLED */
+}}
 
-async /* WC_DISABLED
-function importWCSquad() {
+if (false) {async function importWCSquad() {
   const btn = document.getElementById('wcSquadBtn');
   const status = document.getElementById('wcSquadStatus');
   const nation = document.getElementById('wcSquadNation').value.trim();
@@ -2463,8 +2458,7 @@ Respond ONLY with valid JSON, no markdown, no explanation:
     console.error(e);
   }
   if (btn) btn.disabled = false;
-}
-WC_DISABLED */
+}}
 
 async function resetEverything() {
   const password = prompt('Enter the admin password to reset all data:');
