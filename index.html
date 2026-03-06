@@ -313,6 +313,8 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
         <h5>Current Picks for <span id="picksSummaryName"></span> &nbsp; <span id="picksSummaryForeign" style="font-size:.75rem;color:var(--muted)"></span></h5>
         <div id="picksSummaryRows"></div>
         <div style="margin-top:.8rem"><button class="btn btn-sm" onclick="savePicks()">💾 Save Picks</button></div>
+      <!-- Confirm Pick Button (shown during active draft after a pick) -->
+      <div id="confirmPickSlot" style="margin-top:.8rem"></div>
       </div>
     </div>
   </div>
@@ -399,25 +401,30 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 
   <div class="card" style="margin-bottom:1.5rem">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.5rem">Fantasy Team Names</div>
-    <div style="font-size:.83rem;color:var(--muted);margin-bottom:.9rem">Enter each fantasy team name on a new line. Order does not matter — the draft order will be randomized. IPL team picks can happen any round at the team's discretion.</div>
-    <textarea id="doTeamInput" rows="12" placeholder="Team Alpha&#10;Team Bravo&#10;Team Charlie&#10;..."
-      style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;resize:vertical;line-height:1.7"
-      oninput="doUpdateCount()"></textarea>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.7rem;flex-wrap:wrap;gap:.5rem">
-      <span id="doTeamCount" style="font-size:.8rem;color:var(--muted)">0 teams entered</span>
-      <div style="display:flex;gap:.5rem">
-        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="doClearAll()">Clear</button>
-        <button class="btn btn-sm" onclick="doGenerate()">🎲 Generate Draft Order</button>
+    <div id="doAdminSection">
+      <div style="font-size:.83rem;color:var(--muted);margin-bottom:.9rem">Enter each fantasy team name on a new line. Order does not matter — the draft order will be randomized. IPL team picks can happen any round at the team's discretion.</div>
+      <textarea id="doTeamInput" rows="12" placeholder="Team Alpha&#10;Team Bravo&#10;Team Charlie&#10;..."
+        style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;resize:vertical;line-height:1.7"
+        oninput="doUpdateCount()"></textarea>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.7rem;flex-wrap:wrap;gap:.5rem">
+        <span id="doTeamCount" style="font-size:.8rem;color:var(--muted)">0 teams entered</span>
+        <div style="display:flex;gap:.5rem">
+          <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="doClearAll()">Clear</button>
+          <button class="btn btn-sm" onclick="doGenerate()">🎲 Generate Draft Order</button>
+        </div>
       </div>
+      <div id="doError" style="color:var(--red);font-size:.82rem;margin-top:.5rem;min-height:1rem"></div>
     </div>
-    <div id="doError" style="color:var(--red);font-size:.82rem;margin-top:.5rem;min-height:1rem"></div>
+    <div id="doNonAdminMsg" style="display:none;font-size:.85rem;color:var(--muted);padding:.5rem 0">
+      The draft order is managed by the admin. Check back once it's been generated.
+    </div>
   </div>
 
   <div id="doDraftResult" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem">
       <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;color:var(--green)">Snake Draft — 11 Rounds</div>
       <div style="display:flex;gap:.5rem">
-        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="doGenerate()">🔀 Re-Randomize</button>
+        <span id="doReRandomBtn"><button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="doGenerate()">🔀 Re-Randomize</button></span>
         <button class="btn btn-sm" onclick="doCopyOrder()">📋 Copy to Clipboard</button>
       </div>
     </div>
@@ -1192,7 +1199,7 @@ async function handleAuthUser(user) {
     document.body.classList.remove('admin-visible');
   }
   await autoAddParticipant();
-  loadAll();
+  await loadAll();
   if (currentUser.isAdmin) alLoad();
 }
 
@@ -1435,9 +1442,41 @@ function draftIsComplete() {
   return state.draftRound > DRAFT_TOTAL_ROUNDS;
 }
 
+
+function showConfirmPickBtn() {
+  const el = document.getElementById('confirmPickSlot');
+  if (!el) return;
+  // Only show during active draft when it's your turn (or admin)
+  if (!state.draftActive || draftIsComplete()) { el.innerHTML = ''; return; }
+  if (!isMyDraftTurn()) { el.innerHTML = ''; return; }
+
+  const ai = state.activeParticipant;
+  const p = ai !== null ? state.participants[ai] : null;
+  const pickCount = p ? TEAM_KEYS.filter(k => p.picks[k]).length : 0;
+  if (!p || pickCount === 0) { el.innerHTML = ''; return; }
+
+  el.innerHTML = `<button onclick="confirmPickAndAdvance()"
+    style="width:100%;padding:.85rem;background:linear-gradient(135deg,var(--dark-green),var(--green));
+    border:none;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;
+    color:#000;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.5rem;
+    box-shadow:0 4px 15px rgba(0,200,83,.3);transition:all .2s">
+    ✅ Confirm Pick &amp; End Turn
+  </button>`;
+}
+
+async function confirmPickAndAdvance() {
+  const btn = document.querySelector('#confirmPickSlot button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  await advanceTurn();
+  const el = document.getElementById('confirmPickSlot');
+  if (el) el.innerHTML = '';
+}
 function renderDraftBanner() {
   const el = document.getElementById('draftBanner');
   if (!el) return;
+  // Hide confirm button when banner refreshes (turn changed)
+  const confirmSlot = document.getElementById('confirmPickSlot');
+  if (confirmSlot) confirmSlot.innerHTML = '';
 
   if (!state.draftActive) {
     // Not started yet
@@ -1473,7 +1512,6 @@ function renderDraftBanner() {
 
   const adminControls = currentUser?.isAdmin ? `
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-      <button class="btn btn-sm" onclick="advanceTurn()" style="background:var(--gold);color:#000">⏭ Next Turn</button>
       <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.75rem" onclick="endDraft()">End Draft</button>
     </div>` : '';
 
@@ -1563,8 +1601,9 @@ async function startDraft() {
 }
 
 async function advanceTurn() {
-  if (!currentUser?.isAdmin) return;
   if (!state.draftActive) return;
+  // Allow current picker OR admin to advance
+  if (!currentUser?.isAdmin && !isMyDraftTurn()) return;
 
   let newPickIdx = state.draftPickIdx + 1;
   let newRound = state.draftRound;
@@ -1639,11 +1678,21 @@ function startDraftPolling() {
 async function autoAddParticipant() {
   if (!currentUser || !currentUser.participantName) return;
   const name = currentUser.participantName;
+  // Load settings first to get correct current mode
+  try {
+    const settingsRes = await dbGet('settings', '?id=eq.global').catch(()=>[]);
+    const savedMode = (settingsRes||[])[0]?.mode || 'ipl';
+    state.mode = savedMode;
+  } catch(e) {}
   const m = state.mode || 'ipl';
-  // Check if already exists
-  const existing = await dbGet('participants', `?mode=eq.${m}&name=eq.${encodeURIComponent(name)}`).catch(()=>[]);
-  if (existing && existing.length > 0) return; // already in
+  // Check if already exists (case-insensitive)
+  const existing = await dbGet('participants', `?mode=eq.${m}&name=ilike.${encodeURIComponent(name)}`).catch(()=>[]);
+  if (existing && existing.length > 0) {
+    console.log('Participant already exists:', name);
+    return;
+  }
   // Add them
+  console.log('Auto-adding participant:', name, 'mode:', m);
   const row = { name, mode: m };
   await sb('POST', 'participants', row, '', { 'Prefer': 'return=minimal' });
 }
@@ -1655,7 +1704,7 @@ function autoSelectMyParticipant() {
   );
   if (idx >= 0) {
     state.activeParticipant = idx;
-    renderParticipantList();
+    renderParticipantListWithLock();
     renderPicksSummary();
   }
 }
@@ -1893,12 +1942,12 @@ async function togglePlayerPick(teamKey, player) {
 
   // Only re-render if this participant is still active (user may have switched)
   if (state.activeParticipant === ai) {
-    renderDraftGrid();
+    renderDraftGridWithLock();
     renderPicksSummary();
-    renderParticipantList();
+    renderParticipantListWithLock();
+    showConfirmPickBtn();
   } else {
-    // Still update participant list progress counts
-    renderParticipantList();
+    renderParticipantListWithLock();
   }
 }
 
@@ -2900,11 +2949,36 @@ function showScreen(name,btn) {
   if (name==='leaderboard') renderLeaderboard();
   if (name==='scoring') renderMatchLog();
   if (name==='redraft') renderRedraftScreen();
+  if (name==='draftorder') initDraftOrderScreen();
 }
 // ═══════════════════════════════════════════════════════
 // BOOT — check login then load from Supabase
 // ═══════════════════════════════════════════════════════
 checkLoginAndBoot();
+
+function initDraftOrderScreen() {
+  const isAdmin = currentUser?.isAdmin;
+  // Show/hide input section
+  const adminSection = document.getElementById('doAdminSection');
+  const nonAdminMsg = document.getElementById('doNonAdminMsg');
+  const reRandomBtn = document.getElementById('doReRandomBtn');
+  if (adminSection) adminSection.style.display = isAdmin ? 'block' : 'none';
+  if (nonAdminMsg) nonAdminMsg.style.display = isAdmin ? 'none' : 'block';
+  if (reRandomBtn) reRandomBtn.style.display = isAdmin ? 'inline' : 'none';
+
+  // If there is a saved order in state, render it for everyone to see
+  if (state.draftOrder && state.draftOrder.length > 0) {
+    doOrder = state.draftOrder;
+    doTeams = state.draftOrder;
+    // Pre-fill textarea for admin
+    const inp = document.getElementById('doTeamInput');
+    if (inp && isAdmin && !inp.value.trim()) {
+      inp.value = doOrder.join('\n');
+      doUpdateCount();
+    }
+    doRender();
+  }
+}
 
 // ── DRAFT ORDER ──────────────────────────────────────────────────────────────
 const DO_ROUNDS = 11;
@@ -2920,8 +2994,10 @@ function doUpdateCount() {
 }
 
 function doClearAll() {
-  document.getElementById('doTeamInput').value = '';
-  document.getElementById('doTeamCount').textContent = '0 teams entered';
+  const inp = document.getElementById('doTeamInput');
+  if (inp) inp.value = '';
+  const cnt = document.getElementById('doTeamCount');
+  if (cnt) cnt.textContent = '0 teams entered';
   document.getElementById('doDraftResult').style.display = 'none';
   document.getElementById('doError').textContent = '';
 }
@@ -2935,7 +3011,8 @@ function doShuffle(arr) {
   return a;
 }
 
-function doGenerate() {
+async function doGenerate() {
+  if (!currentUser?.isAdmin) return;
   const errEl = document.getElementById('doError');
   errEl.textContent = '';
   const lines = document.getElementById('doTeamInput').value
@@ -2945,8 +3022,22 @@ function doGenerate() {
   if (unique.length !== lines.length) {
     errEl.textContent = 'Duplicate names found — kept first occurrence of each.';
   }
+  // Warn if draft is already active
+  if (state.draftActive) {
+    if (!confirm('⚠️ The draft is currently in progress! Re-generating will reset the turn order. Continue?')) return;
+  }
   doTeams = unique;
   doOrder = doShuffle(doTeams);
+  // Save order to Supabase so Draft tab picks it up
+  try {
+    await sb('POST', 'draft_state',
+      { id: 1, mode: state.mode, active: state.draftActive, order: JSON.stringify(doOrder), round: state.draftRound, pick_idx: state.draftPickIdx },
+      '', { 'Prefer': 'return=minimal,resolution=merge-duplicates' });
+    state.draftOrder = doOrder;
+    errEl.innerHTML = '<span style="color:var(--green)">✓ Order saved — go to Draft tab to start.</span>';
+  } catch(e) {
+    errEl.innerHTML = '<span style="color:var(--red)">Saved locally only (DB error: ' + e.message + ')</span>';
+  }
   doRender();
 }
 
