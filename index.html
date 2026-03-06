@@ -70,6 +70,8 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 .participant-sidebar .card{position:sticky;top:1rem;}
 .participant-list{display:flex;flex-direction:column;gap:.4rem;max-height:420px;overflow-y:auto;margin-bottom:.8rem;}
 .p-item{display:flex;align-items:center;justify-content:space-between;padding:.5rem .7rem;border-radius:7px;font-size:.88rem;cursor:pointer;border:1px solid transparent;transition:all .15s;}
+.you-tag{display:inline-block;font-size:.58rem;font-weight:800;background:var(--green);color:#000;padding:.1rem .35rem;border-radius:3px;letter-spacing:.5px;vertical-align:middle;line-height:1.4;margin-right:.3rem;}
+.p-name{display:flex;align-items:center;gap:0;flex-wrap:nowrap;overflow:hidden;}
 .p-item:hover{border-color:var(--border);}
 .p-item.active{background:rgba(0,200,83,.1);border-color:var(--green);color:var(--green);}
 .p-item .p-progress{font-size:.72rem;color:var(--muted);}
@@ -859,15 +861,20 @@ async function loadAll() {
 
     state.participants = (participants||[]).map(p => {
       const myPicks = (picks||[]).filter(pk => pk.participant_id === p.id);
-      const activePicks = {}, pickHistory = {};
-      myPicks.forEach(pk => {
-        if (pk.is_active) activePicks[pk.team_key] = pk.player_name;
-        else {
+      const activePicks = {}, pickHistory = {}, pickOrder = {};
+      // Sort by created_at so order is chronological
+      const sorted = [...myPicks].sort((a,b) => new Date(a.created_at||0) - new Date(b.created_at||0));
+      let pickSeq = 0;
+      sorted.forEach(pk => {
+        if (pk.is_active) {
+          activePicks[pk.team_key] = pk.player_name;
+          pickOrder[pk.team_key] = ++pickSeq; // 1-based chronological pick number
+        } else {
           if (!pickHistory[pk.team_key]) pickHistory[pk.team_key] = [];
           pickHistory[pk.team_key].push(pk.player_name);
         }
       });
-      return { id: p.id, name: p.name, picks: activePicks, pickHistory, teamPick: p.team_pick||null };
+      return { id: p.id, name: p.name, picks: activePicks, pickHistory, pickOrder, teamPick: p.team_pick||null };
     });
 
     state.seasonScores = {};
@@ -1018,8 +1025,10 @@ function renderParticipantListWithLock() {
   }
   const picker = draftCurrentPicker();
   el.innerHTML = state.participants.map((p, i) => {
-    const pickCount = TEAM_KEYS.filter(k => p.picks[k]).length;
-    const complete = pickCount === TEAM_KEYS.length;
+    const playerPickCount = TEAM_KEYS.filter(k => p.picks[k]).length;
+    const pickCount = playerPickCount + (p.teamPick ? 1 : 0);
+    const total = TEAM_KEYS.length + 1; // 10 players + 1 team
+    const complete = pickCount === total;
     const active = state.activeParticipant === i;
     const isMe = currentUser && currentUser.participantName &&
       p.name.toLowerCase() === currentUser.participantName.toLowerCase();
@@ -1032,8 +1041,8 @@ function renderParticipantListWithLock() {
 
     return `<div class="p-item ${active ? 'active' : ''} ${complete ? 'complete' : ''} ${isMe ? 'is-me' : ''} ${locked ? 'locked' : ''}"
       onclick="${clickable ? `selectParticipant(${i})` : ''}">
-      <span class="p-name">${isMe ? '<span class="you-tag">YOU</span> ' : ''}${p.name}${isCurrentPicker && state.draftActive && !draftIsComplete() ? ' <span style="font-size:.65rem;color:var(--gold)">●</span>' : ''}</span>
-      <span class="p-progress">${pickCount}/${TEAM_KEYS.length}</span>
+      <span class="p-name">${isMe ? '<span class="you-tag">YOU</span>' : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>${isCurrentPicker && state.draftActive && !draftIsComplete() ? '<span style="font-size:.65rem;color:var(--gold);margin-left:.3rem;flex-shrink:0">●</span>' : ''}</span>
+      <span class="p-progress">${pickCount}/${total}</span>
     </div>`;
   }).join('');
 }
@@ -1419,6 +1428,9 @@ async function togglePlayerPick(teamKey, player) {
       }
       await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: player, is_active: true, mode: state.mode });
       p.picks[teamKey] = player;
+      if (!p.pickOrder) p.pickOrder = {};
+      const existingCount = Object.keys(p.pickOrder).length;
+      p.pickOrder[teamKey] = existingCount + 1;
     }
     setSyncStatus('ok','Synced');
   } catch(e) { setSyncStatus('err','Save failed'); console.error(e); return; }
@@ -1512,14 +1524,31 @@ function renderPicksSummary() {
     foreignEl.style.color = foreignCount >= MAX_FOREIGN_PER_FANTASY ? '#ff9800' : 'var(--muted)';
   }
 
+  // Compute round + pick label from snake draft order
+  function getPickLabel(seqNum) {
+    if (!seqNum || !state.draftOrder || !state.draftOrder.length) return null;
+    const n = state.draftOrder.length;
+    let remaining = seqNum;
+    for (let round = 1; round <= 11; round++) {
+      if (remaining <= n) {
+        const orderInRound = round % 2 === 1 ? remaining : (n - remaining + 1);
+        return `<span style="font-size:.68rem;color:var(--muted);margin-left:.35rem;font-weight:400">Rd ${round} · #${orderInRound}</span>`;
+      }
+      remaining -= n;
+    }
+    return `<span style="font-size:.68rem;color:var(--muted);margin-left:.35rem">#${seqNum}</span>`;
+  }
+
+  const pickOrder = p.pickOrder || {};
   const rows = TEAM_KEYS.map(k => {
     const pick = p.picks[k];
     const players = IPL_TEAMS[k]?.players || [];
     const playerObj = pick ? players.find(pl => pl.name === pick) : null;
+    const label = pick ? getPickLabel(pickOrder[k]) : '';
     return `<div class="pick-row">
       <span class="team-tag">${k}</span>
       ${pick
-        ? `<span>${playerObj?.foreign ? '🌍' : '🇮🇳'} ${pick}</span>`
+        ? `<span style="display:flex;align-items:center;gap:.2rem">${playerObj?.foreign ? '🌍' : '🇮🇳'} <strong style="font-size:.85rem">${pick}</strong>${label}</span>`
         : `<span class="no-pick">not picked</span>`}
     </div>`;
   }).join('');
