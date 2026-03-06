@@ -75,6 +75,8 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 .p-item .p-progress{font-size:.72rem;color:var(--muted);}
 .p-item.active .p-progress{color:var(--green);}
 .p-item.complete .p-name::after{content:' ✓';color:var(--green);}
+.p-item.is-me{border-color:rgba(0,200,83,.4);background:rgba(0,200,83,.06);}
+.you-tag{font-size:.6rem;background:var(--green);color:#000;padding:.05rem .3rem;border-radius:3px;font-weight:700;vertical-align:middle;margin-right:.1rem;}
 .team-draft-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:1rem;}
 .team-draft-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem;}
 .team-draft-card h4{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1px;margin-bottom:.7rem;display:flex;align-items:center;justify-content:space-between;}
@@ -222,6 +224,21 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 .al-you-badge { font-size:.68rem;padding:.1rem .4rem;border-radius:3px;background:rgba(0,200,83,.15);color:var(--green);font-weight:700; }
 .access-denied { position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem; }
 .access-denied-box { background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2.5rem 2rem;max-width:380px;width:100%;text-align:center; }
+
+/* DRAFT TURN SYSTEM */
+.draft-banner{border-radius:10px;padding:.9rem 1.2rem;margin-bottom:.2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;}
+.draft-banner.waiting{background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.25);}
+.draft-banner.my-turn{background:rgba(255,214,0,.12);border:2px solid var(--gold);animation:glow 1.5s ease-in-out infinite;}
+.draft-banner.inactive{background:var(--card);border:1px solid var(--border);}
+@keyframes glow{0%,100%{box-shadow:0 0 8px rgba(255,214,0,.3)}50%{box-shadow:0 0 20px rgba(255,214,0,.6)}}
+.draft-banner-title{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:1.5px;}
+.draft-banner-sub{font-size:.78rem;color:var(--muted);margin-top:.1rem;}
+.turn-indicator{font-size:.82rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+.picking-name{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--gold);letter-spacing:1px;}
+.p-item.locked{opacity:.45;pointer-events:none;}
+.p-item.locked.is-me{opacity:.45;}
+.draft-grid-blocked{position:relative;}
+.draft-grid-blocked::after{content:'';position:absolute;inset:0;background:rgba(13,26,13,.6);border-radius:10px;pointer-events:all;z-index:2;}
 </style>
 </head>
 <body>
@@ -276,16 +293,11 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
     <span id="foreignInfoSpan">Max <strong>4 foreign players</strong> per fantasy team.</span>
     <strong>All picks sync automatically</strong> for everyone.
   </div>
-  <div class="card" style="margin-bottom:1.2rem">
-    <div style="display:flex;gap:.7rem;align-items:flex-end">
-      <div class="input-group" style="flex:1">
-        <label>Add Fantasy Participant</label>
-        <input type="text" id="newPName" placeholder="e.g. Priya" onkeydown="if(event.key==='Enter')addParticipant()">
-      </div>
-      <button class="btn btn-sm" onclick="addParticipant()" class="btn admin-only-inline">+ Add</button>
-      <span id="pCount" style="color:var(--muted);font-size:.82rem;white-space:nowrap;padding-bottom:.1rem">0/16</span>
-    </div>
-  </div>
+  <div id="pCount" style="display:none">0/16</div>
+
+  <!-- Draft Control Banner -->
+  <div id="draftBanner" style="margin-bottom:1rem"></div>
+
   <div class="draft-layout">
     <div class="participant-sidebar">
       <div class="card">
@@ -1119,6 +1131,10 @@ let state = {
   pendingImport: null,
   pendingResult: null,
   mode: 'ipl',        // 'ipl' | 'worldcup'
+  draftActive: false, // is draft in progress?
+  draftOrder: [],     // ordered participant names for snake draft
+  draftRound: 1,      // current round (1-11)
+  draftPickIdx: 0,    // index into current round's order
 };
 
 // ═══════════════════════════════════════════════════════
@@ -1175,6 +1191,7 @@ async function handleAuthUser(user) {
   } else {
     document.body.classList.remove('admin-visible');
   }
+  await autoAddParticipant();
   loadAll();
   if (currentUser.isAdmin) alLoad();
 }
@@ -1330,13 +1347,27 @@ async function loadAll() {
     if (savedMode !== state.mode) setMode(savedMode, false);
     const m = state.mode;
 
-    const [participants, picks, scores, matches, swaps] = await Promise.all([
+    const [participants, picks, scores, matches, swaps, draftStateRes] = await Promise.all([
       dbGet('participants', `?mode=eq.${m}&order=created_at.asc`),
       dbGet('picks', `?mode=eq.${m}&order=created_at.asc`),
       dbGet('season_scores', `?mode=eq.${m}`),
       dbGet('match_history', `?mode=eq.${m}&order=created_at.asc`),
       dbGet('swap_history', `?mode=eq.${m}&order=created_at.asc`),
+      dbGet('draft_state', `?mode=eq.${m}&id=eq.1`).catch(()=>[]),
     ]);
+    // Apply draft state
+    const ds = (draftStateRes||[])[0];
+    if (ds) {
+      state.draftActive = ds.active || false;
+      state.draftOrder = ds.order ? JSON.parse(ds.order) : [];
+      state.draftRound = ds.round || 1;
+      state.draftPickIdx = ds.pick_idx || 0;
+    } else {
+      state.draftActive = false;
+      state.draftOrder = [];
+      state.draftRound = 1;
+      state.draftPickIdx = 0;
+    }
 
     state.participants = (participants||[]).map(p => {
       const myPicks = (picks||[]).filter(pk => pk.participant_id === p.id);
@@ -1373,15 +1404,265 @@ async function loadAll() {
 
     setSyncStatus('ok', 'Synced');
     renderAll();
+    autoSelectMyParticipant();
   } catch(e) {
     console.error(e);
     setSyncStatus('err', 'Sync failed — check console');
   }
 }
 
+
+
+// ── DRAFT TURN SYSTEM ────────────────────────────────────────────────────────
+const DRAFT_TOTAL_ROUNDS = 11;
+
+function draftCurrentPicker() {
+  if (!state.draftActive || !state.draftOrder.length) return null;
+  const order = state.draftRound % 2 === 1
+    ? [...state.draftOrder]
+    : [...state.draftOrder].reverse();
+  return order[state.draftPickIdx] || null;
+}
+
+function isMyDraftTurn() {
+  if (!currentUser || !currentUser.participantName) return false;
+  if (currentUser.isAdmin) return true;
+  const picker = draftCurrentPicker();
+  return picker && picker.toLowerCase() === currentUser.participantName.toLowerCase();
+}
+
+function draftIsComplete() {
+  return state.draftRound > DRAFT_TOTAL_ROUNDS;
+}
+
+function renderDraftBanner() {
+  const el = document.getElementById('draftBanner');
+  if (!el) return;
+
+  if (!state.draftActive) {
+    // Not started yet
+    const adminBtn = currentUser?.isAdmin
+      ? `<button class="btn btn-sm" onclick="startDraft()">🏏 Start Draft</button>`
+      : '';
+    el.innerHTML = `<div class="draft-banner inactive">
+      <div>
+        <div class="draft-banner-title" style="color:var(--muted)">Draft Not Started</div>
+        <div class="draft-banner-sub">Waiting for admin to start the draft.</div>
+      </div>
+      ${adminBtn}
+    </div>`;
+    return;
+  }
+
+  if (draftIsComplete()) {
+    el.innerHTML = `<div class="draft-banner inactive">
+      <div>
+        <div class="draft-banner-title" style="color:var(--green)">✓ Draft Complete!</div>
+        <div class="draft-banner-sub">All ${DRAFT_TOTAL_ROUNDS} rounds done. Good luck everyone!</div>
+      </div>
+      ${currentUser?.isAdmin ? '<button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="endDraft()">End Draft</button>' : ''}
+    </div>`;
+    return;
+  }
+
+  const picker = draftCurrentPicker();
+  const myTurn = isMyDraftTurn();
+  const bannerClass = myTurn ? 'my-turn' : 'waiting';
+  const roundLabel = `Round ${state.draftRound} / ${DRAFT_TOTAL_ROUNDS}`;
+  const pickLabel = `Pick ${state.draftPickIdx + 1} of ${state.draftOrder.length}`;
+
+  const adminControls = currentUser?.isAdmin ? `
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-sm" onclick="advanceTurn()" style="background:var(--gold);color:#000">⏭ Next Turn</button>
+      <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.75rem" onclick="endDraft()">End Draft</button>
+    </div>` : '';
+
+  el.innerHTML = `<div class="draft-banner ${bannerClass}">
+    <div>
+      <div class="draft-banner-title" style="color:${myTurn ? 'var(--gold)' : 'var(--text)'}">
+        ${myTurn ? '⭐ YOUR TURN TO PICK!' : `🕐 ${picker}'s Turn`}
+      </div>
+      <div class="draft-banner-sub">${roundLabel} · ${pickLabel}
+        ${state.draftRound % 2 === 0 ? '· ← Reverse order' : '· → Normal order'}
+      </div>
+    </div>
+    ${adminControls}
+  </div>`;
+}
+
+function renderParticipantListWithLock() {
+  const el = document.getElementById('participantList');
+  if (!el) return;
+  if (!state.participants.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:.5rem">No participants yet.</div>';
+    return;
+  }
+  const picker = draftCurrentPicker();
+  el.innerHTML = state.participants.map((p, i) => {
+    const pickCount = TEAM_KEYS.filter(k => p.picks[k]).length;
+    const complete = pickCount === TEAM_KEYS.length;
+    const active = state.activeParticipant === i;
+    const isMe = currentUser && currentUser.participantName &&
+      p.name.toLowerCase() === currentUser.participantName.toLowerCase();
+    const isAdmin = currentUser?.isAdmin;
+
+    // Locking logic: during active draft, only current picker (or admin) can be selected
+    const isCurrentPicker = picker && p.name.toLowerCase() === picker.toLowerCase();
+    const locked = state.draftActive && !draftIsComplete() && !isAdmin && !isCurrentPicker;
+    const clickable = !locked;
+
+    return `<div class="p-item ${active ? 'active' : ''} ${complete ? 'complete' : ''} ${isMe ? 'is-me' : ''} ${locked ? 'locked' : ''}"
+      onclick="${clickable ? `selectParticipant(${i})` : ''}">
+      <span class="p-name">${isMe ? '<span class="you-tag">YOU</span> ' : ''}${p.name}${isCurrentPicker && state.draftActive && !draftIsComplete() ? ' <span style="font-size:.65rem;color:var(--gold)">●</span>' : ''}</span>
+      <span class="p-progress">${pickCount}/${TEAM_KEYS.length}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderDraftGridWithLock() {
+  // Re-render draft grid — block picks if not your turn
+  renderDraftGrid(); // existing function renders the grid
+  // Then apply overlay if not your turn and draft is active
+  if (state.draftActive && !draftIsComplete() && !currentUser?.isAdmin) {
+    const myTurn = isMyDraftTurn();
+    const grid = document.getElementById('teamDraftGrid');
+    if (grid && !myTurn) {
+      grid.classList.add('draft-grid-blocked');
+    } else if (grid) {
+      grid.classList.remove('draft-grid-blocked');
+    }
+  } else {
+    const grid = document.getElementById('teamDraftGrid');
+    if (grid) grid.classList.remove('draft-grid-blocked');
+  }
+}
+
+async function startDraft() {
+  if (!currentUser?.isAdmin) return;
+  if (!state.participants.length) { alert('No participants yet. Users need to sign in first.'); return; }
+  if (!confirm(`Start the snake draft with ${state.participants.length} participants across ${DRAFT_TOTAL_ROUNDS} rounds?`)) return;
+
+  // Build draft order from current participants (shuffle for round 1)
+  const shuffled = [...state.participants.map(p => p.name)];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  const ds = { id: 1, mode: state.mode, active: true, order: JSON.stringify(shuffled), round: 1, pick_idx: 0 };
+  await sb('POST', 'draft_state', ds, '', { 'Prefer': 'return=minimal,resolution=merge-duplicates' });
+
+  state.draftActive = true;
+  state.draftOrder = shuffled;
+  state.draftRound = 1;
+  state.draftPickIdx = 0;
+
+  renderDraftBanner();
+  renderParticipantListWithLock();
+  renderDraftGridWithLock();
+}
+
+async function advanceTurn() {
+  if (!currentUser?.isAdmin) return;
+  if (!state.draftActive) return;
+
+  let newPickIdx = state.draftPickIdx + 1;
+  let newRound = state.draftRound;
+
+  if (newPickIdx >= state.draftOrder.length) {
+    newPickIdx = 0;
+    newRound++;
+  }
+
+  // Update Supabase
+  await sb('PATCH', 'draft_state', { round: newRound, pick_idx: newPickIdx }, `?id=eq.1&mode=eq.${state.mode}`);
+  state.draftRound = newRound;
+  state.draftPickIdx = newPickIdx;
+
+  // Auto-select the current picker's participant slot
+  const picker = draftCurrentPicker();
+  if (picker) {
+    const idx = state.participants.findIndex(p => p.name.toLowerCase() === picker.toLowerCase());
+    if (idx >= 0) state.activeParticipant = idx;
+  }
+
+  renderDraftBanner();
+  renderParticipantListWithLock();
+  renderDraftGridWithLock();
+  renderPicksSummary();
+}
+
+async function endDraft() {
+  if (!currentUser?.isAdmin) return;
+  if (!confirm('End the draft? This will unlock all picks for everyone.')) return;
+  await sb('PATCH', 'draft_state', { active: false }, `?id=eq.1&mode=eq.${state.mode}`);
+  state.draftActive = false;
+  renderDraftBanner();
+  renderParticipantListWithLock();
+  renderDraftGridWithLock();
+}
+
+// Poll for draft state changes every 5 seconds (for non-admin users)
+let draftPollInterval = null;
+function startDraftPolling() {
+  if (draftPollInterval) return;
+  draftPollInterval = setInterval(async () => {
+    if (!state.draftActive && !document.getElementById('screen-draft')?.classList.contains('active')) return;
+    const res = await dbGet('draft_state', `?mode=eq.${state.mode}&id=eq.1`).catch(() => null);
+    const ds = (res||[])[0];
+    if (!ds) return;
+    const changed = ds.round !== state.draftRound || ds.pick_idx !== state.draftPickIdx || ds.active !== state.draftActive;
+    if (changed) {
+      state.draftActive = ds.active || false;
+      state.draftOrder = ds.order ? JSON.parse(ds.order) : [];
+      state.draftRound = ds.round || 1;
+      state.draftPickIdx = ds.pick_idx || 0;
+      // Also refresh participants to get new picks
+      const picks = await dbGet('picks', `?mode=eq.${state.mode}&order=created_at.asc`).catch(()=>[]);
+      state.participants.forEach(p => {
+        const myPicks = (picks||[]).filter(pk => pk.participant_id === p.id);
+        myPicks.forEach(pk => { if (pk.player_name) p.picks[pk.team_key] = pk.player_name; });
+      });
+      const picker = draftCurrentPicker();
+      if (picker) {
+        const idx = state.participants.findIndex(p => p.name.toLowerCase() === picker.toLowerCase());
+        if (idx >= 0) state.activeParticipant = idx;
+      }
+      renderDraftBanner();
+      renderParticipantListWithLock();
+      renderDraftGridWithLock();
+      renderPicksSummary();
+    }
+  }, 5000);
+}
+
+async function autoAddParticipant() {
+  if (!currentUser || !currentUser.participantName) return;
+  const name = currentUser.participantName;
+  const m = state.mode || 'ipl';
+  // Check if already exists
+  const existing = await dbGet('participants', `?mode=eq.${m}&name=eq.${encodeURIComponent(name)}`).catch(()=>[]);
+  if (existing && existing.length > 0) return; // already in
+  // Add them
+  const row = { name, mode: m };
+  await sb('POST', 'participants', row, '', { 'Prefer': 'return=minimal' });
+}
+function autoSelectMyParticipant() {
+  if (!currentUser || !currentUser.participantName) return;
+  if (state.activeParticipant !== null) return; // already selected
+  const idx = state.participants.findIndex(p =>
+    p.name.toLowerCase() === currentUser.participantName.toLowerCase()
+  );
+  if (idx >= 0) {
+    state.activeParticipant = idx;
+    renderParticipantList();
+    renderPicksSummary();
+  }
+}
 function renderAll() {
-  renderParticipantList();
-  renderDraftGrid();
+  renderDraftBanner();
+  renderParticipantListWithLock();
+  renderDraftGridWithLock();
   renderPicksSummary();
   renderRedraftScreen();
   renderMatchLog();
@@ -1390,6 +1671,8 @@ function renderAll() {
 
 // Auto-refresh every 30 seconds so all viewers stay in sync
 setInterval(loadAll, 30000);
+// Start draft state polling
+startDraftPolling();
 
 // ═══════════════════════════════════════════════════════
 // DRAFT COUNTS (from local state)
@@ -1446,8 +1729,10 @@ function renderParticipantList() {
     const pickCount = TEAM_KEYS.filter(k=>p.picks[k]).length;
     const complete = pickCount===10;
     const active = state.activeParticipant===i;
-    return `<div class="p-item ${active?'active':''} ${complete?'complete':''}" onclick="setActiveParticipant(${i})">
-      <span class="p-name">${p.name}</span>
+    const isMe = currentUser && currentUser.participantName &&
+      p.name.toLowerCase() === currentUser.participantName.toLowerCase();
+    return `<div class="p-item ${active?'active':''} ${complete?'complete':''} ${isMe?'is-me':''}" onclick="setActiveParticipant(${i})">
+      <span class="p-name">${isMe ? '<span class="you-tag">YOU</span> ' : ''}${p.name}</span>
       <span class="p-progress">${pickCount}/10</span>
     </div>`;
   }).join('');
