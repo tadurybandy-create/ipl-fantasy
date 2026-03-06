@@ -5,6 +5,556 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IPL 2026 Fantasy League</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--green:#00C853;--dark-green:#007B33;--gold:#FFD600;--red:#FF1744;--purple:#a259ff;--bg:#0d1a0d;--card:#132213;--border:#1f3d1f;--text:#e8f5e9;--muted:#6a9b6a;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;
+  background-image:radial-gradient(ellipse 60% 40% at 50% -10%,rgba(0,200,83,.15) 0%,transparent 70%),
+  repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(0,200,83,.02) 40px,rgba(0,200,83,.02) 41px),
+  repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(0,200,83,.02) 40px,rgba(0,200,83,.02) 41px);}
+header{text-align:center;padding:2rem 1rem 1.2rem;border-bottom:1px solid var(--border);}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,7vw,4rem);letter-spacing:4px;
+  background:linear-gradient(135deg,var(--green),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;}
+.tagline{color:var(--muted);font-size:.82rem;letter-spacing:3px;text-transform:uppercase;margin-top:.3rem;}
+.sync-status{display:inline-flex;align-items:center;gap:.4rem;font-size:.75rem;margin-top:.4rem;padding:.2rem .7rem;border-radius:99px;border:1px solid var(--border);}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
+.sync-dot.ok{background:var(--green);}
+.sync-dot.err{background:var(--red);}
+.sync-dot.loading{background:var(--gold);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+nav{display:flex;justify-content:center;gap:.5rem;padding:1rem;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.tab-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1.2rem;border-radius:99px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.85rem;transition:all .2s;}
+.tab-btn.active,.tab-btn:hover{background:var(--green);border-color:var(--green);color:#000;font-weight:600;}
+.container{max-width:1200px;margin:0 auto;padding:1.5rem 1rem;}
+.screen{display:none;}.screen.active{display:block;}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:2px;color:var(--green);margin-bottom:1rem;}
+.subsection{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:1.5px;color:var(--muted);margin:1.2rem 0 .6rem;}
+input,select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:.6rem .85rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s;width:100%;}
+input:focus,select:focus{border-color:var(--green);}input::placeholder{color:var(--muted);}
+label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);display:block;margin-bottom:.3rem;}
+.input-group{display:flex;flex-direction:column;gap:.3rem;}
+.btn{background:var(--green);color:#000;border:none;padding:.7rem 1.8rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:.5rem;}
+.btn:hover{background:var(--gold);transform:translateY(-1px);}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.btn-sm{padding:.45rem 1rem;font-size:.85rem;letter-spacing:1px;}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.45rem 1rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.82rem;cursor:pointer;transition:all .2s;}
+.btn-ghost:hover{border-color:var(--green);color:var(--green);}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;}
+.info-box{background:rgba(0,200,83,.07);border:1px solid rgba(0,200,83,.2);border-radius:10px;padding:.9rem 1.1rem;font-size:.85rem;color:var(--muted);margin-bottom:1.2rem;}
+.info-box strong{color:var(--text);}
+.scoring-key{display:flex;gap:.7rem;margin-bottom:1.2rem;flex-wrap:wrap;}
+.key-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.45rem .9rem;font-size:.8rem;display:flex;align-items:center;gap:.5rem;}
+.key-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.empty-state{text-align:center;color:var(--muted);padding:2rem 1rem;font-size:.88rem;}
+.btn-row{display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* LOGIN */
+.login-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;
+  background-image:radial-gradient(ellipse 60% 40% at 50% -10%,rgba(0,200,83,.15) 0%,transparent 70%);}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2.5rem 2rem;max-width:380px;width:100%;text-align:center;}
+.login-logo{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;letter-spacing:4px;background:linear-gradient(135deg,var(--green),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.3rem;}
+.login-tagline{font-size:.8rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:2rem;}
+.login-input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.75rem 1rem;border-radius:8px;font-size:1rem;text-align:center;letter-spacing:3px;outline:none;transition:border-color .2s;margin-bottom:.8rem;}
+.login-input:focus{border-color:var(--green);}
+.login-input.error{border-color:var(--red);animation:shake .3s ease;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.login-btn{width:100%;background:linear-gradient(135deg,var(--dark-green),var(--green));color:#000;border:none;padding:.8rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:2px;cursor:pointer;transition:all .2s;}
+.login-btn:hover{filter:brightness(1.1);}
+.login-err{color:var(--red);font-size:.82rem;margin-top:.5rem;min-height:1.1rem;}
+/* DRAFT */
+.draft-layout{display:grid;grid-template-columns:240px 1fr;gap:1.5rem;}
+@media(max-width:780px){.draft-layout{grid-template-columns:1fr;}}
+.participant-sidebar .card{position:sticky;top:1rem;}
+.participant-list{display:flex;flex-direction:column;gap:.4rem;max-height:420px;overflow-y:auto;margin-bottom:.8rem;}
+.p-item{display:flex;align-items:center;justify-content:space-between;padding:.5rem .7rem;border-radius:7px;font-size:.88rem;cursor:pointer;border:1px solid transparent;transition:all .15s;}
+.p-item:hover{border-color:var(--border);}
+.p-item.active{background:rgba(0,200,83,.1);border-color:var(--green);color:var(--green);}
+.p-item .p-progress{font-size:.72rem;color:var(--muted);}
+.p-item.active .p-progress{color:var(--green);}
+.p-item.complete .p-name::after{content:' ✓';color:var(--green);}
+.team-draft-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:1rem;}
+.team-draft-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem;}
+.team-draft-card h4{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1px;margin-bottom:.7rem;display:flex;align-items:center;justify-content:space-between;}
+.team-abbr{font-size:.65rem;padding:.15rem .45rem;border-radius:4px;background:rgba(0,200,83,.12);color:var(--green);}
+.player-pick-list{display:flex;flex-direction:column;gap:.28rem;max-height:190px;overflow-y:auto;}
+.player-opt{display:flex;align-items:center;justify-content:space-between;padding:.32rem .6rem;border-radius:5px;font-size:.81rem;cursor:pointer;border:1px solid transparent;transition:all .12s;}
+.player-opt:hover{background:rgba(0,200,83,.06);border-color:rgba(0,200,83,.2);}
+.player-opt.disabled{opacity:.35;cursor:not-allowed;pointer-events:none;}
+.player-opt.selected-by-me{background:rgba(0,200,83,.12);border-color:var(--green);color:var(--green);}
+.draft-pips{display:flex;gap:2px;}
+.mini-pip{width:7px;height:7px;border-radius:50%;background:var(--border);}
+.mini-pip.filled{background:var(--green);}
+.win-opt{display:flex;align-items:center;justify-content:space-between;padding:.5rem .9rem;border-radius:8px;font-size:.88rem;cursor:pointer;border:1px solid var(--border);background:var(--bg);transition:all .15s;margin-bottom:.4rem;}
+.win-opt:hover{border-color:var(--gold);color:var(--gold);}
+.win-opt.selected{background:rgba(255,214,0,.1);border-color:var(--gold);color:var(--gold);}
+.win-opt.disabled{opacity:.35;cursor:not-allowed;}
+.picks-summary{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.8rem;margin-top:1rem;}
+.picks-summary h5{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.6rem;}
+.pick-row{display:flex;align-items:center;gap:.5rem;font-size:.8rem;padding:.2rem 0;}
+.pick-row .team-tag{min-width:42px;font-size:.68rem;padding:.1rem .35rem;border-radius:3px;background:rgba(0,200,83,.1);color:var(--green);text-align:center;font-weight:600;}
+.pick-row .no-pick{color:var(--muted);font-style:italic;}
+
+/* REDRAFT */
+.redraft-layout{display:grid;grid-template-columns:220px 1fr;gap:1.5rem;}
+@media(max-width:700px){.redraft-layout{grid-template-columns:1fr;}}
+.swap-slot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:.8rem;}
+.swap-slot-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.9rem;}
+.swap-slot-card h5{font-family:'Bebas Neue',sans-serif;font-size:.95rem;letter-spacing:1px;margin-bottom:.6rem;display:flex;align-items:center;justify-content:space-between;}
+.current-player-row{display:flex;align-items:center;justify-content:space-between;background:rgba(0,200,83,.07);border:1px solid rgba(0,200,83,.18);border-radius:6px;padding:.45rem .7rem;margin-bottom:.5rem;}
+.current-player-name{font-weight:600;font-size:.88rem;}
+.frozen-pts{font-size:.72rem;color:var(--gold);}
+.history-player-row{font-size:.75rem;color:var(--muted);padding:.15rem 0;display:flex;justify-content:space-between;}
+.swap-select-wrap{display:flex;gap:.4rem;margin-top:.5rem;}
+.swap-select-wrap select{flex:1;font-size:.8rem;}
+.btn-swap{background:rgba(255,214,0,.15);border:1px solid rgba(255,214,0,.3);color:var(--gold);padding:.4rem .8rem;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-swap:hover{background:var(--gold);color:#000;}
+.swap-log{display:flex;flex-direction:column;gap:.5rem;margin-top:.8rem;}
+.mode-toggle{display:inline-flex;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:3px;gap:2px;}
+.mode-btn{background:transparent;border:none;color:var(--muted);padding:.3rem 1rem;border-radius:99px;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s;}
+.mode-btn.active{background:var(--green);color:#000;}
+.mode-btn:not(.active):hover{color:var(--text);}
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:1rem;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;max-width:760px;width:100%;max-height:85vh;overflow-y:auto;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;color:var(--green);}
+.modal-close{background:transparent;border:1px solid var(--border);color:var(--muted);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;}
+.modal-close:hover{border-color:var(--red);color:var(--red);}
+/* Match breakdown in modal */
+.match-breakdown-row{display:flex;align-items:center;justify-content:space-between;padding:.45rem .7rem;border-radius:6px;background:var(--bg);border:1px solid var(--border);margin-bottom:.3rem;font-size:.82rem;}
+.match-breakdown-pts{font-weight:700;color:var(--gold);min-width:50px;text-align:right;}
+.swap-entry{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.7rem 1rem;font-size:.82rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;}
+.swap-arrow{color:var(--gold);font-size:1rem;}
+.swap-meta{color:var(--muted);font-size:.75rem;margin-left:auto;}
+
+/* SCORING */
+.import-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem 1.4rem;margin-bottom:1.5rem;position:relative;overflow:hidden;}
+.import-box::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,200,83,.04) 0%,transparent 60%);pointer-events:none;}
+.import-header{display:flex;align-items:center;gap:.6rem;margin-bottom:.7rem;}
+.import-title{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;color:var(--green);}
+.ai-badge{background:linear-gradient(135deg,var(--green),var(--gold));color:#000;font-size:.65rem;font-weight:700;padding:.15rem .5rem;border-radius:99px;letter-spacing:1px;text-transform:uppercase;}
+.import-row{display:flex;gap:.6rem;}
+.import-row input{flex:1;font-size:.85rem;width:auto;}
+.btn-import{background:linear-gradient(135deg,var(--dark-green),var(--green));color:#000;border:none;padding:.6rem 1.2rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;cursor:pointer;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:.4rem;}
+.btn-import:hover{filter:brightness(1.15);transform:translateY(-1px);}
+.btn-import:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.import-status{margin-top:.6rem;font-size:.82rem;min-height:1.1rem;display:flex;align-items:center;gap:.5rem;}
+.status-loading{color:var(--gold);}.status-success{color:var(--green);}.status-error{color:var(--red);}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,214,0,.3);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+.import-preview{margin-top:1rem;display:none;}.import-preview.show{display:block;}
+.preview-title{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.5rem;}
+.preview-player-row{display:flex;align-items:center;justify-content:space-between;padding:.35rem .65rem;border-radius:6px;font-size:.8rem;margin-bottom:.3rem;}
+.preview-player-row.hit{background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.2);}
+.preview-player-row.miss{background:rgba(255,23,68,.06);border:1px solid rgba(255,23,68,.15);color:var(--muted);}
+.preview-stats{display:flex;gap:.7rem;font-size:.75rem;color:var(--muted);}
+.preview-stats span{color:var(--text);}
+.badge-found{font-size:.68rem;padding:.1rem .4rem;border-radius:3px;font-weight:600;background:rgba(0,200,83,.2);color:var(--green);}
+.badge-miss{font-size:.68rem;padding:.1rem .4rem;border-radius:3px;font-weight:600;background:rgba(255,23,68,.15);color:var(--red);}
+.result-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.8rem;}
+.res-btn{flex:1;min-width:100px;background:var(--bg);border:2px solid var(--border);color:var(--muted);padding:.55rem .8rem;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:.9rem;cursor:pointer;transition:all .2s;text-align:center;}
+.res-btn:hover{border-color:var(--gold);color:var(--gold);}
+.res-btn.sel-t1{background:rgba(41,121,255,.15);border-color:#2979FF;color:#82b1ff;}
+.res-btn.sel-t2{background:rgba(255,109,0,.15);border-color:#FF6D00;color:#ffab40;}
+.res-btn.sel-draw{background:rgba(255,214,0,.1);border-color:var(--gold);color:var(--gold);}
+.match-log{display:flex;flex-direction:column;gap:.6rem;margin-top:1rem;}
+.match-entry{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.9rem 1.1rem;}
+.match-entry-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;}
+.match-title-text{font-weight:600;font-size:.95rem;}
+.match-date-text{font-size:.75rem;color:var(--muted);}
+.match-result-chip{font-size:.75rem;padding:.15rem .55rem;border-radius:99px;font-weight:600;}
+.chip-t1{background:rgba(41,121,255,.15);color:#82b1ff;}
+.chip-t2{background:rgba(255,109,0,.15);color:#ffab40;}
+.chip-draw{background:rgba(255,214,0,.1);color:var(--gold);}
+.match-player-updates{display:flex;flex-wrap:wrap;gap:.35rem;}
+.player-update-chip{font-size:.73rem;padding:.15rem .5rem;border-radius:5px;background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.15);}
+
+/* LEADERBOARD */
+.lb-table{width:100%;border-collapse:separate;border-spacing:0 .4rem;}
+.lb-table th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:0 .9rem .4rem;}
+.lb-table td{background:var(--card);padding:.85rem .9rem;font-size:.88rem;}
+.lb-table tr td:first-child{border-radius:10px 0 0 10px;}
+.lb-table tr td:last-child{border-radius:0 10px 10px 0;}
+.rank-badge{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--border);color:var(--muted);}
+.rank-1{background:var(--gold);color:#000;}.rank-2{background:#b0bec5;color:#000;}.rank-3{background:#a1714b;color:#fff;}
+.pts-big{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--green);}
+.pts-breakdown{font-size:.72rem;color:var(--muted);margin-top:.1rem;}
+.pts-gold{color:var(--gold);}
+.picks-mini{font-size:.75rem;color:var(--muted);line-height:1.7;}
+.picks-mini strong{color:var(--text);}
+.detail-row td{background:rgba(19,34,19,.6);padding:.6rem 1rem;}
+.detail-row{display:none;}
+.detail-row.open{display:table-row;}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.4rem;}
+.detail-chip{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.35rem .6rem;font-size:.76rem;}
+.detail-chip .dc-team{color:var(--muted);font-size:.68rem;}
+.detail-chip .dc-pts{float:right;color:var(--gold);font-weight:600;}
+
+/* DRAFT ORDER */
+.do-pick-badge{display:inline-flex;align-items:center;gap:.35rem;background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.25);border-radius:6px;padding:.3rem .65rem;font-size:.8rem;}
+.do-pick-num{font-family:'Bebas Neue',sans-serif;font-size:.95rem;color:var(--green);min-width:18px;}
+.do-round-table th{background:var(--card);padding:.55rem .8rem;font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;}
+.do-round-table th.pick-col{color:var(--green);}
+.do-round-table td{padding:.6rem .8rem;font-size:.82rem;text-align:center;border-bottom:1px solid rgba(255,255,255,.04);}
+.do-round-table tr:last-child td{border-bottom:none;}
+.do-round-table td.round-label{font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--muted);letter-spacing:1px;background:var(--card);}
+.do-round-table tr:nth-child(even) td{background:rgba(0,200,83,.03);}
+.do-round-table tr:nth-child(odd) td{background:transparent;}
+.do-round-table td.highlight-pick{color:var(--gold);font-weight:700;}
+.do-ipl-round td{background:rgba(255,214,0,.06) !important;border-top:1px solid rgba(255,214,0,.2);}
+.do-ipl-round td.round-label{color:var(--gold) !important;}
+
+/* AUTH / ADMIN */
+.admin-only { display: none; }
+.admin-visible .admin-only { display: block; }
+.admin-only-inline { display: none; }
+.admin-visible .admin-only-inline { display: inline-flex; }
+.admin-only-flex { display: none; }
+.admin-visible .admin-only-flex { display: flex; }
+.user-badge { display:inline-flex;align-items:center;gap:.4rem;font-size:.78rem;padding:.25rem .7rem;border-radius:99px;background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.2);color:var(--green); }
+.al-entry { display:flex;align-items:center;justify-content:space-between;padding:.5rem .75rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:.83rem;gap:.5rem;flex-wrap:wrap; }
+.al-email { color:var(--muted);font-size:.78rem; }
+.al-name { font-weight:600; }
+.al-admin-badge { font-size:.68rem;padding:.1rem .4rem;border-radius:3px;background:rgba(255,214,0,.15);color:var(--gold);font-weight:700; }
+.al-you-badge { font-size:.68rem;padding:.1rem .4rem;border-radius:3px;background:rgba(0,200,83,.15);color:var(--green);font-weight:700; }
+.access-denied { position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem; }
+.access-denied-box { background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2.5rem 2rem;max-width:380px;width:100%;text-align:center; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ Cricket Fantasy App</div>
+  <div class="tagline" id="appTagline">Pick Smart. Score Big. Rule the Season.</div>
+  <div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-top:.6rem;flex-wrap:wrap">
+    <div class="mode-toggle" id="modeToggle">
+      <button class="mode-btn active" id="modeIPL" onclick="setMode('ipl')">🏏 IPL</button>
+      <button class="mode-btn" id="modeWC" onclick="setMode('worldcup')">🌍 World Cup</button>
+    </div>
+    <span class="sync-status" id="syncStatus">
+      <span class="sync-dot loading" id="syncDot"></span>
+      <span id="syncText">Connecting…</span>
+    </span>
+    <div id="userBadge" style="display:none" class="user-badge">
+      <span id="userAvatar" style="width:18px;height:18px;border-radius:50%;background:var(--green);display:inline-flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:#000;flex-shrink:0"></span>
+      <span id="userName" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+      <span id="adminBadge" style="display:none;font-size:.65rem;background:var(--gold);color:#000;padding:.05rem .35rem;border-radius:3px;font-weight:700;flex-shrink:0">ADMIN</span>
+      <button onclick="signOut()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.8rem;line-height:1;padding:0 .1rem" title="Sign out">✕</button>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <button class="tab-btn active" onclick="showScreen('draft',this)">🎯 Draft</button>
+  <button class="tab-btn" onclick="showScreen('draftorder',this)">🎲 Draft Order</button>
+  <button class="tab-btn" onclick="showScreen('redraft',this)">🔄 Redraft / Swap</button>
+  <button class="tab-btn" onclick="showScreen('scoring',this)">📊 Match Scoring</button>
+  <button class="tab-btn" onclick="showScreen('leaderboard',this)">🏆 Leaderboard</button>
+  <button class="tab-btn" onclick="showScreen('settings',this)">⚙️ Settings</button>
+</nav>
+
+<div class="container">
+
+<!-- DRAFT -->
+<div id="screen-draft" class="screen active">
+  <div class="section-title">Season Draft</div>
+  <div class="scoring-key">
+    <div class="key-item"><span class="key-dot" style="background:var(--green)"></span>1 Run = 1 pt</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--red)"></span>1 Wicket = 25 pts</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--gold)"></span>1 Catch = 5 pts</div>
+    <div class="key-item"><span class="key-dot" style="background:#ff9800"></span>1 Run-out = 5 pts (both fielders)</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--purple)"></span>1 Stumping = 5 pts</div>
+    <div class="key-item"><span class="key-dot" style="background:#e91e63"></span>Man of the Match = 5 pts</div>
+    <div class="key-item"><span class="key-dot" style="background:var(--muted)"></span>Max 2 drafts per player <span id="foreignKeySpan"> · Max 4 foreign per fantasy team</span></div>
+    <div class="key-item"><span class="key-dot" style="background:var(--gold)"></span>Draft 1 Team: Win = 30 pts · Draw = 15 pts · Max 2 drafts per team</div>
+  </div>
+  <div class="info-box" id="draftInfoBox">
+    Each of the <strong>16 fantasy players</strong> picks <strong>1 player from each team</strong>.
+    <span id="foreignInfoSpan">Max <strong>4 foreign players</strong> per fantasy team.</span>
+    <strong>All picks sync automatically</strong> for everyone.
+  </div>
+  <div class="card" style="margin-bottom:1.2rem">
+    <div style="display:flex;gap:.7rem;align-items:flex-end">
+      <div class="input-group" style="flex:1">
+        <label>Add Fantasy Participant</label>
+        <input type="text" id="newPName" placeholder="e.g. Priya" onkeydown="if(event.key==='Enter')addParticipant()">
+      </div>
+      <button class="btn btn-sm" onclick="addParticipant()" class="btn admin-only-inline">+ Add</button>
+      <span id="pCount" style="color:var(--muted);font-size:.82rem;white-space:nowrap;padding-bottom:.1rem">0/16</span>
+    </div>
+  </div>
+  <div class="draft-layout">
+    <div class="participant-sidebar">
+      <div class="card">
+        <div class="subsection" style="margin-top:0">Participants</div>
+        <div class="participant-list" id="participantList"></div>
+        <div style="font-size:.75rem;color:var(--muted)">Click a name to make their picks.</div>
+      </div>
+    </div>
+    <div>
+      <div id="draftActiveLabel" style="font-size:.88rem;color:var(--muted);margin-bottom:.8rem">← Select a participant to start drafting</div>
+      <div class="team-draft-grid" id="teamDraftGrid"></div>
+      <div class="picks-summary" id="picksSummary" style="display:none">
+        <h5>Current Picks for <span id="picksSummaryName"></span> &nbsp; <span id="picksSummaryForeign" style="font-size:.75rem;color:var(--muted)"></span></h5>
+        <div id="picksSummaryRows"></div>
+        <div style="margin-top:.8rem"><button class="btn btn-sm" onclick="savePicks()">💾 Save Picks</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REDRAFT -->
+<div id="screen-redraft" class="screen">
+  <div class="section-title">Redraft / Swap Players</div>
+  <div class="info-box">
+    Mid-season player swap or injury replacement. <strong>Frozen points from the old player remain.</strong>
+    The new player earns points from their next match onwards. Swaps stay within the same IPL team. Max 2 drafts per player applies. You can also swap your <strong>drafted IPL team</strong> here.
+  </div>
+  <div class="redraft-layout">
+    <div>
+      <div class="card" style="position:sticky;top:1rem">
+        <div class="subsection" style="margin-top:0">Select Participant</div>
+        <div id="redraftParticipantList" class="participant-list"></div>
+      </div>
+    </div>
+    <div>
+      <div id="redraftActiveLabel" style="font-size:.88rem;color:var(--muted);margin-bottom:.8rem">← Select a participant to manage their picks</div>
+      <div id="swapSlotGrid" class="swap-slot-grid"></div>
+      <div id="swapHistorySection" style="display:none;margin-top:1.5rem">
+        <div class="subsection">Swap History</div>
+        <div id="swapLog" class="swap-log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MATCH SCORING -->
+<div id="screen-scoring" class="screen">
+  <div class="section-title">Match Scoring</div>
+  <div class="info-box">Paste a scorecard link for today's match. Claude will read it and update all drafted players' season totals automatically.</div>
+  <div class="import-box">
+    <div class="import-header">
+      <span class="import-title">⚡ Import Match Scorecard</span>
+      <span class="ai-badge">AI Powered</span>
+    </div>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:.8rem">
+      Open the ESPNcricinfo scorecard page → select all text (Ctrl+A) → copy (Ctrl+C) → paste below.
+      <br>Tip: You can also just copy the batting + bowling tables section for cleaner results.
+    </div>
+    <div class="import-row" style="flex-direction:column;gap:.6rem">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:.2rem">
+        Open the ESPNcricinfo scorecard page → click the <strong style="color:var(--text)">Scorecard tab</strong> → select all (Ctrl+A) → copy (Ctrl+C) → paste below. Make sure both innings are visible before copying.
+      </div>
+      <textarea id="scorecardText" rows="8" placeholder="Paste scorecard text here…" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.7rem;border-radius:8px;font-family:monospace;font-size:.78rem;resize:vertical;line-height:1.5"></textarea>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn-import" id="importBtn" onclick="importScorecard()"><span id="importIcon">📋</span> Parse & Import</button>
+      </div>
+    </div>
+    <div style="margin-top:.9rem">
+      <label>Match Result</label>
+      <div class="result-row">
+        <button class="res-btn" id="res-t1" onclick="setPendingResult('t1')">— Team 1 Won</button>
+        <button class="res-btn" id="res-draw" onclick="setPendingResult('draw')">🤝 Draw / No Result</button>
+        <button class="res-btn" id="res-t2" onclick="setPendingResult('t2')">— Team 2 Won</button>
+      </div>
+    </div>
+    <div class="import-status" id="importStatus"></div>
+    <div class="import-preview" id="importPreview">
+      <div class="preview-title">Players found in draft — <span id="previewCount"></span></div>
+      <div id="previewList"></div>
+      <div style="margin-top:.9rem" class="btn-row">
+        <button class="btn btn-sm" onclick="applyMatch()">✅ Apply to Season</button>
+        <span style="font-size:.8rem;color:var(--muted)" id="applyNote"></span>
+      </div>
+    </div>
+  </div>
+  <div class="subsection">Match History</div>
+  <div id="matchLog" class="match-log"><div class="empty-state">No matches scored yet.</div></div>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="screen-leaderboard" class="screen">
+  <div class="section-title">🏆 Season Leaderboard</div>
+  <div id="leaderboardContent"><div class="empty-state">Complete the draft first.</div></div>
+</div>
+
+<!-- DRAFT ORDER -->
+<div id="screen-draftorder" class="screen">
+  <div class="section-title">🎲 Draft Order</div>
+
+  <div class="card" style="margin-bottom:1.5rem">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.5rem">Fantasy Team Names</div>
+    <div style="font-size:.83rem;color:var(--muted);margin-bottom:.9rem">Enter each fantasy team name on a new line. Order does not matter — the draft order will be randomized. IPL team picks can happen any round at the team's discretion.</div>
+    <textarea id="doTeamInput" rows="12" placeholder="Team Alpha&#10;Team Bravo&#10;Team Charlie&#10;..."
+      style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;resize:vertical;line-height:1.7"
+      oninput="doUpdateCount()"></textarea>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.7rem;flex-wrap:wrap;gap:.5rem">
+      <span id="doTeamCount" style="font-size:.8rem;color:var(--muted)">0 teams entered</span>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="doClearAll()">Clear</button>
+        <button class="btn btn-sm" onclick="doGenerate()">🎲 Generate Draft Order</button>
+      </div>
+    </div>
+    <div id="doError" style="color:var(--red);font-size:.82rem;margin-top:.5rem;min-height:1rem"></div>
+  </div>
+
+  <div id="doDraftResult" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;color:var(--green)">Snake Draft — 11 Rounds</div>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="doGenerate()">🔀 Re-Randomize</button>
+        <button class="btn btn-sm" onclick="doCopyOrder()">📋 Copy to Clipboard</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.2rem;padding:.9rem 1.1rem">
+      <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.6rem">Base Pick Order — Round 1</div>
+      <div id="doBaseOrder" style="display:flex;flex-wrap:wrap;gap:.4rem"></div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="overflow-x:auto">
+        <table id="doRoundTable" style="width:100%;border-collapse:collapse;min-width:500px">
+          <thead id="doRoundHead"></thead>
+          <tbody id="doRoundBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="screen-settings" class="screen">
+  <div class="section-title">⚙️ Settings</div>
+
+  <!-- Import Squads -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">📋 Import Squads</div>
+    <div style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
+      Type a team name and Claude will search for their current squad automatically. Does <strong style="color:var(--text)">not</strong> affect existing picks or scores.
+    </div>
+
+    <!-- IPL squad importer — visible in IPL mode -->
+    <div id="iplSquadImporter">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem">Type an IPL team name to import their squad:</div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
+        <input type="text" id="iplSquadTeam" placeholder="e.g. Chennai Super Kings, Mumbai Indians…"
+          style="flex:1;min-width:200px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem"
+          onkeydown="if(event.key==='Enter')importIPLSquad()">
+        <button class="btn btn-sm" onclick="importIPLSquad()" id="iplSquadBtn" class="btn btn-sm admin-only-inline">🏏 Import Team</button>
+        <button class="btn btn-sm" onclick="importAllIPLSquads()" id="iplAllBtn" class="btn btn-sm admin-only-inline" style="background:rgba(0,200,83,.15);border:1px solid var(--green)">🏏 Import All 10 Teams</button>
+      </div>
+      <div id="iplSquadStatus" style="font-size:.82rem;min-height:1.2rem"></div>
+    </div>
+
+    <!-- WC squad importer — visible in WC mode -->
+    <div id="wcSquadImporter" style="display:none">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem">Type a nation name to import their World Cup squad:</div>
+      <div style="display:flex;gap:.5rem">
+        <input type="text" id="wcSquadNation" placeholder="e.g. India, Australia, England…"
+          style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem"
+          onkeydown="if(event.key==='Enter')importWCSquad()">
+        <button class="btn btn-sm" onclick="importWCSquad()" id="wcSquadBtn" class="btn btn-sm admin-only-inline">🌍 Import Nation</button>
+      </div>
+      <div id="wcSquadStatus" style="margin-top:.4rem;font-size:.82rem;min-height:1.2rem"></div>
+    </div>
+    <div id="importSquadsStatus" style="margin-top:.4rem;font-size:.82rem;min-height:1rem"></div>
+  </div>
+
+  <!-- Password / Auth -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">🔐 Access & Password</div>
+    <div style="font-size:.85rem;color:var(--muted);max-width:540px;margin-bottom:.8rem">Change the shared password for this league. Default is <strong style="color:var(--text)">cricket</strong>.</div>
+    <div style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+      <div class="input-group admin-only" style="flex:1;min-width:160px">
+        <label>New Password</label>
+        <input type="password" id="newPasswordInput" placeholder="Enter new password">
+      </div>
+      <button class="btn btn-sm admin-only-inline" onclick="changePassword()">🔐 Update Password</button>
+      <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="signOut()">🚪 Sign Out</button>
+    </div>
+    <div id="passwordStatus" style="margin-top:.5rem;font-size:.82rem;min-height:1rem"></div>
+  </div>
+
+  <!-- Mode Info -->
+  <div class="card" style="margin-bottom:1.5rem;border-color:rgba(0,200,83,.25)">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">🌍 World Cup Mode</div>
+    <div style="font-size:.85rem;color:var(--muted);max-width:540px;margin-bottom:.8rem">
+      Switch to World Cup mode using the toggle in the header. In World Cup mode, <strong style="color:var(--text)">foreign player limits are removed</strong> — all players are equal. 
+      The squad structure works the same: 1 player per nation. Use the squad import below to load World Cup team squads.
+    </div>
+    <div style="font-size:.82rem;color:var(--muted)">
+      To set up a World Cup league: (1) Reset everything, (2) Switch to World Cup mode, (3) Import WC squads via the squad importer with each nation as a "team_key", (4) Start drafting.
+    </div>
+  </div>
+
+  <!-- Allowlist Management (admin only) -->
+  <div class="card admin-only" style="margin-bottom:1.5rem" id="allowlistCard">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">👥 Access List</div>
+    <div style="font-size:.83rem;color:var(--muted);margin-bottom:1rem">Manage who can access this app. Add friends by their Google email address and link them to their fantasy team.</div>
+
+    <!-- Add new entry -->
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem">
+      <input type="email" id="alEmail" placeholder="friend@gmail.com"
+        style="flex:2;min-width:180px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem">
+      <input type="text" id="alName" placeholder="Fantasy team name (e.g. Raj)"
+        style="flex:2;min-width:160px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:.5rem .75rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem">
+      <div style="display:flex;align-items:center;gap:.4rem;padding:.5rem .75rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:.83rem;cursor:pointer" onclick="document.getElementById('alIsAdmin').checked=!document.getElementById('alIsAdmin').checked">
+        <input type="checkbox" id="alIsAdmin" style="width:auto;accent-color:var(--green)"> Admin
+      </div>
+      <button class="btn btn-sm" onclick="alAddEntry()">+ Add</button>
+    </div>
+    <div id="alStatus" style="font-size:.82rem;min-height:1rem;margin-bottom:.6rem"></div>
+
+    <!-- Existing entries -->
+    <div id="alList" style="display:flex;flex-direction:column;gap:.4rem"></div>
+  </div>
+
+  <!-- Reset Everything -->
+  <div class="card" style="border-color:rgba(255,23,68,.3);background:rgba(255,23,68,.04)">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--red);margin-bottom:.4rem">🗑️ Reset Everything</div>
+        <div style="font-size:.85rem;color:var(--muted);max-width:540px">
+          Permanently wipes <strong style="color:var(--text)">all data</strong> from Supabase — participants, picks, scores, match history, swaps, and settings. Use this to clear test data before the real season, or to start a fresh league.
+        </div>
+        <div style="margin-top:.5rem;font-size:.8rem;color:var(--red)">⚠️ This cannot be undone.</div>
+        <div id="resetStatus" style="margin-top:.6rem;font-size:.82rem;min-height:1rem"></div>
+      </div>
+      <button class="btn" onclick="resetEverything()" class="btn admin-only-inline" id="resetBtn"
+        style="background:var(--red);white-space:nowrap;align-self:center;color:#fff">
+        🗑️ Reset Everything
+      </button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">⚡ Cricket Fantasy</div>
+    <div class="login-tagline">Pick Smart. Score Big.</div>
+    <div style="margin-bottom:1.5rem;font-size:.82rem;color:var(--muted)">Sign in with your Google account to continue.</div>
+    <button onclick="signInWithGoogle()" id="googleSignInBtn"
+      style="width:100%;display:flex;align-items:center;justify-content:center;gap:.75rem;background:#fff;color:#222;border:none;padding:.85rem 1rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .2s;margin-bottom:.8rem">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+      Sign in with Google
+    </button>
+    <div id="loginErr" class="login-err"></div>
+  </div>
+</div>TYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPL 2026 Fantasy League</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--green:#00C853;--dark-green:#007B33;--gold:#FFD600;--red:#FF1744;--purple:#a259ff;--bg:#0d1a0d;--card:#132213;--border:#1f3d1f;--text:#e8f5e9;--muted:#6a9b6a;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -609,42 +1159,140 @@ let state = {
 // ═══════════════════════════════════════════════════════
 const SESSION_KEY = 'cfa_auth';
 
-function isLoggedIn() {
-  return sessionStorage.getItem(SESSION_KEY) === 'true';
-}
+// ── AUTH — Google OAuth via Supabase ─────────────────────────────────────────
+const _supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let currentUser = null; // { email, name, isAdmin, participantName }
 
-async function attemptLogin() {
-  const input = document.getElementById('loginInput');
-  const errEl = document.getElementById('loginErr');
-  const password = input.value.trim();
-  if (!password) return;
-
-  errEl.textContent = '';
-  try {
-    const settings = await dbGet('settings', '?id=eq.global');
-    const storedPw = (settings||[])[0]?.password || 'cricket';
-    if (password === storedPw) {
-      sessionStorage.setItem(SESSION_KEY, 'true');
-      document.getElementById('loginOverlay').style.display = 'none';
-      loadAll();
-    } else {
-      input.classList.add('error');
-      errEl.textContent = 'Incorrect password. Try again.';
-      input.value = '';
-      setTimeout(() => input.classList.remove('error'), 400);
+async function initAuth() {
+  const { data: { session } } = await _supaClient.auth.getSession();
+  if (session && session.user) {
+    await handleAuthUser(session.user);
+  } else {
+    showLoginOverlay();
+  }
+  _supaClient.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session && session.user) {
+      await handleAuthUser(session.user);
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      showLoginOverlay();
     }
-  } catch(e) {
-    errEl.textContent = 'Connection error. Please try again.';
+  });
+}
+
+async function handleAuthUser(user) {
+  const email = user.email.toLowerCase();
+  const rows = await dbGet('allowlist', '?email=eq.' + encodeURIComponent(email));
+  if (!rows || rows.length === 0) {
+    showAccessDenied(email); return;
+  }
+  const entry = rows[0];
+  currentUser = {
+    email,
+    name: entry.participant_name || email.split('@')[0],
+    isAdmin: entry.is_admin || false,
+    participantName: entry.participant_name || null
+  };
+  document.getElementById('loginOverlay').style.display = 'none';
+  const denied = document.getElementById('accessDeniedOverlay');
+  if (denied) denied.remove();
+  document.getElementById('userBadge').style.display = 'inline-flex';
+  document.getElementById('userName').textContent = currentUser.name;
+  document.getElementById('userAvatar').textContent = currentUser.name.charAt(0).toUpperCase();
+  if (currentUser.isAdmin) {
+    document.getElementById('adminBadge').style.display = 'inline';
+    document.body.classList.add('admin-visible');
+  } else {
+    document.body.classList.remove('admin-visible');
+  }
+  loadAll();
+  if (currentUser.isAdmin) alLoad();
+}
+
+function showLoginOverlay() {
+  document.getElementById('loginOverlay').style.display = 'flex';
+}
+
+function showAccessDenied(email) {
+  let el = document.getElementById('accessDeniedOverlay');
+  if (!el) { el = document.createElement('div'); el.id = 'accessDeniedOverlay'; el.className = 'access-denied'; document.body.appendChild(el); }
+  el.innerHTML = `<div class="access-denied-box">
+    <div style="font-size:2.5rem;margin-bottom:.5rem">&#x1F6AB;</div>
+    <div style="font-size:1.6rem;font-weight:700;color:var(--red);margin-bottom:.5rem">Access Denied</div>
+    <div style="font-size:.85rem;color:var(--muted);margin-bottom:1.5rem">
+      <strong style="color:var(--text)">${email}</strong> is not on the access list.<br>Ask the league admin to add you.
+    </div>
+    <button onclick="signOut()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:.6rem 1.5rem;border-radius:8px;cursor:pointer;font-size:.85rem">
+      Sign out &amp; try another account
+    </button>
+  </div>`;
+}
+
+
+async function signInWithGoogle() {
+  document.getElementById('loginErr').textContent = '';
+  document.getElementById('googleSignInBtn').disabled = true;
+  const { error } = await _supaClient.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.href }
+  });
+  if (error) {
+    document.getElementById('loginErr').textContent = error.message;
+    document.getElementById('googleSignInBtn').disabled = false;
   }
 }
 
-function checkLoginAndBoot() {
-  if (isLoggedIn()) {
-    document.getElementById('loginOverlay').style.display = 'none';
-    loadAll();
-  }
-  // else overlay stays visible, loadAll is called after successful login
+async function signOut() {
+  await _supaClient.auth.signOut();
+  currentUser = null;
+  document.body.classList.remove('admin-visible');
+  document.getElementById('userBadge').style.display = 'none';
+  document.getElementById('adminBadge').style.display = 'none';
+  showLoginOverlay();
 }
+
+// ── ALLOWLIST CRUD ────────────────────────────────────────────────────────────
+async function alLoad() {
+  const rows = await dbGet('allowlist', '?order=is_admin.desc,participant_name.asc');
+  const el = document.getElementById('alList');
+  if (!el) return;
+  if (!rows || rows.length === 0) { el.innerHTML = '<div style="color:var(--muted);font-size:.82rem">No entries yet.</div>'; return; }
+  el.innerHTML = rows.map(r => {
+    const isYou = currentUser && r.email === currentUser.email;
+    const rmBtn = isYou ? '' : `<button onclick="alRemove('${r.email}')" class="btn-ghost" style="font-size:.75rem;padding:.25rem .6rem;color:var(--red);border-color:rgba(255,23,68,.3)">Remove</button>`;
+    return `<div class="al-entry">
+      <div style="display:flex;flex-direction:column;gap:.1rem">
+        <div class="al-name">${r.participant_name || '—'}${r.is_admin ? ' <span class="al-admin-badge">ADMIN</span>' : ''}${isYou ? ' <span class="al-you-badge">YOU</span>' : ''}</div>
+        <div class="al-email">${r.email}</div>
+      </div>${rmBtn}</div>`;
+  }).join('');
+}
+
+
+async function alAddEntry() {
+  const email = document.getElementById('alEmail').value.trim().toLowerCase();
+  const name = document.getElementById('alName').value.trim();
+  const isAdmin = document.getElementById('alIsAdmin').checked;
+  const status = document.getElementById('alStatus');
+  if (!email || !name) { status.innerHTML = '<span style="color:var(--red)">Email and name are required.</span>'; return; }
+  status.innerHTML = '<span style="color:var(--gold)">Adding...</span>';
+  try {
+    await sb('POST', 'allowlist', { email, participant_name: name, is_admin: isAdmin }, '', { 'Prefer': 'return=minimal,resolution=merge-duplicates' });
+    document.getElementById('alEmail').value = '';
+    document.getElementById('alName').value = '';
+    document.getElementById('alIsAdmin').checked = false;
+    status.innerHTML = '<span style="color:var(--green)">Added ' + name + ' (' + email + ').</span>';
+    await alLoad();
+  } catch(e) { status.innerHTML = '<span style="color:var(--red)">Error: ' + e.message + '</span>'; }
+}
+
+async function alRemove(email) {
+  if (!confirm('Remove ' + email + ' from the access list?')) return;
+  await dbDelete('allowlist', '?email=eq.' + encodeURIComponent(email));
+  await alLoad();
+}
+
+function checkLoginAndBoot() { initAuth(); }
 
 // ═══════════════════════════════════════════════════════
 // MODE (IPL / WORLD CUP)
