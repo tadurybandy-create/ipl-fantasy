@@ -268,16 +268,7 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
     <span id="foreignInfoSpan">Max <strong>4 foreign players</strong> per fantasy team.</span>
     <strong>All picks sync automatically</strong> for everyone.
   </div>
-  <div class="card" style="margin-bottom:1.2rem">
-    <div style="display:flex;gap:.7rem;align-items:flex-end">
-      <div class="input-group" style="flex:1">
-        <label>Add Fantasy Participant</label>
-        <input type="text" id="newPName" placeholder="e.g. Priya" onkeydown="if(event.key==='Enter')addParticipant()">
-      </div>
-      <button class="btn btn-sm" onclick="addParticipant()">+ Add</button>
-      <span id="pCount" style="color:var(--muted);font-size:.82rem;white-space:nowrap;padding-bottom:.1rem">0/16</span>
-    </div>
-  </div>
+  <div id="pCount" style="display:none">0/16</div>
   <div class="draft-layout">
     <div class="participant-sidebar">
       <div class="card">
@@ -1163,6 +1154,7 @@ function autoSelectMyParticipant() {
   }
 }
 function renderAll() {
+  if (!currentUser) return; // not authenticated yet
   renderDraftBanner();
   renderParticipantListWithLock();
   renderDraftGridWithLock();
@@ -1173,7 +1165,7 @@ function renderAll() {
 }
 
 // Auto-refresh every 30 seconds so all viewers stay in sync
-setInterval(loadAll, 30000);
+setInterval(() => { if (currentUser) loadAll(); }, 30000);
 // Start draft state polling
 startDraftPolling();
 
