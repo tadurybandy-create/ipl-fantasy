@@ -934,9 +934,10 @@ function draftIsComplete() {
 function showConfirmPickBtn() {
   const el = document.getElementById('confirmPickSlot');
   if (!el) return;
-  // Only show during active draft when it's your turn (or admin)
+  // Show during active draft when it's your turn (or admin), or always for admin
+  const isAdmin = currentUser?.isAdmin;
   if (!state.draftActive || draftIsComplete()) { el.innerHTML = ''; return; }
-  if (!isMyDraftTurn()) { el.innerHTML = ''; return; }
+  if (!isAdmin && !isMyDraftTurn()) { el.innerHTML = ''; return; }
 
   const ai = state.activeParticipant;
   const p = ai !== null ? state.participants[ai] : null;
@@ -962,10 +963,6 @@ async function confirmPickAndAdvance() {
 function renderDraftBanner() {
   const el = document.getElementById('draftBanner');
   if (!el) return;
-  // Hide confirm button when banner refreshes (turn changed)
-  const confirmSlot = document.getElementById('confirmPickSlot');
-  if (confirmSlot) confirmSlot.innerHTML = '';
-
   if (!state.draftActive) {
     // Not started yet
     const adminBtn = currentUser?.isAdmin
@@ -1440,6 +1437,7 @@ async function togglePlayerPick(teamKey, player) {
     renderDraftGridWithLock();
     renderPicksSummary();
     renderParticipantListWithLock();
+    renderDraftBanner();
     showConfirmPickBtn();
   } else {
     renderParticipantListWithLock();
