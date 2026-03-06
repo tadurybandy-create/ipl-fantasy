@@ -238,11 +238,11 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
       <span class="sync-dot loading" id="syncDot"></span>
       <span id="syncText">Connecting…</span>
     </span>
-    <div id="userBadge" style="display:none" class="user-badge">
-      <span id="userAvatar" style="width:18px;height:18px;border-radius:50%;background:var(--green);display:inline-flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:#000;flex-shrink:0"></span>
-      <span id="userName" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-      <span id="adminBadge" style="display:none;font-size:.65rem;background:var(--gold);color:#000;padding:.05rem .35rem;border-radius:3px;font-weight:700;flex-shrink:0">ADMIN</span>
-      <button onclick="signOut()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.8rem;line-height:1;padding:0 .1rem" title="Sign out">✕</button>
+    <div id="userBadge" style="display:none;align-items:center;gap:.4rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:.25rem .6rem .25rem .35rem;border-radius:20px;font-size:.78rem;color:var(--muted)">
+      <span id="userAvatar" style="width:20px;height:20px;border-radius:50%;background:var(--dark-green);border:1px solid var(--green);display:inline-flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:var(--green);flex-shrink:0"></span>
+      <span id="userName" style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)"></span>
+      <span id="adminBadge" style="display:none;font-size:.6rem;background:transparent;border:1px solid var(--gold);color:var(--gold);padding:.05rem .3rem;border-radius:3px;font-weight:600;flex-shrink:0;letter-spacing:.5px">ADMIN</span>
+      <button onclick="signOut()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.75rem;line-height:1;padding:0;margin-left:.1rem;opacity:.6" title="Sign out">✕</button>
     </div>
   </div>
 </header>
@@ -900,6 +900,8 @@ async function loadAll() {
     setSyncStatus('ok', 'Synced');
     renderAll();
     autoSelectMyParticipant();
+    // Restore confirm button if it's still my turn after reload
+    showConfirmPickBtn();
   } catch(e) {
     console.error(e);
     setSyncStatus('err', 'Sync failed — check console');
@@ -1158,6 +1160,7 @@ function startDraftPolling() {
       renderParticipantListWithLock();
       renderDraftGridWithLock();
       renderPicksSummary();
+      showConfirmPickBtn();
     }
   }, 5000);
 }
@@ -1512,52 +1515,77 @@ function renderPicksSummary() {
   const p = state.participants[ai];
   const foreignCount = countForeignPicks(p);
 
-  // Update both the name span and foreign count together
   const nameEl = document.getElementById('picksSummaryName');
   if (nameEl) nameEl.textContent = p.name;
 
   const foreignEl = document.getElementById('picksSummaryForeign');
   if (foreignEl) {
-    foreignEl.textContent = `🌍 ${foreignCount}/${MAX_FOREIGN_PER_FANTASY} foreign`;
+    foreignEl.textContent = state.mode === 'worldcup' ? '' : `🌍 ${foreignCount}/${MAX_FOREIGN_PER_FANTASY} foreign`;
     foreignEl.style.color = foreignCount >= MAX_FOREIGN_PER_FANTASY ? '#ff9800' : 'var(--muted)';
   }
 
-  // Compute round + pick label from snake draft order
-  function getPickLabel(seqNum) {
-    if (!seqNum || !state.draftOrder || !state.draftOrder.length) return null;
-    const n = state.draftOrder.length;
+  // Helper: get round number from sequential pick order
+  function getRound(seqNum) {
+    if (!seqNum) return null;
+    const n = state.draftOrder && state.draftOrder.length;
+    if (!n) return seqNum; // fallback: use seq number as round
     let remaining = seqNum;
     for (let round = 1; round <= 11; round++) {
-      if (remaining <= n) {
-        const orderInRound = round % 2 === 1 ? remaining : (n - remaining + 1);
-        return `<span style="font-size:.68rem;color:var(--muted);margin-left:.35rem;font-weight:400">Rd ${round} · #${orderInRound}</span>`;
-      }
+      if (remaining <= n) return round;
       remaining -= n;
     }
-    return `<span style="font-size:.68rem;color:var(--muted);margin-left:.35rem">#${seqNum}</span>`;
+    return null;
   }
 
+  // Build rows sorted by round ascending (picked first at top), unpicked at bottom
   const pickOrder = p.pickOrder || {};
-  const rows = TEAM_KEYS.map(k => {
-    const pick = p.picks[k];
-    const players = IPL_TEAMS[k]?.players || [];
-    const playerObj = pick ? players.find(pl => pl.name === pick) : null;
-    const label = pick ? getPickLabel(pickOrder[k]) : '';
-    return `<div class="pick-row">
-      <span class="team-tag">${k}</span>
-      ${pick
-        ? `<span style="display:flex;align-items:center;gap:.2rem">${playerObj?.foreign ? '🌍' : '🇮🇳'} <strong style="font-size:.85rem">${pick}</strong>${label}</span>`
-        : `<span class="no-pick">not picked</span>`}
-    </div>`;
-  }).join('');
+  const picked = TEAM_KEYS
+    .filter(k => p.picks[k])
+    .map(k => ({ k, player: p.picks[k], round: getRound(pickOrder[k]) || 999 }))
+    .sort((a, b) => a.round - b.round);
+  const unpicked = TEAM_KEYS.filter(k => !p.picks[k]);
 
-  const teamRow = `<div class="pick-row" style="border-top:1px solid var(--border);margin-top:.4rem;padding-top:.4rem">
-    <span class="team-tag" style="background:rgba(255,214,0,.12);color:var(--gold)">TEAM</span>
-    ${p.teamPick
-      ? `<span>🏆 ${IPL_TEAMS[p.teamPick]?.name||p.teamPick} <span style="font-size:.7rem;color:var(--muted)">(${p.teamPick})</span></span>`
-      : `<span class="no-pick">no team picked</span>`}
-  </div>`;
-  document.getElementById('picksSummaryRows').innerHTML = rows + teamRow;
+  // Table of picked players
+  let tableHtml = '';
+  if (picked.length > 0) {
+    tableHtml = `<table style="width:100%;border-collapse:collapse;font-size:.83rem;margin-bottom:.5rem">
+      <thead>
+        <tr>
+          <th style="text-align:center;padding:.35rem .5rem;color:var(--muted);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);width:2.5rem">Rd</th>
+          <th style="text-align:left;padding:.35rem .5rem;color:var(--muted);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border)">Player</th>
+          <th style="text-align:center;padding:.35rem .5rem;color:var(--muted);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);width:3rem">Team</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${picked.map(({k, player, round}) => {
+          const playerObj = (IPL_TEAMS[k]?.players||[]).find(pl => pl.name === player);
+          const flag = playerObj?.foreign ? '🌍' : '🇮🇳';
+          return `<tr style="border-bottom:1px solid rgba(255,255,255,.04)">
+            <td style="text-align:center;padding:.45rem .5rem;font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--green);letter-spacing:1px">${round !== 999 ? round : '—'}</td>
+            <td style="padding:.45rem .5rem">${flag} ${player}</td>
+            <td style="text-align:center;padding:.45rem .5rem"><span class="team-tag" style="font-size:.65rem">${k}</span></td>
+          </tr>`;
+        }).join('')}
+        ${p.teamPick ? `<tr style="border-top:1px solid var(--border)">
+          <td style="text-align:center;padding:.45rem .5rem;font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold)">🏆</td>
+          <td style="padding:.45rem .5rem;color:var(--gold)">${IPL_TEAMS[p.teamPick]?.name || p.teamPick}</td>
+          <td style="text-align:center;padding:.45rem .5rem"><span class="team-tag" style="font-size:.65rem;background:rgba(255,214,0,.12);color:var(--gold)">${p.teamPick}</span></td>
+        </tr>` : ''}
+      </tbody>
+    </table>`;
+  }
+
+  // Unpicked slots shown compactly below table
+  let unpickedHtml = '';
+  if (unpicked.length > 0) {
+    unpickedHtml = `<div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.3rem">
+      ${unpicked.map(k => `<span class="team-tag" style="opacity:.4;font-size:.65rem">${k}</span>`).join('')}
+      ${!p.teamPick ? `<span class="team-tag" style="opacity:.4;font-size:.65rem;background:rgba(255,214,0,.08);color:var(--gold)">TEAM</span>` : ''}
+    </div>
+    <div style="font-size:.72rem;color:var(--muted);margin-top:.3rem">${unpicked.length} slot${unpicked.length!==1?'s':''} remaining</div>`;
+  }
+
+  document.getElementById('picksSummaryRows').innerHTML = tableHtml + unpickedHtml;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2438,7 +2466,9 @@ async function resetEverything() {
 
     setSyncStatus('ok', 'Synced');
     status.innerHTML = '<span style="color:var(--green)">✓ All data has been wiped. Ready for a fresh start!</span>';
-    renderAll();
+    // Re-add current user as participant immediately after reset
+    await autoAddParticipant();
+    await loadAll();
   } catch(e) {
     setSyncStatus('err', 'Reset failed');
     status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
