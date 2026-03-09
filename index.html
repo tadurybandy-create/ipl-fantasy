@@ -1152,7 +1152,8 @@ function renderParticipantListWithLock() {
     const pickCount = playerPickCount + (p.teamPick ? 1 : 0);
     const total = TEAM_KEYS.length + 1; // 10 players + 1 team
     const complete = pickCount === total;
-    const active = state.activeParticipant === i;
+    const viewIdx = (state.draftActive && !draftIsComplete() && state.viewParticipant !== undefined) ? state.viewParticipant : state.activeParticipant;
+    const active = viewIdx === i;
     const isMe = currentUser && currentUser.participantName &&
       p.name.toLowerCase() === currentUser.participantName.toLowerCase();
     const isAdmin = currentUser?.isAdmin;
@@ -1238,10 +1239,9 @@ async function advanceTurn() {
     const idx = state.participants.findIndex(p => p.name.toLowerCase() === picker.toLowerCase());
     if (idx >= 0) {
       state.activeParticipant = idx;
+      state.viewParticipant = idx; // reset view to current picker on turn advance
       const pp = state.participants[idx];
       state.picksAtTurnStart = TEAM_KEYS.filter(k => pp.picks[k]).length + (pp.teamPick ? 1 : 0);
-      const draftLabel = document.getElementById('draftActiveLabel');
-      if (draftLabel) draftLabel.innerHTML = `Drafting for <strong style="color:var(--green)">${picker}</strong>`;
     }
   }
 
@@ -1354,6 +1354,7 @@ function autoSelectMyParticipant() {
     // Record baseline picks so confirm button only shows after a NEW pick this turn
     const p = state.participants[idx];
     state.picksAtTurnStart = p ? TEAM_KEYS.filter(k => p.picks[k]).length + (p.teamPick ? 1 : 0) : 0;
+    state.viewParticipant = state.activeParticipant; // reset view to current picker
     renderParticipantListWithLock();
     renderPicksSummary();
   }
@@ -1461,9 +1462,14 @@ function setActiveParticipant(i) {
 // ═══════════════════════════════════════════════════════
 function renderDraftGrid() {
   const {pc} = getDraftCounts();
+  // During draft: activeParticipant = current picker (for writing picks)
+  //               viewParticipant   = who we're browsing (for display/highlight)
   const ai = state.activeParticipant;
-  const active = ai!==null ? state.participants[ai] : null;
-  const foreignCount = active ? countForeignPicks(active) : 0;
+  const vi = (state.draftActive && !draftIsComplete() && state.viewParticipant !== undefined && state.viewParticipant !== null)
+    ? state.viewParticipant : ai;
+  const active = ai!==null ? state.participants[ai] : null;  // used for: can I pick?
+  const viewed = vi!==null ? state.participants[vi] : active; // used for: what to highlight
+  const foreignCount = viewed ? countForeignPicks(viewed) : 0;
 
   if (TEAM_KEYS.length === 0) {
     document.getElementById('teamDraftGrid').innerHTML = `
@@ -1486,7 +1492,7 @@ function renderDraftGrid() {
 
   document.getElementById('teamDraftGrid').innerHTML = TEAM_KEYS.map(key => {
     const team = IPL_TEAMS[key];
-    const myPickName = active ? active.picks[key] : null;
+    const myPickName = viewed ? viewed.picks[key] : null;
     // Foreign count excluding this slot (so we can show if picking this slot's foreign would breach limit)
     const foreignExcludingSlot = active ? countForeignPicks(active, key) : 0;
 
@@ -1519,7 +1525,7 @@ function renderDraftGrid() {
 
   // Team pick card — appended after all player cards
   const {tc} = getDraftCounts();
-  const myTeamPick = active ? active.teamPick : null;
+  const myTeamPick = viewed ? viewed.teamPick : null;
   const teamCardRows = TEAM_KEYS.map(key => {
     const count = tc[key]||0;
     const full = count >= MAX_TEAM_DRAFTS;
@@ -1588,16 +1594,7 @@ async function togglePlayerPick(teamKey, player) {
       alert("You can only pick for yourself."); return;
     }
   }
-  // Admin picking during draft: auto-switch active participant to current picker
-  if (currentUser?.isAdmin && state.draftActive) {
-    const picker = draftCurrentPicker();
-    if (picker) {
-      const pickerIdx = state.participants.findIndex(p => p.name.toLowerCase() === picker.toLowerCase());
-      if (pickerIdx >= 0 && state.activeParticipant !== pickerIdx) {
-        state.activeParticipant = pickerIdx;
-      }
-    }
-  }
+  // Picks always go to activeParticipant (current picker) — no switching needed
 
   const p = state.participants[ai];
   const {pc} = getDraftCounts();
@@ -1606,12 +1603,20 @@ async function togglePlayerPick(teamKey, player) {
   if (!isDeselect && (pc[player]||0)>=MAX_PLAYER_DRAFTS) { alert(`${player} is already drafted ${MAX_PLAYER_DRAFTS} times!`); return; }
 
   // During draft: enforce one pick per turn
+  // Allow switching (deselect then reselect counts as same turn)
+  // Only block if they already have 1 NEW pick this turn AND are trying to add another
   if (!isDeselect && state.draftActive) {
     const baseline = state.picksAtTurnStart !== undefined ? state.picksAtTurnStart : 0;
     const currentTotal = TEAM_KEYS.filter(k => p.picks[k]).length + (p.teamPick ? 1 : 0);
-    if (currentTotal > baseline) {
-      alert("You've already made your pick this turn! Hit 'Confirm Pick & End Turn' to proceed.");
-      return;
+    const picksThisTurn = currentTotal - baseline;
+    if (picksThisTurn >= 1) {
+      // They already have a pick this turn — but allow if they're replacing the slot
+      // (i.e. this team slot already has a pick that would be replaced)
+      const slotAlreadyPicked = !!p.picks[teamKey];
+      if (!slotAlreadyPicked) {
+        alert("You've already made your pick this turn! Deselect your current pick first, or hit 'Confirm Pick & End Turn'.");
+        return;
+      }
     }
   }
 
@@ -1685,12 +1690,15 @@ async function toggleTeamPick(teamKey) {
   }
 
   // During draft: enforce one pick per turn
-  // If they already picked a player this turn, block team pick (and vice versa)
   if (!isDeselect && state.draftActive) {
     const baseline = state.picksAtTurnStart !== undefined ? state.picksAtTurnStart : 0;
     const currentTotal = TEAM_KEYS.filter(k => p.picks[k]).length + (p.teamPick ? 1 : 0);
-    if (currentTotal > baseline) {
-      alert("You've already made your pick this turn! Hit 'Confirm Pick & End Turn' to proceed.");
+    const picksThisTurn = currentTotal - baseline;
+    if (picksThisTurn >= 1) {
+      // Already have a pick — block only if it's a different type (player vs team)
+      // Team slot: if they already have a team pick, that's the slot — allow replacement (isDeselect handles it)
+      // If they have a player pick this turn, block adding a team pick on top
+      alert("You've already made your pick this turn! Deselect your current pick first, or hit 'Confirm Pick & End Turn'.");
       return;
     }
   }
@@ -1755,7 +1763,9 @@ function savePicks() {
 }
 
 function renderPicksSummary() {
-  const ai = state.activeParticipant;
+  // Show picks for the viewed person (or active if no view set)
+  const ai = (state.draftActive && !draftIsComplete() && state.viewParticipant !== undefined && state.viewParticipant !== null)
+    ? state.viewParticipant : state.activeParticipant;
   const el = document.getElementById('picksSummary');
   if (!el) return;
   if (ai === null || ai === undefined) { el.style.display='none'; return; }
