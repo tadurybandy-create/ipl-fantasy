@@ -292,6 +292,7 @@ body.admin-visible .admin-only{display:block;}
       <span id="userAvatar" style="width:20px;height:20px;border-radius:50%;background:var(--dark-green);border:1px solid var(--green);display:inline-flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:var(--green);flex-shrink:0"></span>
       <span id="userName" style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)"></span>
       <span id="adminBadge" style="display:none;font-size:.6rem;background:transparent;border:1px solid var(--gold);color:var(--gold);padding:.05rem .3rem;border-radius:3px;font-weight:600;flex-shrink:0;letter-spacing:.5px">ADMIN</span>
+      <button id="adminToggleBtn" onclick="toggleAdminMode()" style="display:none;background:rgba(255,214,0,.12);border:1px solid rgba(255,214,0,.4);color:var(--gold);cursor:pointer;font-size:.6rem;font-weight:700;padding:.05rem .35rem;border-radius:3px;flex-shrink:0;letter-spacing:.5px;line-height:1.4" title="Toggle admin mode on/off">👁 VIEW</button>
       <button onclick="signOut()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.75rem;line-height:1;padding:0;margin-left:.1rem;opacity:.6" title="Sign out">✕</button>
     </div>
   </div>
@@ -748,7 +749,11 @@ async function handleAuthUser(user) {
   if (currentUser.isAdmin) {
     const _ab = document.getElementById('adminBadge');
     if (_ab) _ab.style.display = 'inline';
+    const _at = document.getElementById('adminToggleBtn');
+    if (_at) _at.style.display = 'inline';
     document.body.classList.add('admin-visible');
+    currentUser._isAdminReal = true; // stash original
+    currentUser._adminModeOn = true;
   } else {
     document.body.classList.remove('admin-visible');
   }
@@ -1189,17 +1194,48 @@ function renderDraftGridWithLock() {
   }
 }
 
+
+function toggleAdminMode() {
+  if (!currentUser || !currentUser._isAdminReal) return;
+  const btn = document.getElementById('adminToggleBtn');
+  const badge = document.getElementById('adminBadge');
+
+  if (currentUser._adminModeOn) {
+    // Switch to participant view
+    currentUser._adminModeOn = false;
+    currentUser.isAdmin = false;
+    document.body.classList.remove('admin-visible');
+    if (btn) { btn.textContent = '🔒 ADMIN'; btn.style.background = 'rgba(255,23,68,.12)'; btn.style.borderColor = 'rgba(255,23,68,.4)'; btn.style.color = 'var(--red)'; btn.title = 'Re-enable admin mode'; }
+    if (badge) badge.style.opacity = '0.35';
+  } else {
+    // Restore admin
+    currentUser._adminModeOn = true;
+    currentUser.isAdmin = true;
+    document.body.classList.add('admin-visible');
+    if (btn) { btn.textContent = '👁 VIEW'; btn.style.background = 'rgba(255,214,0,.12)'; btn.style.borderColor = 'rgba(255,214,0,.4)'; btn.style.color = 'var(--gold)'; btn.title = 'Switch to participant view'; }
+    if (badge) badge.style.opacity = '1';
+  }
+  // Re-render everything so admin controls appear/disappear
+  renderDraftBanner();
+  renderParticipantListWithLock();
+  renderDraftGrid();
+  renderPicksSummary();
+  showConfirmPickBtn();
+  if (typeof renderLeaderboard === 'function') renderLeaderboard();
+  if (typeof initDraftOrderScreen === 'function') initDraftOrderScreen();
+}
+
 async function startDraft() {
   if (!currentUser?.isAdmin) return;
   if (!state.participants.length) { alert('No participants yet. Users need to sign in first.'); return; }
   if (!confirm(`Start the snake draft with ${state.participants.length} participants across ${DRAFT_TOTAL_ROUNDS} rounds?`)) return;
 
-  // Build draft order from current participants (shuffle for round 1)
-  const shuffled = [...state.participants.map(p => p.name)];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  // STRICT: never auto-generate. A draft order must be set from the Draft Order tab.
+  if (!state.draftOrder || state.draftOrder.length === 0) {
+    alert('No draft order set! Go to the Draft Order tab and generate/save an order first.');
+    return;
   }
+  const shuffled = [...state.draftOrder];
 
   const ds = { id: 1, mode: state.mode, active: true, order: JSON.stringify(shuffled), round: 1, pick_idx: 0 };
   await sb('POST', 'draft_state', ds, '', { 'Prefer': 'return=minimal,resolution=merge-duplicates' });
