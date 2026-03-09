@@ -235,6 +235,10 @@ body.admin-visible .admin-only{display:block;}
 #confirmPickSlot{margin-top:.8rem;}
 #confirmPickSlot button:hover{filter:brightness(1.12);transform:translateY(-1px);}
 
+
+/* WhatsApp share button */
+.btn-whatsapp{background:rgba(37,211,102,.15);border:1px solid rgba(37,211,102,.4);color:#25D366;padding:.25rem .7rem;border-radius:6px;font-size:.75rem;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap;}
+.btn-whatsapp:hover{background:rgba(37,211,102,.25);border-color:#25D366;}
 </style>
 </head>
 <body>
@@ -569,14 +573,12 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // Anthropic API key is stored securely in Netlify environment variables.
 // All AI calls go through /.netlify/functions/anthropic (server-side proxy).
 
+// Cached session token — set once on login, avoids getSession() on every request
+let _sessionToken = null;
+
 async function sb(method, table, body=null, params='', extraHeaders={}) {
   const url = `${SUPABASE_URL}/rest/v1/${table}${params}`;
-  // Use the active session JWT so RLS policies see the authenticated user
-  let authToken = SUPABASE_KEY;
-  try {
-    const { data: { session } } = await _supaClient.auth.getSession();
-    if (session?.access_token) authToken = session.access_token;
-  } catch(e) {}
+  const authToken = _sessionToken || SUPABASE_KEY;
   const opts = {
     method,
     headers: {
@@ -675,8 +677,12 @@ async function initAuth() {
   // Register listener FIRST — catches the SIGNED_IN event fired after OAuth redirect
   _supaClient.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN' && session && session.user) {
+      if (session.access_token) _sessionToken = session.access_token;
       if (!currentUser) await handleAuthUser(session.user);
+    } else if (event === 'TOKEN_REFRESHED' && session) {
+      if (session.access_token) _sessionToken = session.access_token;
     } else if (event === 'SIGNED_OUT') {
+      _sessionToken = null;
       currentUser = null;
       showLoginOverlay();
     }
@@ -703,6 +709,15 @@ async function handleAuthUser(user) {
     isAdmin: entry.is_admin || false,
     participantName: entry.participant_name || null
   };
+  // Cache session token for all subsequent DB calls
+  try {
+    const { data: { session } } = await _supaClient.auth.getSession();
+    if (session?.access_token) _sessionToken = session.access_token;
+  } catch(e) {}
+
+  // Update last_seen timestamp so admin can see who's online
+  dbPatch('allowlist', { last_seen: new Date().toISOString() }, '?email=eq.' + encodeURIComponent(email)).catch(() => {});
+
   const _lo = document.getElementById('loginOverlay');
   if (_lo) _lo.style.display = 'none';
   const _denied = document.getElementById('accessDeniedOverlay');
@@ -723,6 +738,7 @@ async function handleAuthUser(user) {
   await autoAddParticipant();
   await loadAll();
   startDraftPolling();
+  startHeartbeat();
   if (currentUser.isAdmin) alLoad();
 }
 
@@ -774,13 +790,35 @@ async function alLoad() {
   const el = document.getElementById('alList');
   if (!el) return;
   if (!rows || rows.length === 0) { el.innerHTML = '<div style="color:var(--muted);font-size:.82rem">No entries yet.</div>'; return; }
-  el.innerHTML = rows.map(r => {
+
+  function getOnlineStatus(lastSeen) {
+    if (!lastSeen) return { dot: '⚪', label: 'Never logged in', color: 'var(--muted)' };
+    const mins = Math.floor((Date.now() - new Date(lastSeen)) / 60000);
+    if (mins < 15) return { dot: '🟢', label: mins < 2 ? 'Online now' : `${mins}m ago`, color: '#00C853' };
+    if (mins < 60) return { dot: '🟡', label: `${mins}m ago`, color: '#FFD600' };
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return { dot: '🟡', label: `${hrs}h ago`, color: '#FFD600' };
+    const days = Math.floor(hrs / 24);
+    return { dot: '⚪', label: days === 1 ? 'Yesterday' : `${days}d ago`, color: 'var(--muted)' };
+  }
+
+  const onlineCount = rows.filter(r => r.last_seen && (Date.now() - new Date(r.last_seen)) < 15 * 60 * 1000).length;
+  const onlineHeader = `<div style="font-size:.75rem;color:var(--muted);margin-bottom:.6rem">🟢 ${onlineCount} online now · ${rows.length} total members</div>`;
+
+  el.innerHTML = onlineHeader + rows.map(r => {
     const isYou = currentUser && r.email === currentUser.email;
+    const status = getOnlineStatus(r.last_seen);
     const rmBtn = isYou ? '' : `<button onclick="alRemove('${r.email}')" class="btn-ghost" style="font-size:.75rem;padding:.25rem .6rem;color:var(--red);border-color:rgba(255,23,68,.3)">Remove</button>`;
     return `<div class="al-entry">
-      <div style="display:flex;flex-direction:column;gap:.1rem">
-        <div class="al-name">${r.participant_name || '—'}${r.is_admin ? ' <span class="al-admin-badge">ADMIN</span>' : ''}${isYou ? ' <span class="al-you-badge">YOU</span>' : ''}</div>
-        <div class="al-email">${r.email}</div>
+      <div style="display:flex;align-items:center;gap:.7rem;flex:1">
+        <div style="font-size:1rem;line-height:1">${status.dot}</div>
+        <div style="display:flex;flex-direction:column;gap:.1rem;flex:1">
+          <div class="al-name">${r.participant_name || '—'}${r.is_admin ? ' <span class="al-admin-badge">ADMIN</span>' : ''}${isYou ? ' <span class="al-you-badge">YOU</span>' : ''}</div>
+          <div style="display:flex;gap:.6rem;align-items:center">
+            <div class="al-email">${r.email}</div>
+            <div style="font-size:.72rem;color:${status.color}">${status.label}</div>
+          </div>
+        </div>
       </div>${rmBtn}</div>`;
   }).join('');
 }
@@ -1202,6 +1240,16 @@ async function endDraft() {
 
 // Poll for draft state changes every 5 seconds (for non-admin users)
 let draftPollInterval = null;
+// Heartbeat — update last_seen every 5 minutes while user is active
+let heartbeatInterval = null;
+function startHeartbeat() {
+  if (heartbeatInterval) return;
+  heartbeatInterval = setInterval(() => {
+    if (!currentUser) return;
+    dbPatch('allowlist', { last_seen: new Date().toISOString() }, '?email=eq.' + encodeURIComponent(currentUser.email)).catch(() => {});
+  }, 5 * 60 * 1000); // every 5 minutes
+}
+
 function startDraftPolling() {
   if (draftPollInterval) return;
   draftPollInterval = setInterval(async () => {
@@ -2135,9 +2183,65 @@ async function applyMatch() {
     ['t1','draw','t2'].forEach(k=>document.getElementById(`res-${k}`).className='res-btn');
     document.getElementById('res-t1').textContent='— Team 1 Won';
     document.getElementById('res-t2').textContent='— Team 2 Won';
-    setImportStatus('success',`✓ Match applied! ${updates.length} player score(s) updated.`);
+    const newMatchId = matchRow.id;
+    setImportStatus('success',`✓ Match applied! ${updates.length} player score(s) updated. <button class="btn-whatsapp" style="margin-left:.6rem" onclick="shareToWhatsApp('${newMatchId}')">📤 Share to WhatsApp</button>`);
     renderMatchLog(); renderLeaderboard();
   } catch(e) { setSyncStatus('err','Save failed'); console.error(e); alert(e.message); }
+}
+
+function generateWhatsAppMsg(match) {
+  // Build leaderboard standings
+  const sorted = state.participants
+    .map(p => ({ name: p.name, ...calcSeasonPoints(p) }))
+    .sort((a, b) => b.total - a.total);
+
+  const medals = ['🥇', '🥈', '🥉'];
+  const standingsLines = sorted.map((p, i) => {
+    const medal = medals[i] || `${i + 1}.`;
+    const teamLine = p.teamPick ? ` (🏆${p.teamPick})` : '';
+    return `${medal} ${p.name}${teamLine} — *${p.total} pts*`;
+  }).join('\n');
+
+  // Match result line
+  const resultText = match.result === 'draw' ? 'Draw / No Result'
+    : match.result === 't1' ? `✅ ${match.t1name} Won`
+    : `✅ ${match.t2name} Won`;
+
+  // Top scorers from this match
+  const topPlayers = [...(match.updates || [])]
+    .sort((a, b) => b.pts - a.pts)
+    .slice(0, 5)
+    .map(u => {
+      const parts = [];
+      if (u.runs) parts.push(`${u.runs}r`);
+      if (u.wkts) parts.push(`${u.wkts}w`);
+      if (u.catches) parts.push(`${u.catches}c`);
+      if (u.motm) parts.push('⭐MOTM');
+      return `  • ${u.player} — +${u.pts}pts (${parts.join(' ')})`;
+    }).join('\n');
+
+  const msg =
+`🏏 *${match.title}*
+${resultText} · ${match.date}
+
+*Top Fantasy Scorers*
+${topPlayers || '  No drafted players scored'}
+
+━━━━━━━━━━━━━━━━
+📊 *Leaderboard*
+${standingsLines}
+
+⚡ _Cricket Fantasy League_`;
+
+  return msg;
+}
+
+function shareToWhatsApp(matchId) {
+  const match = state.matchHistory.find(m => m.id === matchId);
+  if (!match) return;
+  const msg = generateWhatsAppMsg(match);
+  const encoded = encodeURIComponent(msg);
+  window.open('https://wa.me/?text=' + encoded, '_blank');
 }
 
 function renderMatchLog() {
@@ -2153,6 +2257,7 @@ function renderMatchLog() {
         <div><div class="match-title-text">${m.title}</div><div class="match-date-text">${m.date}</div></div>
         <div style="display:flex;align-items:center;gap:.6rem">
           <span class="match-result-chip ${chipClass}">${resultText}</span>
+          <button class="btn-whatsapp" onclick="shareToWhatsApp('${m.id}')">📤 WhatsApp</button>
           <button class="btn-ghost" onclick="removeMatch('${m.id}')">✕ Remove</button>
         </div>
       </div>
