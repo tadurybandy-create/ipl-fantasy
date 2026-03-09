@@ -2437,7 +2437,7 @@ const IPL_TEAMS_LIST = [
   'Punjab Kings', 'Rajasthan Royals', 'Royal Challengers Bengaluru', 'Sunrisers Hyderabad'
 ];
 
-async function importAllIPLSquads( {
+if(false){async function importAllIPLSquads() {
   const allBtn = document.getElementById('iplAllBtn');
   const status = document.getElementById('iplSquadStatus');
   allBtn.disabled = true;
@@ -2450,7 +2450,7 @@ async function importAllIPLSquads( {
   }
   status.innerHTML = '<span style="color:var(--green)">✓ All 10 IPL teams imported successfully!</span>';
   allBtn.disabled = false;
-}
+}}
 
 if (false) {async function importWCSquad() {
   const btn = document.getElementById('wcSquadBtn');
