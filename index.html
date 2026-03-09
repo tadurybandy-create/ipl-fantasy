@@ -240,6 +240,20 @@ body.admin-visible .admin-only{display:block;}
 .btn-whatsapp{background:rgba(37,211,102,.15);border:1px solid rgba(37,211,102,.4);color:#25D366;padding:.25rem .7rem;border-radius:6px;font-size:.75rem;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap;}
 .btn-whatsapp:hover{background:rgba(37,211,102,.25);border-color:#25D366;}
 
+/* Draft pick dimming — when a pick is made, dim all unselected players */
+.draft-has-pick .player-opt:not(.selected-by-me) {
+  opacity: 0.3;
+  filter: grayscale(40%);
+}
+.draft-has-pick .player-opt.selected-by-me {
+  box-shadow: 0 0 0 2px var(--green);
+  background: rgba(0,200,83,.12) !important;
+}
+/* Don't dim disabled slots even when no pick made */
+.draft-has-pick .player-opt.disabled {
+  opacity: 0.2;
+}
+
 /* AI Scout button on player rows */
 .scout-btn{background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.2);color:var(--green);width:18px;height:18px;border-radius:50%;font-size:.65rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;padding:0;line-height:1;}
 .scout-btn:hover{background:rgba(0,200,83,.25);border-color:var(--green);}
@@ -1613,6 +1627,27 @@ function renderDraftGrid() {
 }
 
 
+
+function updateDraftPickState() {
+  // Add/remove 'draft-has-pick' class to show dimming when picker has a pick this turn
+  const grid = document.getElementById('teamDraftGrid');
+  if (!grid) return;
+  if (!state.draftActive || draftIsComplete()) {
+    grid.classList.remove('draft-has-pick');
+    return;
+  }
+  const ai = state.activeParticipant;
+  const p = ai !== null ? state.participants[ai] : null;
+  if (!p) { grid.classList.remove('draft-has-pick'); return; }
+  const baseline = state.picksAtTurnStart !== undefined ? state.picksAtTurnStart : 0;
+  const currentTotal = TEAM_KEYS.filter(k => p.picks[k]).length + (p.teamPick ? 1 : 0);
+  if (currentTotal > baseline) {
+    grid.classList.add('draft-has-pick');
+  } else {
+    grid.classList.remove('draft-has-pick');
+  }
+}
+
 async function togglePlayerPick(teamKey, player) {
   const ai = state.activeParticipant;
   if (ai===null) return;
@@ -1694,6 +1729,7 @@ async function togglePlayerPick(teamKey, player) {
     renderParticipantListWithLock();
     renderDraftBanner();
     showConfirmPickBtn();
+    updateDraftPickState();
   } else {
     renderParticipantListWithLock();
   }
@@ -1755,7 +1791,8 @@ async function toggleTeamPick(teamKey) {
     renderDraftGridWithLock();
     renderPicksSummary();
     renderParticipantListWithLock();
-    showConfirmPickBtn(); // show confirm button after team pick
+    showConfirmPickBtn();
+    updateDraftPickState();
   } else {
     renderParticipantListWithLock();
   }
@@ -1803,9 +1840,9 @@ function savePicks() {
 }
 
 function renderPicksSummary() {
-  // Show picks for the viewed person (or active if no view set)
-  const ai = (state.draftActive && !draftIsComplete() && state.viewParticipant !== undefined && state.viewParticipant !== null)
-    ? state.viewParticipant : state.activeParticipant;
+  // Show picks for: active picker (current turn) always takes priority
+  // viewParticipant is only for browsing grid highlights — bottom panel always shows the picker
+  const ai = state.activeParticipant;
   const el = document.getElementById('picksSummary');
   if (!el) return;
   if (ai === null || ai === undefined) { el.style.display='none'; return; }
