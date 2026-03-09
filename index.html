@@ -239,6 +239,23 @@ body.admin-visible .admin-only{display:block;}
 /* WhatsApp share button */
 .btn-whatsapp{background:rgba(37,211,102,.15);border:1px solid rgba(37,211,102,.4);color:#25D366;padding:.25rem .7rem;border-radius:6px;font-size:.75rem;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap;}
 .btn-whatsapp:hover{background:rgba(37,211,102,.25);border-color:#25D366;}
+
+/* AI Scout button on player rows */
+.scout-btn{background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.2);color:var(--green);width:18px;height:18px;border-radius:50%;font-size:.65rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;padding:0;line-height:1;}
+.scout-btn:hover{background:rgba(0,200,83,.25);border-color:var(--green);}
+
+/* Scout stat cards */
+.scout-stat{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.6rem .8rem;text-align:center;}
+.scout-stat-val{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--green);letter-spacing:1px;}
+.scout-stat-label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:.1rem;}
+
+/* AI Analyse button on leaderboard */
+.btn-ai-analyse{background:linear-gradient(135deg,rgba(162,89,255,.15),rgba(0,200,83,.1));border:1px solid rgba(162,89,255,.35);color:#c084fc;padding:.3rem .75rem;border-radius:6px;font-size:.75rem;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap;}
+.btn-ai-analyse:hover{background:linear-gradient(135deg,rgba(162,89,255,.25),rgba(0,200,83,.15));border-color:#a259ff;}
+
+/* Player opt row — make it flex so scout btn fits */
+.player-opt{display:flex;align-items:center;justify-content:space-between;padding:.4rem .5rem;border-radius:6px;font-size:.8rem;cursor:pointer;transition:background .15s;gap:.3rem;}
+
 </style>
 </head>
 <body>
@@ -2277,6 +2294,327 @@ async function applyMatch() {
   } catch(e) { setSyncStatus('err','Save failed'); console.error(e); alert(e.message); }
 }
 
+
+// ═══════════════════════════════════════════════════════
+// AI FEATURES
+// ═══════════════════════════════════════════════════════
+
+// Cache to avoid re-fetching same player
+const scoutCache = {};
+const teamAnalysisCache = {};
+
+async function openPlayerScout(playerName, teamKey) {
+  // Open modal immediately with loading state
+  document.getElementById('modalTitle').innerHTML =
+    `<span style="color:var(--green)">${playerName}</span> <span style="font-size:.8rem;color:var(--muted)">${IPL_TEAMS[teamKey]?.name||teamKey}</span>`;
+  document.getElementById('modalBody').innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem;gap:1rem">
+      <div class="spinner" style="width:32px;height:32px;border-width:3px"></div>
+      <div style="color:var(--muted);font-size:.88rem">Scouting ${playerName}…</div>
+    </div>`;
+  document.getElementById('detailModal').classList.add('open');
+
+  // Check cache
+  if (scoutCache[playerName]) {
+    renderScoutCard(playerName, teamKey, scoutCache[playerName]);
+    return;
+  }
+
+  try {
+    const fantasyContext = buildFantasyContext(playerName);
+    const prompt = `You are a cricket fantasy expert. Generate a detailed scouting report for ${playerName} who plays for ${IPL_TEAMS[teamKey]?.name||teamKey} in IPL.
+
+Search for their recent T20/IPL stats and provide:
+1. Player role (Batsman/Bowler/All-rounder/WK)
+2. Recent IPL season stats (runs, wickets, average, strike rate)
+3. T20I career highlights
+4. Current form (last 5 matches if available)
+5. Fantasy value rating out of 5 stars
+6. Key strengths for fantasy (e.g. "consistent run scorer", "takes wickets in powerplay")
+7. Risks (e.g. "injury prone", "inconsistent against spin")
+8. One-line verdict
+
+${fantasyContext}
+
+Respond ONLY in this exact JSON format, no markdown:
+{
+  "role": "Batsman",
+  "batting_avg": "42.3",
+  "strike_rate": "148.2",
+  "wickets_per_match": "0",
+  "economy": "-",
+  "ipl_seasons": "8",
+  "ipl_runs": "3420",
+  "ipl_wickets": "0",
+  "t20i_caps": "45",
+  "form": "Excellent",
+  "form_detail": "3 fifties in last 5 IPL matches",
+  "stars": 4,
+  "strengths": ["Consistent scorer", "High strike rate in death overs"],
+  "risks": ["Struggles vs left-arm pace"],
+  "verdict": "Premium pick — reliable fantasy points every match"
+}`;
+
+    const response = await fetch('/.netlify/functions/anthropic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const fullText = (data.content||[]).filter(b => b.type === 'text').map(b => b.text).join('');
+    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Could not parse scout data');
+    const scout = JSON.parse(jsonMatch[0]);
+    scoutCache[playerName] = scout;
+    renderScoutCard(playerName, teamKey, scout);
+  } catch(e) {
+    document.getElementById('modalBody').innerHTML = `
+      <div style="color:var(--red);padding:2rem;text-align:center">
+        <div style="font-size:1.5rem;margin-bottom:.5rem">⚠️</div>
+        <div>Could not load scout data: ${e.message}</div>
+      </div>`;
+  }
+}
+
+function buildFantasyContext(playerName) {
+  // Check if this player is already drafted and has fantasy scores
+  const sc = state.seasonScores[playerName];
+  if (!sc || (!sc.runs && !sc.wickets)) return '';
+  const pts = sc.runs + sc.wickets*25 + sc.catches*5 + (sc.runouts||0)*5 + (sc.stumpings||0)*5 + (sc.motm||0)*MOTM_PTS;
+  return `\nIn our fantasy league this season: ${sc.runs} runs, ${sc.wickets} wickets, ${sc.catches} catches = ${pts} fantasy pts.`;
+}
+
+function renderScoutCard(playerName, teamKey, scout) {
+  const stars = '⭐'.repeat(scout.stars||0) + '☆'.repeat(5-(scout.stars||0));
+  const formColor = scout.form === 'Excellent' ? 'var(--green)' : scout.form === 'Good' ? 'var(--gold)' : scout.form === 'Poor' ? 'var(--red)' : 'var(--muted)';
+
+  // Check if player is in someone's fantasy team
+  let draftedBy = '';
+  state.participants.forEach(p => {
+    Object.entries(p.picks||{}).forEach(([k, name]) => {
+      if (name === playerName) draftedBy = p.name;
+    });
+  });
+
+  const sc = state.seasonScores[playerName];
+  const fantasyPts = sc ? sc.runs + sc.wickets*25 + sc.catches*5 + (sc.runouts||0)*5 + (sc.stumpings||0)*5 + (sc.motm||0)*MOTM_PTS : 0;
+
+  document.getElementById('modalBody').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:1rem">
+
+      <!-- Header row -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+        <div style="display:flex;align-items:center;gap:.8rem">
+          <div style="background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.25);border-radius:8px;padding:.4rem .8rem;font-size:.8rem;color:var(--green);font-weight:600">${scout.role||'Player'}</div>
+          ${draftedBy ? `<div style="background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.3);border-radius:8px;padding:.4rem .8rem;font-size:.78rem;color:var(--gold)">🏏 Drafted by ${draftedBy}</div>` : '<div style="background:rgba(0,200,83,.06);border:1px solid rgba(0,200,83,.15);border-radius:8px;padding:.4rem .8rem;font-size:.78rem;color:var(--muted)">Available</div>'}
+        </div>
+        <div style="font-size:1.3rem" title="${scout.stars}/5 stars">${stars}</div>
+      </div>
+
+      <!-- Stats grid -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.6rem">
+        ${scout.ipl_runs && scout.ipl_runs !== '0' ? `<div class="scout-stat"><div class="scout-stat-val">${scout.ipl_runs}</div><div class="scout-stat-label">IPL Runs</div></div>` : ''}
+        ${scout.batting_avg && scout.batting_avg !== '-' ? `<div class="scout-stat"><div class="scout-stat-val">${scout.batting_avg}</div><div class="scout-stat-label">Avg</div></div>` : ''}
+        ${scout.strike_rate && scout.strike_rate !== '-' ? `<div class="scout-stat"><div class="scout-stat-val">${scout.strike_rate}</div><div class="scout-stat-label">Strike Rate</div></div>` : ''}
+        ${scout.ipl_wickets && scout.ipl_wickets !== '0' ? `<div class="scout-stat"><div class="scout-stat-val">${scout.ipl_wickets}</div><div class="scout-stat-label">IPL Wkts</div></div>` : ''}
+        ${scout.economy && scout.economy !== '-' ? `<div class="scout-stat"><div class="scout-stat-val">${scout.economy}</div><div class="scout-stat-label">Economy</div></div>` : ''}
+        ${scout.t20i_caps && scout.t20i_caps !== '0' ? `<div class="scout-stat"><div class="scout-stat-val">${scout.t20i_caps}</div><div class="scout-stat-label">T20I Caps</div></div>` : ''}
+        ${scout.ipl_seasons ? `<div class="scout-stat"><div class="scout-stat-val">${scout.ipl_seasons}</div><div class="scout-stat-label">IPL Seasons</div></div>` : ''}
+        ${fantasyPts ? `<div class="scout-stat" style="border-color:rgba(255,214,0,.3);background:rgba(255,214,0,.06)"><div class="scout-stat-val" style="color:var(--gold)">${fantasyPts}</div><div class="scout-stat-label">Fantasy Pts</div></div>` : ''}
+      </div>
+
+      <!-- Form -->
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:.8rem 1rem">
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.3rem">Current Form</div>
+        <div style="display:flex;align-items:center;gap:.6rem">
+          <span style="font-weight:700;color:${formColor}">${scout.form||'—'}</span>
+          <span style="font-size:.82rem;color:var(--muted)">${scout.form_detail||''}</span>
+        </div>
+      </div>
+
+      <!-- Strengths & Risks -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+        <div style="background:rgba(0,200,83,.05);border:1px solid rgba(0,200,83,.2);border-radius:10px;padding:.8rem">
+          <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--green);margin-bottom:.5rem">✅ Strengths</div>
+          ${(scout.strengths||[]).map(s => `<div style="font-size:.82rem;color:var(--text);margin-bottom:.25rem">• ${s}</div>`).join('')}
+        </div>
+        <div style="background:rgba(255,23,68,.04);border:1px solid rgba(255,23,68,.15);border-radius:10px;padding:.8rem">
+          <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--red);margin-bottom:.5rem">⚠️ Risks</div>
+          ${(scout.risks||[]).map(r => `<div style="font-size:.82rem;color:var(--text);margin-bottom:.25rem">• ${r}</div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Verdict -->
+      <div style="background:linear-gradient(135deg,rgba(0,200,83,.08),rgba(255,214,0,.06));border:1px solid rgba(0,200,83,.25);border-radius:10px;padding:.9rem 1rem">
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:.3rem">🏆 Fantasy Verdict</div>
+        <div style="font-size:.9rem;color:var(--text);font-weight:500">${scout.verdict||'—'}</div>
+      </div>
+
+      <div style="font-size:.7rem;color:var(--muted);text-align:center">⚡ Powered by Claude AI · Stats sourced via web search</div>
+    </div>`;
+}
+
+// ─── TEAM ANALYSER ───────────────────────────────────────────────────────────
+async function openTeamAnalyser(participantIdx) {
+  const p = state.participants[participantIdx];
+  const {total, playerPts, teamPts, breakdown} = calcSeasonPoints(p);
+
+  document.getElementById('modalTitle').innerHTML =
+    `🔍 <span style="color:var(--green)">${p.name}</span>'s Team Analysis`;
+  document.getElementById('modalBody').innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;padding:3rem;gap:1rem">
+      <div class="spinner" style="width:32px;height:32px;border-width:3px"></div>
+      <div style="color:var(--muted);font-size:.88rem">Analysing ${p.name}'s squad…</div>
+    </div>`;
+  document.getElementById('detailModal').classList.add('open');
+
+  // Check cache
+  const cacheKey = participantIdx + '_' + JSON.stringify(p.picks);
+  if (teamAnalysisCache[cacheKey]) {
+    renderTeamAnalysis(p, teamAnalysisCache[cacheKey], total, playerPts, teamPts);
+    return;
+  }
+
+  try {
+    // Build team summary
+    const picks = TEAM_KEYS.map(k => {
+      const name = p.picks[k];
+      if (!name) return null;
+      const sc = state.seasonScores[name]||{};
+      const pts = sc.runs + (sc.wickets||0)*25 + (sc.catches||0)*5 + (sc.runouts||0)*5 + (sc.stumpings||0)*5 + (sc.motm||0)*MOTM_PTS;
+      return `${name} (${k}): ${pts} fantasy pts this season`;
+    }).filter(Boolean);
+
+    const teamLine = p.teamPick ? `\nDrafted team: ${IPL_TEAMS[p.teamPick]?.name||p.teamPick} (${teamPts} pts from wins)` : '';
+    const foreignCount = countForeignPicks(p);
+
+    const prompt = `You are a cricket fantasy expert. Analyse this IPL fantasy team for player "${p.name}":
+
+Players:
+${picks.join('\n')}${teamLine}
+
+Total fantasy points this season: ${total}
+Foreign players used: ${foreignCount}/${MAX_FOREIGN_PER_FANTASY}
+
+Search for recent IPL 2025/2026 form for these players and provide:
+1. Overall team grade (A+, A, B+, B, C etc)
+2. Team strengths (2-3 points)
+3. Weaknesses or gaps (2-3 points)  
+4. Top performer in the squad
+5. Underperformer to consider swapping
+6. One swap suggestion: who to drop and who to pick up instead
+7. A punchy one-line team nickname/description
+
+Respond ONLY in this exact JSON format, no markdown:
+{
+  "grade": "B+",
+  "nickname": "The Pace Battery",
+  "top_performer": "Jasprit Bumrah",
+  "underperformer": "KL Rahul",
+  "strengths": ["Strong bowling attack", "Good foreign player balance"],
+  "weaknesses": ["Weak middle order", "Over-reliant on one batsman"],
+  "swap_drop": "KL Rahul",
+  "swap_pick": "Yashasvi Jaiswal",
+  "swap_reason": "Jaiswal is in better form and has a favourable upcoming fixture vs SRH",
+  "verdict": "Solid bowling-heavy side that needs one batting upgrade to compete for the top spot"
+}`;
+
+    const response = await fetch('/.netlify/functions/anthropic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const fullText = (data.content||[]).filter(b => b.type === 'text').map(b => b.text).join('');
+    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Could not parse analysis');
+    const analysis = JSON.parse(jsonMatch[0]);
+    teamAnalysisCache[cacheKey] = analysis;
+    renderTeamAnalysis(p, analysis, total, playerPts, teamPts);
+  } catch(e) {
+    document.getElementById('modalBody').innerHTML = `
+      <div style="color:var(--red);padding:2rem;text-align:center">
+        <div style="font-size:1.5rem;margin-bottom:.5rem">⚠️</div>
+        <div>Could not load analysis: ${e.message}</div>
+      </div>`;
+  }
+}
+
+function renderTeamAnalysis(p, analysis, total, playerPts, teamPts) {
+  const gradeColor = analysis.grade?.startsWith('A') ? 'var(--green)' :
+    analysis.grade?.startsWith('B') ? 'var(--gold)' : 'var(--red)';
+
+  document.getElementById('modalBody').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:1rem">
+
+      <!-- Grade + nickname -->
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:${gradeColor};line-height:1">${analysis.grade||'—'}</div>
+        <div>
+          <div style="font-size:1rem;font-weight:700;color:var(--text)">"${analysis.nickname||''}"</div>
+          <div style="font-size:.82rem;color:var(--muted);margin-top:.2rem">
+            ${total} total pts &nbsp;·&nbsp; ${playerPts} player${teamPts ? ` + ${teamPts} team` : ''}
+          </div>
+        </div>
+      </div>
+
+      <!-- Top / Under performer -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+        <div style="background:rgba(0,200,83,.06);border:1px solid rgba(0,200,83,.2);border-radius:10px;padding:.8rem">
+          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--green);margin-bottom:.3rem">🔥 Top Performer</div>
+          <div style="font-weight:600;color:var(--text)">${analysis.top_performer||'—'}</div>
+        </div>
+        <div style="background:rgba(255,23,68,.04);border:1px solid rgba(255,23,68,.15);border-radius:10px;padding:.8rem">
+          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--red);margin-bottom:.3rem">📉 Underperformer</div>
+          <div style="font-weight:600;color:var(--text)">${analysis.underperformer||'—'}</div>
+        </div>
+      </div>
+
+      <!-- Strengths & Weaknesses -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+        <div style="background:rgba(0,200,83,.05);border:1px solid rgba(0,200,83,.2);border-radius:10px;padding:.8rem">
+          <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--green);margin-bottom:.5rem">✅ Strengths</div>
+          ${(analysis.strengths||[]).map(s => `<div style="font-size:.82rem;color:var(--text);margin-bottom:.25rem">• ${s}</div>`).join('')}
+        </div>
+        <div style="background:rgba(255,152,0,.04);border:1px solid rgba(255,152,0,.2);border-radius:10px;padding:.8rem">
+          <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:#ff9800;margin-bottom:.5rem">⚠️ Weaknesses</div>
+          ${(analysis.weaknesses||[]).map(w => `<div style="font-size:.82rem;color:var(--text);margin-bottom:.25rem">• ${w}</div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Swap suggestion -->
+      <div style="background:rgba(255,214,0,.05);border:1px solid rgba(255,214,0,.25);border-radius:10px;padding:.9rem 1rem">
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:.5rem">🔄 Swap Suggestion</div>
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.4rem">
+          <span style="background:rgba(255,23,68,.12);color:var(--red);padding:.2rem .6rem;border-radius:6px;font-size:.82rem;font-weight:600">Drop: ${analysis.swap_drop||'—'}</span>
+          <span style="color:var(--muted)">→</span>
+          <span style="background:rgba(0,200,83,.12);color:var(--green);padding:.2rem .6rem;border-radius:6px;font-size:.82rem;font-weight:600">Pick: ${analysis.swap_pick||'—'}</span>
+        </div>
+        <div style="font-size:.8rem;color:var(--muted)">${analysis.swap_reason||''}</div>
+      </div>
+
+      <!-- Verdict -->
+      <div style="background:linear-gradient(135deg,rgba(0,200,83,.08),rgba(255,214,0,.06));border:1px solid rgba(0,200,83,.25);border-radius:10px;padding:.9rem 1rem">
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:.3rem">🏆 Verdict</div>
+        <div style="font-size:.9rem;color:var(--text);font-weight:500">${analysis.verdict||'—'}</div>
+      </div>
+
+      <div style="font-size:.7rem;color:var(--muted);text-align:center">⚡ Powered by Claude AI · Cached per session</div>
+    </div>`;
+}
+
 function generateWhatsAppMsg(match) {
   // Build leaderboard standings
   const sorted = state.participants
@@ -2415,15 +2753,17 @@ function renderLeaderboard() {
 
   const rows=sorted.map((p,rank)=>{
     const rankClass=rank<3?`rank-${rank+1}`:'';
-    return `<tr onclick="openParticipantDetail(${p.i})" style="cursor:pointer">
-      <td><span class="rank-badge ${rankClass}">${rank+1}</span></td>
-      <td><div style="font-weight:600">${p.name}</div>
-          <div style="font-size:.75rem;color:var(--muted)">${p.teamPick?'🏆 '+p.teamPick:''}</div>
+    return `<tr>
+      <td onclick="openParticipantDetail(${p.i})" style="cursor:pointer"><span class="rank-badge ${rankClass}">${rank+1}</span></td>
+      <td onclick="openParticipantDetail(${p.i})" style="cursor:pointer">
+        <div style="font-weight:600">${p.name}</div>
+        <div style="font-size:.75rem;color:var(--muted)">${p.teamPick?'🏆 '+p.teamPick:''}</div>
       </td>
-      <td>
+      <td onclick="openParticipantDetail(${p.i})" style="cursor:pointer">
         <div class="pts-big">${p.total}</div>
         <div class="pts-breakdown">${p.playerPts} player${p.teamPts?` + <span class="pts-gold">${p.teamPts} team</span>`:''}</div>
       </td>
+      <td><button class="btn-ai-analyse" onclick="openTeamAnalyser(${p.i})">🤖 Analyse</button></td>
     </tr>`;
   }).join('');
 
@@ -2448,7 +2788,7 @@ function renderLeaderboard() {
 
   el.innerHTML=`
     <table class="lb-table" style="margin-bottom:2rem">
-      <thead><tr><th>#</th><th>Fantasy Team</th><th>Season Pts</th></tr></thead>
+      <thead><tr><th>#</th><th>Fantasy Team</th><th>Season Pts</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <div class="subsection" style="margin-top:1.5rem">🧤 Top Catches — Drafted Players</div>
