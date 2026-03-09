@@ -1166,7 +1166,7 @@ function renderParticipantListWithLock() {
     return `<div class="p-item ${active ? 'active' : ''} ${complete ? 'complete' : ''} ${isMe ? 'is-me' : ''} ${locked ? 'locked' : ''}"
       onclick="${clickable ? `setActiveParticipant(${i})` : ''}">
       <span class="p-name">${isMe ? '<span class="you-tag">YOU</span>' : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>${isCurrentPicker && state.draftActive && !draftIsComplete() ? '<span style="font-size:.65rem;color:var(--gold);margin-left:.3rem;flex-shrink:0">●</span>' : ''}</span>
-      <span class="p-progress">${pickCount}/${total}</span>
+      <span class="p-progress">${playerPickCount}/${TEAM_KEYS.length}${p.teamPick?'🏆':''}</span>
     </div>`;
   }).join('');
 }
@@ -1423,6 +1423,10 @@ async function addParticipant() {
 }
 
 function renderParticipantList() {
+  // Delegate to the canonical version to keep everything consistent
+  renderParticipantListWithLock();
+}
+function renderParticipantListOld() {
   document.getElementById('pCount').textContent = `${state.participants.length}/16`;
   const el = document.getElementById('participantList');
   if (!state.participants.length) { el.innerHTML='<div class="empty-state" style="padding:.5rem">No participants yet.</div>'; return; }
