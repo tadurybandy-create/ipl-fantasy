@@ -219,7 +219,7 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 @keyframes pulse-gold{0%,100%{box-shadow:0 0 0 0 rgba(255,214,0,.15);}50%{box-shadow:0 0 0 8px rgba(255,214,0,0);}}
 
 /* ── PARTICIPANT LIST STATES ─────────────────────────── */
-.p-item.is-me{border-left:3px solid var(--green);padding-left:.6rem;}
+.p-item.is-me:not(.active){border-left:3px solid rgba(0,200,83,.4);padding-left:.6rem;}.p-item.is-me.active{border-left:3px solid var(--green);padding-left:.6rem;}
 .p-item.locked{opacity:.45;cursor:default;pointer-events:none;}
 .p-item.locked:hover{border-color:var(--border);background:transparent;}
 
@@ -1535,6 +1535,19 @@ function renderDraftGrid() {
 async function togglePlayerPick(teamKey, player) {
   const ai = state.activeParticipant;
   if (ai===null) return;
+
+  // Draft guard: non-admins can only pick when draft is active and it's their turn
+  if (!currentUser?.isAdmin) {
+    if (!state.draftActive) { alert('The draft has not started yet. Wait for the admin to start it.'); return; }
+    if (draftIsComplete()) { alert('The draft is complete. No more picks allowed.'); return; }
+    if (!isMyDraftTurn()) { alert("It's not your turn yet!"); return; }
+    // Can only pick for yourself
+    const p = state.participants[ai];
+    if (!p || p.name.toLowerCase() !== currentUser.participantName?.toLowerCase()) {
+      alert("You can only pick for yourself."); return;
+    }
+  }
+
   const p = state.participants[ai];
   const {pc} = getDraftCounts();
   const isDeselect = p.picks[teamKey]===player;
