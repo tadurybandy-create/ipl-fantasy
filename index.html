@@ -1000,10 +1000,17 @@ function draftCurrentPicker() {
 }
 
 function isMyDraftTurn() {
+  // True only if it is literally THIS user's named turn
   if (!currentUser || !currentUser.participantName) return false;
-  if (currentUser.isAdmin) return true;
   const picker = draftCurrentPicker();
   return picker && picker.toLowerCase() === currentUser.participantName.toLowerCase();
+}
+
+function canPickNow() {
+  // True if this user is allowed to make a pick (either their turn or admin)
+  if (!currentUser) return false;
+  if (currentUser.isAdmin) return true;
+  return isMyDraftTurn();
 }
 
 function draftIsComplete() {
@@ -1081,14 +1088,21 @@ function renderDraftBanner() {
 
   const picker = draftCurrentPicker();
   const myTurn = isMyDraftTurn();
-  const bannerClass = myTurn ? 'my-turn' : 'waiting';
-  // Derive actual round from highest pick count among participants (source of truth)
-  const maxPicksMade = state.participants.length
-    ? Math.max(...state.participants.map(p => Object.keys(p.picks||{}).length))
-    : 0;
-  const actualRound = maxPicksMade + 1;
-  const roundLabel = `Round ${actualRound} / ${DRAFT_TOTAL_ROUNDS}`;
+  const iCanPick = canPickNow();
+  const bannerClass = myTurn ? 'my-turn' : (iCanPick ? 'my-turn' : 'waiting');
+  const roundLabel = `Round ${state.draftRound} / ${DRAFT_TOTAL_ROUNDS}`;
   const pickLabel = `Pick ${state.draftPickIdx + 1} of ${state.draftOrder.length}`;
+  const dirLabel = state.draftRound % 2 === 0 ? '← Reverse order' : '→ Normal order';
+
+  // Title: always show whose turn it actually is
+  let titleHtml;
+  if (myTurn) {
+    titleHtml = `<div class="draft-banner-title" style="color:var(--gold)">⭐ YOUR TURN TO PICK!</div>`;
+  } else if (currentUser?.isAdmin) {
+    titleHtml = `<div class="draft-banner-title" style="color:var(--gold)">🏏 Picking for <span style="color:var(--green)">${picker}</span></div>`;
+  } else {
+    titleHtml = `<div class="draft-banner-title" style="color:var(--text)">🕐 <strong>${picker}</strong> is picking…</div>`;
+  }
 
   const adminControls = currentUser?.isAdmin ? `
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
@@ -1097,12 +1111,8 @@ function renderDraftBanner() {
 
   el.innerHTML = `<div class="draft-banner ${bannerClass}">
     <div>
-      <div class="draft-banner-title" style="color:${myTurn ? 'var(--gold)' : 'var(--text)'}">
-        ${myTurn ? '⭐ YOUR TURN TO PICK!' : `🕐 ${picker}'s Turn`}
-      </div>
-      <div class="draft-banner-sub">${roundLabel} · ${pickLabel}
-        ${state.draftRound % 2 === 0 ? '· ← Reverse order' : '· → Normal order'}
-      </div>
+      ${titleHtml}
+      <div class="draft-banner-sub">${roundLabel} · ${pickLabel} · ${dirLabel}</div>
     </div>
     ${adminControls}
   </div>`;
@@ -1197,14 +1207,7 @@ async function advanceTurn() {
     newPickIdx = 0;
     newRound++;
   }
-
-  // Recompute round from actual picks as source of truth
-  const maxPicksMade = state.participants.length
-    ? Math.max(...state.participants.map(p => Object.keys(p.picks||{}).length))
-    : 0;
-  // After this pick, the completed picks = maxPicksMade, next round = maxPicksMade + 1
-  // Use whichever is higher to avoid going backwards
-  newRound = Math.max(newRound, maxPicksMade + 1);
+  // Trust the counter — don't override with maxPicksMade (causes skips)
 
   // Update Supabase
   await sb('PATCH', 'draft_state', { round: newRound, pick_idx: newPickIdx }, `?id=eq.1&mode=eq.${state.mode}`);
@@ -1417,8 +1420,17 @@ function setActiveParticipant(i) {
   renderParticipantList();
   renderDraftGrid();
   renderPicksSummary();
-  document.getElementById('draftActiveLabel').innerHTML =
-    `Drafting for <strong style="color:var(--green)">${state.participants[i].name}</strong>`;
+  const picker = draftCurrentPicker();
+  const name = state.participants[i].name;
+  const isCurrentPicker = picker && picker.toLowerCase() === name.toLowerCase();
+  const label = document.getElementById('draftActiveLabel');
+  if (label) {
+    if (state.draftActive && !isCurrentPicker && currentUser?.isAdmin) {
+      label.innerHTML = `Viewing <strong style="color:var(--muted)">${name}</strong> <span style="font-size:.75rem;color:var(--muted)">(${picker}'s turn to pick)</span>`;
+    } else {
+      label.innerHTML = `Drafting for <strong style="color:var(--green)">${name}</strong>`;
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1536,15 +1548,31 @@ async function togglePlayerPick(teamKey, player) {
   const ai = state.activeParticipant;
   if (ai===null) return;
 
-  // Draft guard: non-admins can only pick when draft is active and it's their turn
-  if (!currentUser?.isAdmin) {
-    if (!state.draftActive) { alert('The draft has not started yet. Wait for the admin to start it.'); return; }
-    if (draftIsComplete()) { alert('The draft is complete. No more picks allowed.'); return; }
-    if (!isMyDraftTurn()) { alert("It's not your turn yet!"); return; }
-    // Can only pick for yourself
+  // Draft guard
+  if (!state.draftActive && !currentUser?.isAdmin) {
+    alert('The draft has not started yet.'); return;
+  }
+  if (state.draftActive && draftIsComplete()) {
+    alert('The draft is complete!'); return;
+  }
+  if (state.draftActive && !canPickNow()) {
+    alert("It's not your turn yet!"); return;
+  }
+  // Non-admin: can only pick for themselves
+  if (!currentUser?.isAdmin && state.draftActive) {
     const p = state.participants[ai];
     if (!p || p.name.toLowerCase() !== currentUser.participantName?.toLowerCase()) {
       alert("You can only pick for yourself."); return;
+    }
+  }
+  // Admin picking during draft: auto-switch active participant to current picker
+  if (currentUser?.isAdmin && state.draftActive) {
+    const picker = draftCurrentPicker();
+    if (picker) {
+      const pickerIdx = state.participants.findIndex(p => p.name.toLowerCase() === picker.toLowerCase());
+      if (pickerIdx >= 0 && state.activeParticipant !== pickerIdx) {
+        state.activeParticipant = pickerIdx;
+      }
     }
   }
 
