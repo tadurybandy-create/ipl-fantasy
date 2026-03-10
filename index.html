@@ -369,7 +369,7 @@ body.admin-visible .admin-only{display:block;}
   <button class="tab-btn" onclick="showScreen('redraft',this)">🔄 Redraft / Swap</button>
   <button class="tab-btn" onclick="showScreen('scoring',this)">📊 Match Scoring</button>
   <button class="tab-btn" onclick="showScreen('leaderboard',this)">🏆 Leaderboard</button>
-  <button class="tab-btn" onclick="showScreen('settings',this)">⚙️ Settings</button>
+  <button class="tab-btn admin-only" id="settingsTab" onclick="showScreen('settings',this)" style="display:none">⚙️ Settings</button>
   <button class="tab-btn" onclick="showScreen('chat',this);initChat()">🤖 AI Chat</button>
 </nav>
 
@@ -864,6 +864,8 @@ async function handleAuthUser(user) {
     document.body.classList.add('admin-visible');
     currentUser._isAdminReal = true; // stash original
     currentUser._adminModeOn = true;
+    const _st = document.getElementById('settingsTab');
+    if (_st) _st.style.display = 'inline-flex';
   } else {
     document.body.classList.remove('admin-visible');
   }
@@ -1287,20 +1289,22 @@ function renderParticipantListWithLock() {
 }
 
 function renderDraftGridWithLock() {
-  // Re-render draft grid — block picks if not your turn
-  renderDraftGrid(); // existing function renders the grid
-  // Then apply overlay if not your turn and draft is active
-  if (state.draftActive && !draftIsComplete() && !currentUser?.isAdmin) {
+  renderDraftGrid();
+  const grid = document.getElementById('teamDraftGrid');
+  if (!grid) return;
+
+  if (draftIsComplete()) {
+    // Draft done — full read-only overlay
+    grid.classList.add('draft-grid-complete');
+    grid.classList.remove('draft-grid-blocked');
+  } else if (state.draftActive && !currentUser?.isAdmin) {
+    grid.classList.remove('draft-grid-complete');
     const myTurn = isMyDraftTurn();
-    const grid = document.getElementById('teamDraftGrid');
-    if (grid && !myTurn) {
-      grid.classList.add('draft-grid-blocked');
-    } else if (grid) {
-      grid.classList.remove('draft-grid-blocked');
-    }
+    if (!myTurn) grid.classList.add('draft-grid-blocked');
+    else grid.classList.remove('draft-grid-blocked');
   } else {
-    const grid = document.getElementById('teamDraftGrid');
-    if (grid) grid.classList.remove('draft-grid-blocked');
+    grid.classList.remove('draft-grid-complete');
+    grid.classList.remove('draft-grid-blocked');
   }
 }
 
@@ -1317,6 +1321,12 @@ function toggleAdminMode() {
     document.body.classList.remove('admin-visible');
     if (btn) { btn.textContent = '🔒 ADMIN'; btn.style.background = 'rgba(255,23,68,.12)'; btn.style.borderColor = 'rgba(255,23,68,.4)'; btn.style.color = 'var(--red)'; btn.title = 'Re-enable admin mode'; }
     if (badge) badge.style.opacity = '0.35';
+    const _st = document.getElementById('settingsTab');
+    if (_st) _st.style.display = 'none';
+    // If currently on settings screen, redirect to draft
+    if (document.getElementById('screen-settings')?.classList.contains('active')) {
+      showScreen('draft', document.querySelector('.tab-btn'));
+    }
   } else {
     // Restore admin
     currentUser._adminModeOn = true;
@@ -1324,6 +1334,8 @@ function toggleAdminMode() {
     document.body.classList.add('admin-visible');
     if (btn) { btn.textContent = '👁 VIEW'; btn.style.background = 'rgba(255,214,0,.12)'; btn.style.borderColor = 'rgba(255,214,0,.4)'; btn.style.color = 'var(--gold)'; btn.title = 'Switch to participant view'; }
     if (badge) badge.style.opacity = '1';
+    const _st2 = document.getElementById('settingsTab');
+    if (_st2) _st2.style.display = 'inline-flex';
   }
   // Re-render everything so admin controls appear/disappear
   renderDraftBanner();
@@ -2087,13 +2099,13 @@ function renderSwapSlots() {
         <span class="frozen-pts">${current?curPts+' pts':''}</span>
       </div>
       ${history.length ? `<div style="font-size:.72rem;color:var(--muted);margin-bottom:.4rem">+ ${frozenPts} frozen pts from prev.</div>` : ''}
-      <div class="swap-select-wrap">
+      ${currentUser?.isAdmin ? `<div class="swap-select-wrap">
         <select id="swapSel_${key}">
           <option value="">— ${current?'swap to':'pick'} player… —</option>
           ${playerOpts}
         </select>
         <button class="btn-swap" onclick="executeSwap(${ai},'${key}')">${current?'Swap':'Pick'}</button>
-      </div>
+      </div>` : `<div style="font-size:.72rem;color:var(--muted);margin-top:.4rem;font-style:italic">Admin only</div>`}
     </div>`;
   }).join('');
 
@@ -2120,17 +2132,18 @@ function renderSwapSlots() {
       <span class="current-player-name">${myTeam ? IPL_TEAMS[myTeam]?.name+' ('+myTeam+')' : '— not picked —'}</span>
       <span class="frozen-pts">${myTeam ? teamPts+' pts ('+teamWins+'W '+teamDraws+'D)' : ''}</span>
     </div>
-    <div class="swap-select-wrap">
+    ${currentUser?.isAdmin ? `<div class="swap-select-wrap">
       <select id="swapSel_TEAM">
         <option value="">— ${myTeam?'swap to':'pick a'} team… —</option>
         ${teamOpts}
       </select>
       <button class="btn-swap" onclick="executeTeamSwap(${ai})">${myTeam?'Swap':'Pick'}</button>
-    </div>
+    </div>` : `<div style="font-size:.72rem;color:var(--muted);margin-top:.4rem;font-style:italic">Admin only</div>`}
   </div>`;
 }
 
 async function executeTeamSwap(participantIdx) {
+  if (!currentUser?.isAdmin) { alert('Only the admin can make swaps.'); return; }
   const p = state.participants[participantIdx];
   const newTeam = document.getElementById('swapSel_TEAM')?.value;
   if (!newTeam) { alert('Select a team.'); return; }
@@ -2147,6 +2160,7 @@ async function executeTeamSwap(participantIdx) {
 }
 
 async function executeSwap(participantIdx, teamKey) {
+  if (!currentUser?.isAdmin) { alert('Only the admin can make swaps.'); return; }
   const p = state.participants[participantIdx];
   const newPlayer = document.getElementById(`swapSel_${teamKey}`)?.value;
   if (!newPlayer) { alert('Select a player to swap in.'); return; }
