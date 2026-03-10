@@ -274,6 +274,53 @@ body.admin-visible .admin-only{display:block;}
 /* Player opt row — make it flex so scout btn fits */
 .player-opt{display:flex;align-items:center;justify-content:space-between;padding:.4rem .5rem;border-radius:6px;font-size:.8rem;cursor:pointer;transition:background .15s;gap:.3rem;}
 
+
+/* ── AI CHAT ─────────────────────────────────────────── */
+.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 130px);max-width:760px;margin:0 auto;background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+.chat-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.2rem;border-bottom:1px solid var(--border);background:rgba(0,200,83,.04);flex-shrink:0;}
+.chat-header-left{display:flex;align-items:center;gap:.8rem;}
+.chat-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--dark-green),var(--green));display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;border:1px solid rgba(0,200,83,.4);}
+.chat-title{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:1px;color:var(--green);}
+.chat-subtitle{font-size:.72rem;color:var(--muted);}
+.chat-clear-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .7rem;border-radius:6px;cursor:pointer;font-size:.75rem;transition:all .2s;}
+.chat-clear-btn:hover{border-color:var(--red);color:var(--red);}
+
+.chat-messages{flex:1;overflow-y:auto;padding:1.2rem;display:flex;flex-direction:column;gap:.9rem;scroll-behavior:smooth;}
+.chat-bubble{display:flex;flex-direction:column;max-width:82%;}
+.chat-bubble.user{align-self:flex-end;align-items:flex-end;}
+.chat-bubble.ai{align-self:flex-start;align-items:flex-start;}
+.bubble-content{padding:.75rem 1rem;border-radius:14px;font-size:.87rem;line-height:1.55;word-break:break-word;}
+.chat-bubble.user .bubble-content{background:linear-gradient(135deg,var(--dark-green),rgba(0,200,83,.25));border:1px solid rgba(0,200,83,.3);color:var(--text);border-bottom-right-radius:4px;}
+.chat-bubble.ai .bubble-content{background:var(--bg);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px;}
+.bubble-content p{margin:0;}
+.bubble-content strong{color:var(--green);}
+.bubble-content em{color:var(--gold);}
+.bubble-content ul{margin:.4rem 0 .4rem 1rem;padding:0;}
+.bubble-content li{margin-bottom:.25rem;}
+.bubble-time{font-size:.65rem;color:var(--muted);margin-top:.3rem;padding:0 .3rem;}
+
+.chat-bubble.ai .bubble-content.thinking{display:flex;align-items:center;gap:.5rem;color:var(--muted);font-style:italic;}
+.thinking-dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);animation:thinking-bounce .9s infinite ease-in-out;}
+.thinking-dots span:nth-child(2){animation-delay:.15s;}
+.thinking-dots span:nth-child(3){animation-delay:.3s;}
+@keyframes thinking-bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
+
+.chat-suggestions{display:flex;flex-wrap:wrap;gap:.5rem;padding:.6rem 1.2rem;border-top:1px solid var(--border);flex-shrink:0;}
+.suggestion-chip{background:rgba(0,200,83,.07);border:1px solid rgba(0,200,83,.2);color:var(--muted);padding:.35rem .75rem;border-radius:20px;font-size:.75rem;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.suggestion-chip:hover{background:rgba(0,200,83,.15);border-color:var(--green);color:var(--green);}
+
+.chat-input-row{display:flex;gap:.6rem;padding:.85rem 1rem;border-top:1px solid var(--border);background:var(--bg);flex-shrink:0;align-items:flex-end;}
+.chat-input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.6rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.87rem;resize:none;max-height:120px;transition:border-color .2s;line-height:1.4;}
+.chat-input:focus{outline:none;border-color:rgba(0,200,83,.5);}
+.chat-input::placeholder{color:var(--muted);}
+.chat-send-btn{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--dark-green),var(--green));border:none;color:#000;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;font-weight:700;}
+.chat-send-btn:hover{transform:scale(1.07);box-shadow:0 0 12px rgba(0,200,83,.4);}
+.chat-send-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+
+/* web search indicator */
+.search-indicator{display:inline-flex;align-items:center;gap:.35rem;font-size:.72rem;color:var(--muted);margin-top:.5rem;padding:.25rem .6rem;background:rgba(255,214,0,.06);border:1px solid rgba(255,214,0,.15);border-radius:20px;}
+.search-indicator::before{content:'🔍';}
+
 </style>
 </head>
 <body>
@@ -323,6 +370,7 @@ body.admin-visible .admin-only{display:block;}
   <button class="tab-btn" onclick="showScreen('scoring',this)">📊 Match Scoring</button>
   <button class="tab-btn" onclick="showScreen('leaderboard',this)">🏆 Leaderboard</button>
   <button class="tab-btn" onclick="showScreen('settings',this)">⚙️ Settings</button>
+  <button class="tab-btn" onclick="showScreen('chat',this);initChat()">🤖 AI Chat</button>
 </nav>
 
 <div class="container">
@@ -580,6 +628,50 @@ body.admin-visible .admin-only{display:block;}
       <button class="btn" onclick="resetEverything()" id="resetBtn"
         style="background:var(--red);white-space:nowrap;align-self:center;color:#fff">
         🗑️ Reset Everything
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- AI CHAT -->
+<div id="screen-chat" class="screen">
+  <div class="chat-wrap">
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <div class="chat-avatar">🤖</div>
+        <div>
+          <div class="chat-title">Cricket AI</div>
+          <div class="chat-subtitle" id="chatStatus">Ask me anything about cricket, players, or your fantasy league</div>
+        </div>
+      </div>
+      <button class="chat-clear-btn" onclick="clearChat()" title="Clear conversation">↺ Clear</button>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-bubble ai">
+        <div class="bubble-content">
+          <p>Hey! I'm your Cricket AI assistant 🏏</p>
+          <p style="margin-top:.5rem">I can search the web for live scores, player stats, recent match results, IPL news, and anything cricket-related. I also know your fantasy league — just ask!</p>
+          <p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Try: <em>"How many runs did Virat Kohli score in the last match?"</em> or <em>"Who's in good form heading into the next IPL game?"</em></p>
+        </div>
+        <div class="bubble-time">Now</div>
+      </div>
+    </div>
+
+    <div class="chat-suggestions" id="chatSuggestions">
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">🏏 Top scorers this IPL season</button>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">📊 Latest match results</button>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">⭐ Best fantasy picks right now</button>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">🤕 Any injury news?</button>
+    </div>
+
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chatInput" placeholder="Ask about players, scores, stats, fantasy tips…" rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"
+        oninput="autoResizeChat(this)"></textarea>
+      <button class="chat-send-btn" id="chatSendBtn" onclick="sendChat()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </div>
   </div>
@@ -3194,6 +3286,200 @@ async function resetEverything() {
     console.error(e);
   }
   if (btn) btn.disabled = false;
+}
+
+
+// ═══════════════════════════════════════════════════════
+// AI CHAT
+// ═══════════════════════════════════════════════════════
+let chatHistory = []; // [{role:'user'|'assistant', content:'...'}]
+let chatInitialised = false;
+
+function initChat() {
+  // Only runs once — just scrolls to bottom
+  if (!chatInitialised) chatInitialised = true;
+  scrollChatToBottom();
+}
+
+function autoResizeChat(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function scrollChatToBottom() {
+  const el = document.getElementById('chatMessages');
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+function formatTime() {
+  return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+
+function sendSuggestion(btn) {
+  const text = btn.textContent.replace(/^[^a-zA-Z]+/, '').trim();
+  document.getElementById('chatInput').value = text;
+  // Hide suggestions after first use
+  document.getElementById('chatSuggestions').style.display = 'none';
+  sendChat();
+}
+
+function addMessage(role, html, isHtml=false) {
+  const el = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `chat-bubble ${role}`;
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'bubble-content';
+  if (isHtml) contentDiv.innerHTML = html;
+  else contentDiv.textContent = html;
+  const timeDiv = document.createElement('div');
+  timeDiv.className = 'bubble-time';
+  timeDiv.textContent = formatTime();
+  div.appendChild(contentDiv);
+  div.appendChild(timeDiv);
+  el.appendChild(div);
+  scrollChatToBottom();
+  return contentDiv; // return so we can update it (for thinking state)
+}
+
+function addThinking() {
+  const el = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-bubble ai';
+  div.id = 'chatThinking';
+  div.innerHTML = `<div class="bubble-content thinking">
+    <div class="thinking-dots"><span></span><span></span><span></span></div>
+    <span>Searching…</span>
+  </div>`;
+  el.appendChild(div);
+  scrollChatToBottom();
+}
+
+function removeThinking() {
+  const el = document.getElementById('chatThinking');
+  if (el) el.remove();
+}
+
+function buildLeagueContext() {
+  // Give the AI context about the current fantasy league state
+  if (!state.participants || !state.participants.length) return '';
+  const lines = ['\nCurrent fantasy league context:'];
+  const sorted = state.participants.map(p => {
+    const {total, playerPts, teamPts} = calcSeasonPoints(p);
+    const picks = TEAM_KEYS.filter(k => p.picks[k]).map(k => p.picks[k]);
+    return `- ${p.name}: ${total} pts (${picks.join(', ')}${p.teamPick ? ', team: '+p.teamPick : ''})`;
+  }).sort();
+  lines.push(...sorted);
+  return lines.join('\n');
+}
+
+function markdownToHtml(text) {
+  const lines = text.split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    let l = lines[i];
+    l = l.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    l = l.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    if (l.startsWith('### ')) { out.push('<div style="font-weight:700;color:var(--green);margin:.4rem 0 .1rem">' + l.slice(4) + '</div>'); continue; }
+    if (l.startsWith('## '))  { out.push('<div style="font-weight:700;color:var(--green);font-size:1rem">' + l.slice(3) + '</div>'); continue; }
+    if (l.startsWith('- '))   { out.push('<li>' + l.slice(2) + '</li>'); continue; }
+    if (l === '')              { out.push('<br>'); continue; }
+    out.push(l);
+  }
+  let html = out.join('<br>');
+  html = html.replace(/(<li>[^<]*<\/li>)(<br>)?/g, '$1').replace(/(<li>)/g, '<ul-start>$1').replace(/(<\/li>)(?!.*<li>)/g, '$1<ul-end>');
+  html = html.replace(/<ul-start>/g,'<ul>').replace(/<ul-end>/g,'</ul>');
+  return html;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('chatSendBtn');
+  const text = input.value.trim();
+  if (!text) return;
+
+  // Hide suggestions permanently after first message
+  document.getElementById('chatSuggestions').style.display = 'none';
+
+  // Add user message
+  addMessage('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  // Reset input
+  input.value = '';
+  input.style.height = 'auto';
+  sendBtn.disabled = true;
+  document.getElementById('chatStatus').textContent = 'Searching…';
+
+  // Show thinking indicator
+  addThinking();
+
+  try {
+    const leagueCtx = buildLeagueContext();
+    const systemPrompt = `You are a cricket expert AI assistant embedded in an IPL fantasy league app. You have access to web search — USE IT for any question about recent matches, current form, scores, injuries, or stats. Always search before answering questions about recent events.
+
+Be conversational, concise, and enthusiastic about cricket. Use cricket terminology naturally. Format responses clearly with bullet points or bold text where helpful. Keep responses focused — don't be overly long.
+
+${leagueCtx}
+
+When asked about fantasy league specifics, use the context above. When asked about real cricket news/stats, search the web for the latest information.`;
+
+    const messages = [
+      ...chatHistory.slice(-10) // keep last 10 messages for context
+    ];
+
+    const response = await fetch('/.netlify/functions/anthropic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: systemPrompt,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages
+      })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+
+    // Extract text from response (may contain tool_use blocks)
+    const textBlocks = (data.content || []).filter(b => b.type === 'text');
+    const searchBlocks = (data.content || []).filter(b => b.type === 'tool_use' && b.name === 'web_search');
+    const responseText = textBlocks.map(b => b.text).join('').trim();
+
+    removeThinking();
+
+    if (!responseText) throw new Error('No response received');
+
+    // Add AI response
+    const html = markdownToHtml(responseText)
+      + (searchBlocks.length ? `<div class="search-indicator">Searched the web for latest info</div>` : '');
+    addMessage('ai', html, true);
+    chatHistory.push({ role: 'assistant', content: responseText });
+
+    document.getElementById('chatStatus').textContent = 'Ask me anything about cricket or your fantasy league';
+
+  } catch(e) {
+    removeThinking();
+    addMessage('ai', `Sorry, I ran into an error: ${e.message}. Please try again.`, false);
+    document.getElementById('chatStatus').textContent = 'Error — try again';
+  }
+
+  sendBtn.disabled = false;
+  input.focus();
+}
+
+function clearChat() {
+  chatHistory = [];
+  const el = document.getElementById('chatMessages');
+  el.innerHTML = `<div class="chat-bubble ai">
+    <div class="bubble-content">
+      <p>Chat cleared! What would you like to know? 🏏</p>
+    </div>
+    <div class="bubble-time">${formatTime()}</div>
+  </div>`;
+  document.getElementById('chatSuggestions').style.display = 'flex';
+  document.getElementById('chatStatus').textContent = 'Ask me anything about cricket or your fantasy league';
 }
 
 // ═══════════════════════════════════════════════════════
