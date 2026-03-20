@@ -3268,20 +3268,30 @@ const IPL_TEAMS_LIST = [
   'Punjab Kings', 'Rajasthan Royals', 'Royal Challengers Bengaluru', 'Sunrisers Hyderabad'
 ];
 
-if(false){async function importAllIPLSquads() {
+async function importAllIPLSquads() {
+  if (!confirm('This will import all 10 IPL squads one by one. Takes about 30-60 seconds. Continue?')) return;
   const allBtn = document.getElementById('iplAllBtn');
   const status = document.getElementById('iplSquadStatus');
   allBtn.disabled = true;
+  let failed = [];
   for (let i = 0; i < IPL_TEAMS_LIST.length; i++) {
     const team = IPL_TEAMS_LIST[i];
     status.innerHTML = `<span style="color:var(--gold)">⏳ Importing ${i+1}/10: ${team}…</span>`;
-    await importIPLSquad(team);
-    // small pause between calls to avoid rate limits
-    await new Promise(r => setTimeout(r, 1500));
+    try {
+      await importIPLSquad(team);
+    } catch(e) {
+      failed.push(team);
+    }
+    // pause between calls to avoid rate limits
+    await new Promise(r => setTimeout(r, 2000));
   }
-  status.innerHTML = '<span style="color:var(--green)">✓ All 10 IPL teams imported successfully!</span>';
+  if (failed.length) {
+    status.innerHTML = `<span style="color:#ff9800">⚠ Done — but failed: ${failed.join(', ')}. Try importing those individually.</span>`;
+  } else {
+    status.innerHTML = '<span style="color:var(--green)">✓ All 10 IPL teams imported successfully!</span>';
+  }
   allBtn.disabled = false;
-}}
+}
 
 if (false) {async function importWCSquad() {
   const btn = document.getElementById('wcSquadBtn');
