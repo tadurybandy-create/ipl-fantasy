@@ -1363,9 +1363,17 @@ function renderParticipantListWithLock() {
     const locked = state.draftActive && !draftIsComplete() && !isAdmin && !isCurrentPicker;
     const clickable = !locked;
 
+    // Draft position: find this person's position in round 1 order
+    const draftPos = state.draftOrder && state.draftOrder.length
+      ? state.draftOrder.findIndex(name => name.toLowerCase() === p.name.toLowerCase()) + 1
+      : 0;
+    const posLabel = draftPos > 0
+      ? `<span style="font-size:.6rem;color:var(--muted);background:rgba(255,255,255,.06);border-radius:3px;padding:.05rem .3rem;flex-shrink:0" title="Draft position">#${draftPos}</span>`
+      : '';
+
     return `<div class="p-item ${active ? 'active' : ''} ${complete ? 'complete' : ''} ${isMe ? 'is-me' : ''} ${locked ? 'locked' : ''}"
       onclick="${clickable ? `setActiveParticipant(${i})` : ''}">
-      <span class="p-name">${isMe ? '<span class="you-tag">YOU</span>' : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>${isCurrentPicker && state.draftActive && !draftIsComplete() ? '<span class="picker-dot">●</span>' : ''}</span>
+      <span class="p-name">${isMe ? '<span class="you-tag">YOU</span>' : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>${isCurrentPicker && state.draftActive && !draftIsComplete() ? '<span class="picker-dot">●</span>' : ''}${posLabel}</span>
       <span class="p-progress">${playerPickCount}/${TEAM_KEYS.length}${p.teamPick?'🏆':''}</span>
     </div>`;
   }).join('');
@@ -2645,8 +2653,8 @@ Respond ONLY in this exact JSON format, no markdown:
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{ role: 'user', content: prompt }]
       })
@@ -2660,10 +2668,12 @@ Respond ONLY in this exact JSON format, no markdown:
     scoutCache[playerName] = scout;
     renderScoutCard(playerName, teamKey, scout);
   } catch(e) {
+    const isRateLimit = e.message && e.message.includes('rate limit');
     document.getElementById('modalBody').innerHTML = `
       <div style="color:var(--red);padding:2rem;text-align:center">
-        <div style="font-size:1.5rem;margin-bottom:.5rem">⚠️</div>
-        <div>Could not load scout data: ${e.message}</div>
+        <div style="font-size:1.5rem;margin-bottom:.5rem">${isRateLimit ? '⏱️' : '⚠️'}</div>
+        <div style="font-weight:600;margin-bottom:.4rem">${isRateLimit ? 'Too many requests — please wait a moment' : 'Could not load scout data'}</div>
+        ${isRateLimit ? '<div style="font-size:.78rem;color:var(--muted)">The AI is busy. Close and try again in 30 seconds.</div>' : `<div style="font-size:.78rem;color:var(--muted)">${e.message}</div>`}
       </div>`;
   }
 }
@@ -2815,8 +2825,8 @@ Respond ONLY in this exact JSON format, no markdown:
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{ role: 'user', content: prompt }]
       })
@@ -2830,10 +2840,12 @@ Respond ONLY in this exact JSON format, no markdown:
     teamAnalysisCache[cacheKey] = analysis;
     renderTeamAnalysis(p, analysis, total, playerPts, teamPts);
   } catch(e) {
+    const isRateLimit = e.message && e.message.includes('rate limit');
     document.getElementById('modalBody').innerHTML = `
       <div style="color:var(--red);padding:2rem;text-align:center">
-        <div style="font-size:1.5rem;margin-bottom:.5rem">⚠️</div>
-        <div>Could not load analysis: ${e.message}</div>
+        <div style="font-size:1.5rem;margin-bottom:.5rem">${isRateLimit ? '⏱️' : '⚠️'}</div>
+        <div style="font-weight:600;margin-bottom:.4rem">${isRateLimit ? 'Too many requests — please wait a moment' : 'Could not load analysis'}</div>
+        ${isRateLimit ? '<div style="font-size:.78rem;color:var(--muted)">Close and try again in 30 seconds.</div>' : `<div style="font-size:.78rem;color:var(--muted)">${e.message}</div>`}
       </div>`;
   }
 }
@@ -3575,8 +3587,8 @@ Respond ONLY in this exact JSON, no markdown:
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 800,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 500,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{ role: 'user', content: prompt }]
       })
@@ -3592,7 +3604,11 @@ Respond ONLY in this exact JSON, no markdown:
     if (badge) badge.style.display = 'inline';
     if (refreshBtn) refreshBtn.style.display = 'inline';
   } catch(e) {
-    content.innerHTML = `<div style="font-size:.78rem;color:var(--muted);padding:.5rem">Could not load suggestions: ${e.message}</div>`;
+    const isRateLimit = e.message && e.message.includes('rate limit');
+    content.innerHTML = `<div style="font-size:.78rem;color:var(--muted);padding:.5rem">
+      ${isRateLimit ? '⏱️ AI busy — click ↺ Refresh in 30 seconds' : '⚠️ Could not load suggestions: ' + e.message}
+    </div>`;
+    if (refreshBtn) refreshBtn.style.display = 'inline';
   }
 }
 
