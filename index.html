@@ -321,6 +321,35 @@ body.admin-visible .admin-only{display:block;}
 .search-indicator{display:inline-flex;align-items:center;gap:.35rem;font-size:.72rem;color:var(--muted);margin-top:.5rem;padding:.25rem .6rem;background:rgba(255,214,0,.06);border:1px solid rgba(255,214,0,.15);border-radius:20px;}
 .search-indicator::before{content:'🔍';}
 
+
+/* AI Suggestions panel */
+.suggest-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:.7rem .9rem;display:flex;flex-direction:column;gap:.35rem;transition:border-color .2s;}
+.suggest-card:hover{border-color:rgba(162,89,255,.4);}
+.suggest-card-header{display:flex;align-items:center;justify-content:space-between;gap:.5rem;}
+.suggest-player{font-weight:600;font-size:.88rem;color:var(--text);}
+.suggest-team-tag{font-size:.65rem;background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.2);color:var(--green);padding:.1rem .4rem;border-radius:4px;}
+.suggest-stars{font-size:.75rem;letter-spacing:1px;}
+.suggest-reason{font-size:.78rem;color:var(--muted);line-height:1.4;}
+.suggest-role{font-size:.65rem;background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.2);color:var(--gold);padding:.1rem .35rem;border-radius:4px;}
+.suggest-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.5rem;}
+
+
+/* Player availability badges */
+.player-status-badge{display:inline-flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800;padding:.05rem .3rem;border-radius:3px;letter-spacing:.5px;flex-shrink:0;line-height:1.4;}
+.status-withdrawn{background:rgba(255,23,68,.18);color:#ff1744;border:1px solid rgba(255,23,68,.35);}
+.status-injured{background:rgba(255,152,0,.18);color:#ff9800;border:1px solid rgba(255,152,0,.35);}
+.status-mfg{background:rgba(255,214,0,.15);color:#FFD600;border:1px solid rgba(255,214,0,.3);}
+.status-doubt{background:rgba(162,89,255,.15);color:#a259ff;border:1px solid rgba(162,89,255,.3);}
+/* Dim unavailable players slightly */
+.player-opt.has-status:not(.selected-by-me){opacity:.75;}
+/* Availability list in settings */
+.avail-row{display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;border-radius:7px;background:var(--bg);border:1px solid var(--border);}
+.avail-row:hover{border-color:rgba(0,200,83,.25);}
+.avail-player-name{flex:1;font-size:.83rem;font-weight:500;}
+.avail-team-tag{font-size:.65rem;background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.15);color:var(--green);padding:.1rem .35rem;border-radius:4px;flex-shrink:0;}
+.avail-select{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.75rem;padding:.2rem .4rem;font-family:'DM Sans',sans-serif;cursor:pointer;}
+.avail-select:focus{outline:none;border-color:var(--green);}
+
 </style>
 </head>
 <body>
@@ -405,6 +434,27 @@ body.admin-visible .admin-only{display:block;}
     </div>
     <div>
       <div id="draftActiveLabel" style="font-size:.88rem;color:var(--muted);margin-bottom:.8rem">← Select a participant to start drafting</div>
+
+      <!-- AI Pick Suggestions -->
+      <div id="aiSuggestPanel" style="display:none;margin-bottom:1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <span style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">🤖 AI Pick Suggestions</span>
+            <span id="aiSuggestBadge" style="display:none;font-size:.65rem;background:rgba(162,89,255,.15);border:1px solid rgba(162,89,255,.3);color:#c084fc;padding:.1rem .4rem;border-radius:10px">Powered by Claude</span>
+          </div>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <button id="aiSuggestRefreshBtn" onclick="loadAISuggestions(true)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:.2rem .6rem;border-radius:6px;font-size:.72rem;cursor:pointer;display:none">↺ Refresh</button>
+            <button onclick="document.getElementById('aiSuggestPanel').style.display='none'" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.8rem;padding:0" title="Dismiss">✕</button>
+          </div>
+        </div>
+        <div id="aiSuggestContent">
+          <div style="display:flex;align-items:center;gap:.6rem;padding:.6rem;background:var(--bg);border:1px solid var(--border);border-radius:8px">
+            <div class="thinking-dots"><span></span><span></span><span></span></div>
+            <span style="font-size:.82rem;color:var(--muted)">Analysing your team…</span>
+          </div>
+        </div>
+      </div>
+
       <div class="team-draft-grid" id="teamDraftGrid"></div>
       <div class="picks-summary" id="picksSummary" style="display:none">
         <h5>Current Picks for <span id="picksSummaryName"></span> &nbsp; <span id="picksSummaryForeign" style="font-size:.75rem;color:var(--muted)"></span></h5>
@@ -614,6 +664,23 @@ body.admin-visible .admin-only{display:block;}
     <div id="alList" style="display:flex;flex-direction:column;gap:.4rem"></div>
   </div>
 
+
+  <!-- Player Availability Manager -->
+  <div class="card">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:1px;margin-bottom:.3rem">🏥 Player Availability</div>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">Mark players as Withdrawn, Injured, Missing games etc. Visible to everyone in the draft grid.</div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem">
+      <input id="availSearch" type="text" placeholder="Search player name…" oninput="renderAvailList()"
+        style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.45rem .8rem;color:var(--text);font-size:.85rem;font-family:'DM Sans',sans-serif"/>
+      <select id="availTeamFilter" onchange="renderAvailList()"
+        style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.45rem .8rem;color:var(--text);font-size:.85rem;font-family:'DM Sans',sans-serif">
+        <option value="">All Teams</option>
+      </select>
+    </div>
+    <div id="availList" style="display:flex;flex-direction:column;gap:.3rem;max-height:380px;overflow-y:auto"></div>
+    <div id="availStatus" style="font-size:.78rem;margin-top:.5rem;min-height:1.2rem"></div>
+  </div>
+
   <!-- Reset Everything -->
   <div class="card" style="border-color:rgba(255,23,68,.3);background:rgba(255,23,68,.04)">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem">
@@ -758,10 +825,23 @@ function buildIPLTeamsFromRows(rows) {
   const teams = {};
   rows.forEach(r => {
     if (!teams[r.team_key]) teams[r.team_key] = { name: r.team_name, players: [] };
-    teams[r.team_key].players.push({ name: r.player_name, foreign: r.is_foreign });
+    teams[r.team_key].players.push({
+      name: r.player_name,
+      foreign: r.is_foreign,
+      availability: r.availability || 'active'
+    });
   });
   return teams;
 }
+
+// Availability statuses
+const AVAILABILITY = {
+  active:    { label: '',    badge: '',                  color: '',                  title: '' },
+  withdrawn: { label: 'W',  badge: 'status-withdrawn',  color: 'rgba(255,23,68,1)', title: 'Withdrawn from tournament' },
+  injured:   { label: 'I',  badge: 'status-injured',    color: '#ff9800',           title: 'Injured' },
+  mfg:       { label: 'MFG',badge: 'status-mfg',        color: '#FFD600',           title: 'Missing a few games' },
+  doubt:     { label: '?',  badge: 'status-doubt',      color: '#a259ff',           title: 'Doubtful / uncertain' },
+};
 
 const MAX_PLAYER_DRAFTS = 2;
 const MAX_FOREIGN_PER_FANTASY = 4;
@@ -1177,6 +1257,9 @@ function showConfirmPickBtn() {
 }
 
 async function confirmPickAndAdvance() {
+  // Hide suggestions panel — new ones will load for next picker
+  const sp = document.getElementById('aiSuggestPanel');
+  if (sp) sp.style.display = 'none';
   // Guard: must have made at least one pick since turn started
   const ai = state.activeParticipant;
   const p = ai !== null ? state.participants[ai] : null;
@@ -1407,6 +1490,9 @@ async function advanceTurn() {
   renderParticipantListWithLock();
   renderDraftGridWithLock();
   renderPicksSummary();
+  showConfirmPickBtn();
+  updateDraftPickState();
+  loadAISuggestions(false);
 }
 
 async function endDraft() {
@@ -1515,6 +1601,7 @@ function autoSelectMyParticipant() {
     state.viewParticipant = state.activeParticipant; // reset view to current picker
     renderParticipantListWithLock();
     renderPicksSummary();
+    loadAISuggestions(false);
   }
 }
 function renderAll() {
@@ -1665,16 +1752,23 @@ function renderDraftGrid() {
       const isMe = myPickName===player;
       const wouldBreachForeign = state.mode !== 'worldcup' && foreign && !isMe && foreignExcludingSlot >= MAX_FOREIGN_PER_FANTASY;
       const disabled = !active || (full&&!isMe) || wouldBreachForeign;
+      const avail = playerObj.availability || 'active';
+      const availInfo = AVAILABILITY[avail] || AVAILABILITY.active;
+      const availBadge = availInfo.label
+        ? `<span class="player-status-badge ${availInfo.badge}" title="${availInfo.title}">${availInfo.label}</span>`
+        : '';
+      const rowTitle = wouldBreachForeign ? 'Foreign player limit reached (max 4)' : (availInfo.title || '');
       const flag = foreign ? '🌍' : '🇮🇳';
       const foreignTag = foreign
         ? `<span style="font-size:.65rem;background:rgba(255,152,0,.15);color:#ff9800;border-radius:3px;padding:.05rem .3rem">OVS</span>`
         : '';
-      return `<div class="player-opt ${disabled?'disabled':''} ${isMe?'selected-by-me':''}"
-          onclick="${disabled?'':`togglePlayerPick('${key}','${player.replace(/'/g,"\\'")}')` }" title="${wouldBreachForeign?'Foreign player limit reached (max 4)':''}">
-        <span>${flag} ${player} ${foreignTag}</span>
+      return `<div class="player-opt ${disabled?'disabled':''} ${isMe?'selected-by-me':''} ${avail!=='active'?'has-status':''}"
+          onclick="${disabled?'':`togglePlayerPick('${key}','${player.replace(/'/g,"\\'")}')`}" title="${rowTitle}">
+        <span style="flex:1;display:flex;align-items:center;gap:.3rem">${flag} ${player} ${foreignTag}${availBadge}</span>
         <span style="display:flex;align-items:center;gap:4px">
           <span class="draft-pips">${[0,1].map(j=>`<span class="mini-pip ${j<count?'filled':''}"></span>`).join('')}</span>
           ${isMe?'<span style="font-size:.9rem">✓</span>':''}
+          <button class="scout-btn" onclick="event.stopPropagation();openPlayerScout('${player.replace(/'/g,"\\'")}','${key}')" title="AI Scout: ${player}">ℹ</button>
         </span>
       </div>`;
     }).join('');
@@ -3303,6 +3397,231 @@ async function resetEverything() {
 }
 
 
+
+
+// ═══════════════════════════════════════════════════════
+// PLAYER AVAILABILITY
+// ═══════════════════════════════════════════════════════
+function initAvailabilityManager() {
+  // Populate team filter
+  const sel = document.getElementById('availTeamFilter');
+  if (!sel || sel.options.length > 1) return;
+  TEAM_KEYS.forEach(k => {
+    const opt = document.createElement('option');
+    opt.value = k; opt.textContent = IPL_TEAMS[k]?.name + ' (' + k + ')';
+    sel.appendChild(opt);
+  });
+  renderAvailList();
+}
+
+function renderAvailList() {
+  const listEl = document.getElementById('availList');
+  if (!listEl) return;
+  const search = (document.getElementById('availSearch')?.value || '').toLowerCase();
+  const teamFilter = document.getElementById('availTeamFilter')?.value || '';
+
+  const rows = [];
+  TEAM_KEYS.forEach(k => {
+    if (teamFilter && k !== teamFilter) return;
+    (IPL_TEAMS[k]?.players || []).forEach(pl => {
+      if (search && !pl.name.toLowerCase().includes(search)) return;
+      rows.push({ key: k, player: pl });
+    });
+  });
+
+  if (!rows.length) { listEl.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:.5rem">No players found.</div>'; return; }
+
+  listEl.innerHTML = rows.map(({ key, player }) => {
+    const av = player.availability || 'active';
+    return `<div class="avail-row">
+      <span class="avail-player-name">${player.foreign ? '🌍 ' : '🇮🇳 '}${player.name}</span>
+      <span class="avail-team-tag">${key}</span>
+      <select class="avail-select" onchange="setPlayerAvailability('${key}','${player.name.replace(/'/g,"\\'")}',this.value)">
+        <option value="active"   ${av==='active'   ?'selected':''}>✅ Active</option>
+        <option value="withdrawn"${av==='withdrawn'?'selected':''}>🚫 Withdrawn</option>
+        <option value="injured"  ${av==='injured'  ?'selected':''}>🤕 Injured</option>
+        <option value="mfg"      ${av==='mfg'      ?'selected':''}>⏭ Missing games</option>
+        <option value="doubt"    ${av==='doubt'    ?'selected':''}>❓ Doubtful</option>
+      </select>
+    </div>`;
+  }).join('');
+}
+
+async function setPlayerAvailability(teamKey, playerName, status) {
+  const statusEl = document.getElementById('availStatus');
+  // Update local state immediately
+  const team = IPL_TEAMS[teamKey];
+  if (!team) return;
+  const pl = team.players.find(p => p.name === playerName);
+  if (!pl) return;
+  pl.availability = status;
+
+  // Re-render draft grid so badge shows instantly
+  renderDraftGrid();
+  renderAvailList();
+
+  // Persist to Supabase squads table
+  try {
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--muted)">Saving…</span>';
+    await dbPatch('squads',
+      { availability: status },
+      `?team_key=eq.${teamKey}&player_name=eq.${encodeURIComponent(playerName)}&mode=eq.${state.mode}`
+    );
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--green)">✓ ${playerName} marked as ${status}</span>`;
+    setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 2500);
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">Save failed: ${e.message}</span>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// AI PICK SUGGESTIONS
+// ═══════════════════════════════════════════════════════
+const suggestCache = {}; // key = pickerName + pickCount
+
+async function loadAISuggestions(force = false) {
+  if (!state.draftActive || draftIsComplete()) return;
+  const ai = state.activeParticipant;
+  if (ai === null) return;
+  const p = state.participants[ai];
+  if (!p) return;
+
+  // Only show to the current picker (or admin)
+  if (!canPickNow()) return;
+
+  const panel = document.getElementById('aiSuggestPanel');
+  const content = document.getElementById('aiSuggestContent');
+  const badge = document.getElementById('aiSuggestBadge');
+  const refreshBtn = document.getElementById('aiSuggestRefreshBtn');
+  if (!panel || !content) return;
+
+  panel.style.display = 'block';
+
+  // Cache key: picker + how many picks they have (changes each round)
+  const picksMade = TEAM_KEYS.filter(k => p.picks[k]).length + (p.teamPick ? 1 : 0);
+  const cacheKey = p.name + '_' + picksMade;
+  if (!force && suggestCache[cacheKey]) {
+    renderSuggestions(suggestCache[cacheKey]);
+    if (badge) badge.style.display = 'inline';
+    if (refreshBtn) refreshBtn.style.display = 'inline';
+    return;
+  }
+
+  // Show loading
+  content.innerHTML = `<div style="display:flex;align-items:center;gap:.6rem;padding:.6rem;background:var(--bg);border:1px solid var(--border);border-radius:8px">
+    <div class="thinking-dots"><span></span><span></span><span></span></div>
+    <span style="font-size:.82rem;color:var(--muted)">Scouting best available picks for ${p.name}…</span>
+  </div>`;
+  if (badge) badge.style.display = 'none';
+  if (refreshBtn) refreshBtn.style.display = 'none';
+
+  // Build context
+  const myPicks = TEAM_KEYS.filter(k => p.picks[k]).map(k => `${k}: ${p.picks[k]}`);
+  const unpickedSlots = TEAM_KEYS.filter(k => !p.picks[k]);
+  const foreignUsed = countForeignPicks(p);
+
+  // Build what's already drafted across all participants
+  const draftedPlayers = {};
+  state.participants.forEach(part => {
+    TEAM_KEYS.forEach(k => { if (part.picks[k]) draftedPlayers[part.picks[k]] = part.name; });
+  });
+
+  // Available players (not yet drafted, from unpicked slots)
+  const available = [];
+  unpickedSlots.forEach(k => {
+    (IPL_TEAMS[k]?.players || []).forEach(pl => {
+      if (!draftedPlayers[pl.name]) {
+        available.push({ name: pl.name, team: k, foreign: pl.foreign });
+      }
+    });
+  });
+
+  const availableStr = available.slice(0, 80)
+    .map(pl => `${pl.name} (${pl.team}${pl.foreign ? ', overseas' : ''})`).join(', ');
+
+  const prompt = `You are a cricket fantasy expert helping ${p.name} decide who to pick in round ${state.draftRound} of an IPL snake draft.
+
+Their current team:
+${myPicks.length ? myPicks.join('\n') : 'No picks yet'}
+${p.teamPick ? 'Drafted team: ' + (IPL_TEAMS[p.teamPick]?.name || p.teamPick) : ''}
+Foreign players used: ${foreignUsed}/${MAX_FOREIGN_PER_FANTASY}
+Slots still to fill: ${unpickedSlots.join(', ')}
+
+Available players (not yet drafted):
+${availableStr}
+
+Search for recent IPL 2025/2026 form and recommend the TOP 3 players they should pick RIGHT NOW from the available list. Consider:
+- Current form and recent scores
+- Team balance (don't recommend a 5th overseas player if limit is 4)
+- High fantasy point potential (big hitters, consistent wicket-takers)
+- Only suggest players from their UNPICKED slots
+
+Respond ONLY in this exact JSON, no markdown:
+{
+  "analysis": "One sentence about their team's current shape",
+  "suggestions": [
+    {
+      "player": "Player Name",
+      "team_slot": "CSK",
+      "role": "Batsman",
+      "stars": 4,
+      "reason": "One punchy sentence on why to pick them now"
+    }
+  ]
+}`;
+
+  try {
+    const response = await fetch('/.netlify/functions/anthropic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 800,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const fullText = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON in response');
+    const result = JSON.parse(jsonMatch[0]);
+    suggestCache[cacheKey] = result;
+    renderSuggestions(result);
+    if (badge) badge.style.display = 'inline';
+    if (refreshBtn) refreshBtn.style.display = 'inline';
+  } catch(e) {
+    content.innerHTML = `<div style="font-size:.78rem;color:var(--muted);padding:.5rem">Could not load suggestions: ${e.message}</div>`;
+  }
+}
+
+function renderSuggestions(result) {
+  const content = document.getElementById('aiSuggestContent');
+  if (!content) return;
+
+  const cards = (result.suggestions || []).map((s, i) => {
+    const stars = '⭐'.repeat(s.stars || 0) + '☆'.repeat(5 - (s.stars || 0));
+    const medal = ['🥇','🥈','🥉'][i] || '';
+    return `<div class="suggest-card">
+      <div class="suggest-card-header">
+        <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+          <span style="font-size:.9rem">${medal}</span>
+          <span class="suggest-player">${s.player}</span>
+          <span class="suggest-team-tag">${s.team_slot}</span>
+          <span class="suggest-role">${s.role || ''}</span>
+        </div>
+        <span class="suggest-stars">${stars}</span>
+      </div>
+      <div class="suggest-reason">${s.reason}</div>
+    </div>`;
+  }).join('');
+
+  content.innerHTML = `
+    ${result.analysis ? `<div style="font-size:.78rem;color:var(--muted);margin-bottom:.5rem;padding:.4rem .6rem;background:rgba(162,89,255,.06);border:1px solid rgba(162,89,255,.15);border-radius:6px">💡 ${result.analysis}</div>` : ''}
+    <div class="suggest-grid">${cards}</div>`;
+}
+
 // ═══════════════════════════════════════════════════════
 // AI CHAT
 // ═══════════════════════════════════════════════════════
@@ -3508,6 +3827,7 @@ function showScreen(name,btn) {
   if (name==='scoring') renderMatchLog();
   if (name==='redraft') renderRedraftScreen();
   if (name==='draftorder') initDraftOrderScreen();
+  if (name==='settings') initAvailabilityManager();
 }
 // ═══════════════════════════════════════════════════════
 // BOOT — check login then load from Supabase
