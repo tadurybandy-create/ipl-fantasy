@@ -350,6 +350,32 @@ body.admin-visible .admin-only{display:block;}
 .avail-select{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.75rem;padding:.2rem .4rem;font-family:'DM Sans',sans-serif;cursor:pointer;}
 .avail-select:focus{outline:none;border-color:var(--green);}
 
+
+/* ── PLAYER NEWS ────────────────────────────────────── */
+.news-filter-btn{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:20px;font-size:.75rem;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;}
+.news-filter-btn:hover{border-color:var(--green);color:var(--green);}
+.news-filter-btn.active{background:rgba(0,200,83,.12);border-color:var(--green);color:var(--green);}
+
+.news-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:.9rem 1rem;display:flex;flex-direction:column;gap:.4rem;transition:border-color .2s;position:relative;}
+.news-card:hover{border-color:rgba(255,255,255,.15);}
+.news-card-header{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;}
+.news-player{font-weight:700;font-size:.95rem;color:var(--text);}
+.news-team-tag{font-size:.65rem;background:rgba(0,200,83,.1);border:1px solid rgba(0,200,83,.2);color:var(--green);padding:.1rem .4rem;border-radius:4px;}
+.news-cat-badge{font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:10px;letter-spacing:.3px;}
+.news-cat-injured  {background:rgba(255,23,68,.15);color:#ff1744;border:1px solid rgba(255,23,68,.3);}
+.news-cat-withdrawn{background:rgba(255,23,68,.1);color:#ff5252;border:1px solid rgba(255,23,68,.2);}
+.news-cat-returning{background:rgba(0,200,83,.12);color:var(--green);border:1px solid rgba(0,200,83,.25);}
+.news-cat-signing  {background:rgba(255,214,0,.12);color:var(--gold);border:1px solid rgba(255,214,0,.25);}
+.news-cat-form     {background:rgba(255,152,0,.12);color:#ff9800;border:1px solid rgba(255,152,0,.25);}
+.news-cat-other    {background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border);}
+.news-note{font-size:.84rem;color:var(--muted);line-height:1.5;}
+.news-footer{display:flex;align-items:center;justify-content:space-between;margin-top:.2rem;}
+.news-date{font-size:.7rem;color:var(--muted);opacity:.6;}
+.news-actions{display:flex;gap:.4rem;}
+.news-action-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.15rem .5rem;border-radius:5px;font-size:.7rem;cursor:pointer;transition:all .15s;}
+.news-action-btn:hover{border-color:var(--red);color:var(--red);}
+.news-fetched-badge{font-size:.62rem;background:rgba(162,89,255,.12);border:1px solid rgba(162,89,255,.25);color:#c084fc;padding:.1rem .35rem;border-radius:4px;}
+
 </style>
 </head>
 <body>
@@ -398,6 +424,7 @@ body.admin-visible .admin-only{display:block;}
   <button class="tab-btn" onclick="showScreen('redraft',this)">🔄 Redraft / Swap</button>
   <button class="tab-btn" onclick="showScreen('scoring',this)">📊 Match Scoring</button>
   <button class="tab-btn" onclick="showScreen('leaderboard',this)">🏆 Leaderboard</button>
+  <button class="tab-btn" onclick="showScreen('news',this);initNewsScreen()">📰 Player News</button>
   <button class="tab-btn admin-only" id="settingsTab" onclick="showScreen('settings',this)" style="display:none">⚙️ Settings</button>
   <button class="tab-btn" onclick="showScreen('chat',this);initChat()">🤖 AI Chat</button>
 </nav>
@@ -740,6 +767,66 @@ body.admin-visible .admin-only{display:block;}
       <button class="chat-send-btn" id="chatSendBtn" onclick="sendChat()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- PLAYER NEWS -->
+<div id="screen-news" class="screen">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.8rem;margin-bottom:1.2rem">
+    <div class="section-title" style="margin:0">📰 Player News</div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-sm" id="fetchNewsBtn" onclick="fetchLatestNews()" style="background:linear-gradient(135deg,rgba(162,89,255,.2),rgba(0,200,83,.15));border:1px solid rgba(162,89,255,.4);color:#c084fc">
+        🤖 Fetch Latest News
+      </button>
+      <button class="btn btn-sm admin-only" onclick="openAddNews()" style="display:none">＋ Add News</button>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem" id="newsFilters">
+    <button class="news-filter-btn active" data-cat="all" onclick="filterNews('all',this)">All</button>
+    <button class="news-filter-btn" data-cat="injured" onclick="filterNews('injured',this)">🤕 Injured</button>
+    <button class="news-filter-btn" data-cat="withdrawn" onclick="filterNews('withdrawn',this)">🚫 Withdrawn</button>
+    <button class="news-filter-btn" data-cat="returning" onclick="filterNews('returning',this)">✅ Returning</button>
+    <button class="news-filter-btn" data-cat="signing" onclick="filterNews('signing',this)">🆕 Signing</button>
+    <button class="news-filter-btn" data-cat="form" onclick="filterNews('form',this)">🔥 Form</button>
+    <button class="news-filter-btn" data-cat="other" onclick="filterNews('other',this)">📋 Other</button>
+  </div>
+
+  <div id="newsFeed" style="display:flex;flex-direction:column;gap:.7rem">
+    <div class="empty-state">No news yet. Hit "Fetch Latest News" or add manually.</div>
+  </div>
+
+  <!-- Add/Edit modal -->
+  <div id="newsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:1rem">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;max-width:480px;width:100%">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:1px;margin-bottom:1rem" id="newsModalTitle">Add News</div>
+      <div style="display:flex;flex-direction:column;gap:.7rem">
+        <input id="newsPlayer" placeholder="Player name" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.55rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.87rem;width:100%;box-sizing:border-box"/>
+        <select id="newsTeam" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.55rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.87rem">
+          <option value="">— Select IPL team (optional) —</option>
+        </select>
+        <select id="newsCategory" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.55rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.87rem">
+          <option value="injured">🤕 Injured</option>
+          <option value="withdrawn">🚫 Withdrawn</option>
+          <option value="returning">✅ Returning</option>
+          <option value="signing">🆕 Mid-season signing</option>
+          <option value="form">🔥 Form alert</option>
+          <option value="other">📋 Other</option>
+        </select>
+        <textarea id="newsNote" rows="3" placeholder="Details…" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.55rem .9rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.87rem;resize:vertical"></textarea>
+        <label style="display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="newsUpdateAvail" style="accent-color:var(--green)">
+          Also update player's availability badge in draft grid
+        </label>
+      </div>
+      <div style="display:flex;gap:.6rem;margin-top:1rem;justify-content:flex-end">
+        <button class="btn btn-sm" onclick="closeNewsModal()" style="background:transparent;border:1px solid var(--border);color:var(--muted)">Cancel</button>
+        <button class="btn btn-sm" onclick="saveNewsItem()" style="background:var(--green);color:#000;font-weight:700" id="newsModalSaveBtn">Save</button>
+      </div>
+      <div id="newsModalStatus" style="font-size:.78rem;margin-top:.6rem;min-height:1rem"></div>
     </div>
   </div>
 </div>
@@ -1192,6 +1279,8 @@ async function loadAll() {
     setSyncStatus('ok', 'Synced');
     renderAll();
     autoSelectMyParticipant();
+    // Load news if on news screen
+    if (document.getElementById('screen-news')?.classList.contains('active')) loadNews();
     // Restore confirm button if it's still my turn after reload
     showConfirmPickBtn();
   } catch(e) {
@@ -3841,6 +3930,329 @@ function clearChat() {
   document.getElementById('chatStatus').textContent = 'Ask me anything about cricket or your fantasy league';
 }
 
+
+// ═══════════════════════════════════════════════════════
+// PLAYER NEWS
+// ═══════════════════════════════════════════════════════
+let newsItems = []; // [{id, player, team, category, note, date, source}]
+let newsFilter = 'all';
+let editingNewsId = null;
+
+const NEWS_CATS = {
+  injured:   { label: '🤕 Injured',          cls: 'news-cat-injured'   },
+  withdrawn: { label: '🚫 Withdrawn',         cls: 'news-cat-withdrawn' },
+  returning: { label: '✅ Returning',          cls: 'news-cat-returning' },
+  signing:   { label: '🆕 Signing',           cls: 'news-cat-signing'   },
+  form:      { label: '🔥 Form alert',        cls: 'news-cat-form'      },
+  other:     { label: '📋 Other',             cls: 'news-cat-other'     },
+};
+
+// Map news category → availability status for draft grid badge
+const CAT_TO_AVAIL = {
+  injured: 'injured', withdrawn: 'withdrawn',
+  returning: 'active', signing: 'active', form: 'active', other: 'active'
+};
+
+async function initNewsScreen() {
+  // Populate team dropdown in modal
+  const sel = document.getElementById('newsTeam');
+  if (sel && sel.options.length <= 1) {
+    TEAM_KEYS.forEach(k => {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = IPL_TEAMS[k]?.name + ' (' + k + ')';
+      sel.appendChild(opt);
+    });
+  }
+  // Show/hide admin controls
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = currentUser?.isAdmin ? 'inline-flex' : 'none';
+  });
+  await loadNews();
+}
+
+async function loadNews() {
+  try {
+    const rows = await dbGet('player_news', '?order=created_at.desc') || [];
+    newsItems = rows.map(r => ({
+      id: r.id, player: r.player_name, team: r.team_key || '',
+      category: r.category, note: r.note,
+      date: r.news_date || r.created_at?.split('T')[0] || '',
+      source: r.source || 'manual'
+    }));
+    renderNewsFeed();
+  } catch(e) {
+    console.error('loadNews error:', e);
+    renderNewsFeed();
+  }
+}
+
+function filterNews(cat, btn) {
+  newsFilter = cat;
+  document.querySelectorAll('.news-filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderNewsFeed();
+}
+
+function renderNewsFeed() {
+  const el = document.getElementById('newsFeed');
+  if (!el) return;
+  const filtered = newsFilter === 'all'
+    ? newsItems
+    : newsItems.filter(n => n.category === newsFilter);
+
+  if (!filtered.length) {
+    el.innerHTML = `<div class="empty-state">${newsFilter === 'all' ? 'No news yet. Hit "Fetch Latest News" or add manually.' : 'No ' + newsFilter + ' news.'}</div>`;
+    return;
+  }
+
+  el.innerHTML = filtered.map(n => {
+    const cat = NEWS_CATS[n.category] || NEWS_CATS.other;
+    const teamName = n.team ? (IPL_TEAMS[n.team]?.name || n.team) : '';
+    const adminBtns = currentUser?.isAdmin
+      ? `<div class="news-actions">
+          <button class="news-action-btn" onclick="openEditNews('${n.id}')">✏</button>
+          <button class="news-action-btn" onclick="deleteNewsItem('${n.id}')">✕</button>
+        </div>`
+      : '';
+    const fetchedBadge = n.source === 'ai'
+      ? '<span class="news-fetched-badge">🤖 AI fetched</span>' : '';
+
+    return `<div class="news-card" id="newscard-${n.id}">
+      <div class="news-card-header">
+        <span class="news-player">${n.player}</span>
+        ${n.team ? `<span class="news-team-tag">${n.team}</span>` : ''}
+        <span class="news-cat-badge ${cat.cls}">${cat.label}</span>
+        ${fetchedBadge}
+      </div>
+      ${n.note ? `<div class="news-note">${n.note}</div>` : ''}
+      <div class="news-footer">
+        <span class="news-date">${n.date}</span>
+        ${adminBtns}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openAddNews() {
+  editingNewsId = null;
+  document.getElementById('newsModalTitle').textContent = 'Add News Item';
+  document.getElementById('newsPlayer').value = '';
+  document.getElementById('newsTeam').value = '';
+  document.getElementById('newsCategory').value = 'injured';
+  document.getElementById('newsNote').value = '';
+  document.getElementById('newsUpdateAvail').checked = true;
+  document.getElementById('newsModalStatus').textContent = '';
+  document.getElementById('newsModal').style.display = 'flex';
+}
+
+function openEditNews(id) {
+  const n = newsItems.find(x => x.id == id);
+  if (!n) return;
+  editingNewsId = id;
+  document.getElementById('newsModalTitle').textContent = 'Edit News Item';
+  document.getElementById('newsPlayer').value = n.player;
+  document.getElementById('newsTeam').value = n.team || '';
+  document.getElementById('newsCategory').value = n.category;
+  document.getElementById('newsNote').value = n.note || '';
+  document.getElementById('newsUpdateAvail').checked = false;
+  document.getElementById('newsModalStatus').textContent = '';
+  document.getElementById('newsModal').style.display = 'flex';
+}
+
+function closeNewsModal() {
+  document.getElementById('newsModal').style.display = 'none';
+  editingNewsId = null;
+}
+
+async function saveNewsItem() {
+  const player = document.getElementById('newsPlayer').value.trim();
+  const team   = document.getElementById('newsTeam').value;
+  const cat    = document.getElementById('newsCategory').value;
+  const note   = document.getElementById('newsNote').value.trim();
+  const updateAvail = document.getElementById('newsUpdateAvail').checked;
+  const statusEl = document.getElementById('newsModalStatus');
+
+  if (!player) { statusEl.innerHTML = '<span style="color:var(--red)">Player name is required.</span>'; return; }
+
+  const btn = document.getElementById('newsModalSaveBtn');
+  btn.disabled = true;
+  statusEl.innerHTML = '<span style="color:var(--muted)">Saving…</span>';
+
+  const today = new Date().toISOString().split('T')[0];
+  const row = { player_name: player, team_key: team || null, category: cat, note, news_date: today, source: 'manual' };
+
+  try {
+    if (editingNewsId) {
+      await dbPatch('player_news', row, `?id=eq.${editingNewsId}`);
+      const idx = newsItems.findIndex(x => x.id == editingNewsId);
+      if (idx >= 0) newsItems[idx] = { ...newsItems[idx], player, team, category: cat, note, date: today };
+    } else {
+      const [saved] = await dbPost('player_news', row);
+      newsItems.unshift({ id: saved.id, player, team, category: cat, note, date: today, source: 'manual' });
+    }
+
+    // Optionally update availability badge in draft grid
+    if (updateAvail && team) {
+      const availStatus = CAT_TO_AVAIL[cat] || 'active';
+      await setPlayerAvailability(team, player, availStatus);
+    }
+
+    closeNewsModal();
+    renderNewsFeed();
+  } catch(e) {
+    statusEl.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  }
+  btn.disabled = false;
+}
+
+async function deleteNewsItem(id) {
+  if (!confirm('Delete this news item?')) return;
+  try {
+    await dbDelete('player_news', `?id=eq.${id}`);
+    newsItems = newsItems.filter(x => x.id != id);
+    renderNewsFeed();
+  } catch(e) {
+    alert('Delete failed: ' + e.message);
+  }
+}
+
+async function fetchLatestNews() {
+  const btn = document.getElementById('fetchNewsBtn');
+  const feed = document.getElementById('newsFeed');
+  btn.disabled = true;
+  btn.textContent = '⏳ Fetching…';
+  feed.innerHTML = `<div style="display:flex;align-items:center;gap:.8rem;padding:1.5rem;background:var(--card);border:1px solid var(--border);border-radius:12px">
+    <div class="thinking-dots"><span></span><span></span><span></span></div>
+    <span style="color:var(--muted);font-size:.88rem">Searching for latest IPL player news…</span>
+  </div>`;
+
+  // Build list of known players for context
+  const knownPlayers = [];
+  TEAM_KEYS.forEach(k => {
+    (IPL_TEAMS[k]?.players || []).forEach(pl => knownPlayers.push(pl.name + ' (' + k + ')'));
+  });
+
+  const prompt = `Search for the latest IPL 2025 player news right now. Focus on:
+- Players withdrawn from the tournament
+- Injuries and expected return dates
+- Players returning from injury
+- Mid-season signings or replacements
+- Any availability concerns
+
+Our fantasy league has these players: ${knownPlayers.slice(0, 60).join(', ')}
+
+Return up to 12 news items. Respond ONLY in this exact JSON, no markdown:
+{
+  "items": [
+    {
+      "player": "Player Name",
+      "team": "CSK",
+      "category": "injured",
+      "note": "One concise sentence with the key info and expected timeline if known."
+    }
+  ]
+}
+
+Category must be one of: injured, withdrawn, returning, signing, form, other
+Team must be the 2-3 letter IPL code (CSK, MI, RCB, KKR, SRH, DC, GT, PBKS, RR, LSG) or empty string if unknown.`;
+
+  try {
+    const response = await fetch('/.netlify/functions/anthropic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1200,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const fullText = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Could not parse news data');
+    const parsed = JSON.parse(jsonMatch[0]);
+    const items = parsed.items || [];
+    if (!items.length) throw new Error('No news items returned');
+
+    // Show preview for admin to approve, just display for non-admin
+    if (currentUser?.isAdmin) {
+      renderFetchPreview(items);
+    } else {
+      // Non-admin: just show without saving
+      const today = new Date().toISOString().split('T')[0];
+      const tempItems = items.map((it, i) => ({
+        id: 'temp_' + i, player: it.player, team: it.team || '',
+        category: it.category || 'other', note: it.note, date: today, source: 'ai'
+      }));
+      newsItems = [...tempItems, ...newsItems];
+      renderNewsFeed();
+    }
+  } catch(e) {
+    const isRateLimit = e.message?.includes('rate limit');
+    feed.innerHTML = `<div style="color:var(--red);padding:1.5rem;background:var(--card);border:1px solid var(--border);border-radius:12px">
+      ${isRateLimit ? '⏱️ AI busy — try again in 30 seconds' : '⚠️ Could not fetch news: ' + e.message}
+    </div>`;
+  }
+  btn.disabled = false;
+  btn.innerHTML = '🤖 Fetch Latest News';
+}
+
+function renderFetchPreview(items) {
+  const feed = document.getElementById('newsFeed');
+  const today = new Date().toISOString().split('T')[0];
+
+  feed.innerHTML = `
+    <div style="background:rgba(162,89,255,.06);border:1px solid rgba(162,89,255,.25);border-radius:12px;padding:1rem;margin-bottom:.8rem">
+      <div style="font-weight:700;color:#c084fc;margin-bottom:.3rem">🤖 AI found ${items.length} news item${items.length!==1?'s':''} — review and save</div>
+      <div style="font-size:.78rem;color:var(--muted)">Check each item, edit if needed, then click Save All to publish to everyone.</div>
+    </div>
+    <div id="fetchPreviewItems" style="display:flex;flex-direction:column;gap:.5rem">
+      ${items.map((it, i) => {
+        const cat = NEWS_CATS[it.category] || NEWS_CATS.other;
+        return `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.8rem 1rem;display:flex;flex-direction:column;gap:.5rem">
+          <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+            <strong style="color:var(--text)">${it.player}</strong>
+            ${it.team ? `<span class="news-team-tag">${it.team}</span>` : ''}
+            <span class="news-cat-badge ${cat.cls}">${cat.label}</span>
+            <span class="news-fetched-badge">🤖 AI fetched</span>
+          </div>
+          <textarea id="fetchNote_${i}" rows="2" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.4rem .6rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.82rem;resize:vertical;width:100%;box-sizing:border-box">${it.note}</textarea>
+          <label style="display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:var(--muted);cursor:pointer">
+            <input type="checkbox" id="fetchSave_${i}" checked style="accent-color:var(--green)"> Include this item
+          </label>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:.6rem;margin-top:.8rem">
+      <button class="btn btn-sm" onclick="saveFetchedNews(${JSON.stringify(items).replace(/"/g,'&quot;')})" style="background:var(--green);color:#000;font-weight:700">💾 Save All to News Feed</button>
+      <button class="btn btn-sm" onclick="loadNews()" style="background:transparent;border:1px solid var(--border);color:var(--muted)">✕ Discard</button>
+    </div>`;
+}
+
+async function saveFetchedNews(items) {
+  const today = new Date().toISOString().split('T')[0];
+  const toSave = [];
+  items.forEach((it, i) => {
+    const include = document.getElementById(`fetchSave_${i}`)?.checked;
+    if (!include) return;
+    const note = document.getElementById(`fetchNote_${i}`)?.value.trim() || it.note;
+    toSave.push({ player_name: it.player, team_key: it.team || null, category: it.category || 'other', note, news_date: today, source: 'ai' });
+  });
+  if (!toSave.length) { await loadNews(); return; }
+  try {
+    for (const row of toSave) {
+      const [saved] = await dbPost('player_news', row);
+      newsItems.unshift({ id: saved.id, player: row.player_name, team: row.team_key || '', category: row.category, note: row.note, date: today, source: 'ai' });
+    }
+    renderNewsFeed();
+  } catch(e) {
+    alert('Save failed: ' + e.message);
+  }
+}
+
 // ═══════════════════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════════════════
@@ -3854,6 +4266,7 @@ function showScreen(name,btn) {
   if (name==='redraft') renderRedraftScreen();
   if (name==='draftorder') initDraftOrderScreen();
   if (name==='settings') initAvailabilityManager();
+  if (name==='news') initNewsScreen();
 }
 // ═══════════════════════════════════════════════════════
 // BOOT — check login then load from Supabase
