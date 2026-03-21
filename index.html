@@ -351,6 +351,9 @@ body.admin-visible .admin-only{display:block;}
 .avail-select:focus{outline:none;border-color:var(--green);}
 
 
+
+@keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(12px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
 </style>
 </head>
 <body>
@@ -1255,6 +1258,7 @@ function showConfirmPickBtn() {
 }
 
 async function confirmPickAndAdvance() {
+  clearTurnNotification(); // stop tab flashing once they pick
   // Hide suggestions panel — new ones will load for next picker
   const sp = document.getElementById('aiSuggestPanel');
   if (sp) sp.style.display = 'none';
@@ -1466,6 +1470,24 @@ async function advanceTurn() {
   // Allow current picker OR admin to advance
   if (!currentUser?.isAdmin && !isMyDraftTurn()) return;
 
+  // Snapshot what was just picked for the toast
+  const justPickedBy = draftCurrentPicker();
+  const justPickedAi = state.activeParticipant;
+  const justPickedP = justPickedAi !== null ? state.participants[justPickedAi] : null;
+  // Find what's new this turn (player or team)
+  let toastPlayer = null, toastTeam = null, toastIsTeam = false;
+  if (justPickedP) {
+    const baseline = state.picksAtTurnStart || 0;
+    // Find newly picked player this turn
+    for (const k of TEAM_KEYS) {
+      if (justPickedP.picks[k] && (justPickedP.pickOrder?.[k] || 0) > baseline) {
+        toastPlayer = justPickedP.picks[k]; toastTeam = k; break;
+      }
+    }
+    // Or team pick
+    if (!toastPlayer && justPickedP.teamPick) { toastIsTeam = true; toastTeam = justPickedP.teamPick; }
+  }
+
   let newPickIdx = state.draftPickIdx + 1;
   let newRound = state.draftRound;
 
@@ -1499,6 +1521,14 @@ async function advanceTurn() {
   showConfirmPickBtn();
   updateDraftPickState();
   loadAISuggestions(false);
+
+  // Show pick toast to everyone
+  if (justPickedBy && (toastPlayer || toastIsTeam)) {
+    showPickToast(justPickedBy, toastPlayer, toastTeam, toastIsTeam);
+  }
+
+  // Notify the NEXT picker
+  notifyMyTurn(draftCurrentPicker());
 }
 
 async function endDraft() {
@@ -1568,6 +1598,9 @@ function startDraftPolling() {
       renderDraftGridWithLock();
       renderPicksSummary();
       showConfirmPickBtn();
+      // Notify if it just became my turn
+      const nowPicker = draftCurrentPicker();
+      notifyMyTurn(nowPicker);
     }
   }, 5000);
 }
@@ -3840,6 +3873,98 @@ function clearChat() {
 }
 
 
+
+
+// ═══════════════════════════════════════════════════════
+// TURN NOTIFICATION
+// ═══════════════════════════════════════════════════════
+let _tabFlashInterval = null;
+let _originalTitle = document.title;
+
+function notifyMyTurn(pickerName) {
+  // Only notify the actual picker
+  if (!currentUser?.participantName) return;
+  if (pickerName?.toLowerCase() !== currentUser.participantName.toLowerCase()) return;
+
+  // 1. Play a soft beep using Web Audio API
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 150, 300].forEach(delay => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay/1000);
+      gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + delay/1000 + 0.05);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + delay/1000 + 0.25);
+      osc.start(ctx.currentTime + delay/1000);
+      osc.stop(ctx.currentTime + delay/1000 + 0.3);
+    });
+  } catch(e) { /* audio not supported */ }
+
+  // 2. Flash tab title
+  if (_tabFlashInterval) clearInterval(_tabFlashInterval);
+  let flash = true;
+  _tabFlashInterval = setInterval(() => {
+    document.title = flash ? '⚡ YOUR TURN! — Cricket Fantasy' : _originalTitle;
+    flash = !flash;
+  }, 800);
+
+  // 3. Browser notification if permitted
+  if (Notification.permission === 'granted') {
+    new Notification('⚡ Your turn to pick!', {
+      body: 'Cricket Fantasy Draft — make your pick now',
+      icon: '/favicon.ico',
+      tag: 'draft-turn'
+    });
+  } else if (Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function clearTurnNotification() {
+  if (_tabFlashInterval) {
+    clearInterval(_tabFlashInterval);
+    _tabFlashInterval = null;
+    document.title = _originalTitle;
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════
+// ROUND PICK SUMMARY TOAST
+// ═══════════════════════════════════════════════════════
+function showPickToast(pickerName, playerPicked, teamKey, isTeamPick) {
+  // Remove any existing toast
+  const existing = document.getElementById('pickToast');
+  if (existing) existing.remove();
+
+  const teamName = teamKey ? (IPL_TEAMS[teamKey]?.name || teamKey) : '';
+  const pickText = isTeamPick
+    ? `🏆 <strong>${pickerName}</strong> drafted team <strong>${teamName}</strong>`
+    : `🏏 <strong>${pickerName}</strong> picked <strong>${playerPicked}</strong> <span style="font-size:.75rem;color:var(--muted)">(${teamKey})</span>`;
+
+  const toast = document.createElement('div');
+  toast.id = 'pickToast';
+  toast.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:.8rem">
+    <div style="font-size:.88rem">${pickText}</div>
+    <button onclick="this.parentElement.parentElement.remove()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;flex-shrink:0">✕</button>
+  </div>
+  <div style="font-size:.72rem;color:var(--muted);margin-top:.2rem">Round ${state.draftRound} · Pick ${state.draftPickIdx + 1} of ${state.draftOrder.length}</div>`;
+  toast.style.cssText = `
+    position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);
+    background:var(--card);border:1px solid rgba(0,200,83,.35);
+    border-radius:12px;padding:.75rem 1rem;
+    box-shadow:0 4px 24px rgba(0,0,0,.4);
+    z-index:500;min-width:280px;max-width:420px;
+    animation:toastIn .25s ease;
+  `;
+  document.body.appendChild(toast);
+  // Auto-dismiss after 4 seconds
+  setTimeout(() => { if (toast.parentElement) toast.remove(); }, 4000);
+}
 
 // ═══════════════════════════════════════════════════════
 // NAVIGATION
