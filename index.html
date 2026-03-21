@@ -4162,8 +4162,8 @@ Team must be the 2-3 letter IPL code (CSK, MI, RCB, KKR, SRH, DC, GT, PBKS, RR, 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1200,
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{ role: 'user', content: prompt }]
       })
