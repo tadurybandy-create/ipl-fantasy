@@ -354,6 +354,53 @@ body.admin-visible .admin-only{display:block;}
 
 @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(12px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
 
+
+/* ── DRAFT BOARD ─────────────────────────────────────── */
+.ph-view-btn{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);padding:.3rem .8rem;border-radius:6px;font-size:.75rem;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;}
+.ph-view-btn.active{background:rgba(0,200,83,.12);border-color:var(--green);color:var(--green);}
+.ph-round-block{margin-bottom:1.2rem;}
+.ph-round-header{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:1.5px;color:var(--muted);margin-bottom:.5rem;display:flex;align-items:center;gap:.6rem;}
+.ph-round-dir{font-size:.65rem;color:var(--border);letter-spacing:0;}
+.ph-picks-row{display:flex;flex-wrap:wrap;gap:.4rem;}
+.ph-pick-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.45rem .7rem;min-width:140px;flex:1;max-width:200px;}
+.ph-pick-card.is-me{border-color:rgba(0,200,83,.35);background:rgba(0,200,83,.05);}
+.ph-pick-num{font-family:'Bebas Neue',sans-serif;font-size:.85rem;color:var(--muted);letter-spacing:1px;}
+.ph-pick-player{font-weight:600;font-size:.85rem;color:var(--text);margin:.1rem 0;}
+.ph-pick-team-tag{font-size:.62rem;background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.15);color:var(--green);padding:.05rem .3rem;border-radius:3px;}
+.ph-pick-owner{font-size:.7rem;color:var(--muted);margin-top:.1rem;}
+.ph-team-block{margin-bottom:1.2rem;}
+.ph-team-header{display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);}
+.ph-team-name{font-weight:700;font-size:.95rem;}
+.ph-team-picks{display:flex;flex-direction:column;gap:.3rem;}
+.ph-team-pick-row{display:flex;align-items:center;gap:.6rem;padding:.35rem .6rem;background:var(--bg);border-radius:6px;font-size:.83rem;}
+.ph-team-pick-row.is-me{background:rgba(0,200,83,.06);border:1px solid rgba(0,200,83,.15);border-radius:6px;}
+.ph-no-picks{color:var(--muted);font-size:.82rem;font-style:italic;padding:.3rem .6rem;}
+
+
+/* ── SUB TABS ───────────────────────────────────────── */
+.sub-tab-bar{display:flex;gap:4px;padding:.6rem .6rem .4rem;border-bottom:1px solid var(--border);margin-bottom:1rem;flex-wrap:wrap;}
+.sub-tab{background:transparent;border:1px solid transparent;color:var(--muted);padding:.35rem .85rem;border-radius:8px;font-size:.8rem;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.sub-tab:hover{color:var(--text);background:rgba(255,255,255,.05);}
+.sub-tab.active{background:rgba(0,200,83,.12);border-color:rgba(0,200,83,.3);color:var(--green);font-weight:600;}
+.sub-pane{display:none;}
+.sub-pane.active{display:block;}
+
+/* ── ROSTERS ─────────────────────────────────────────── */
+.rosters-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;}
+.roster-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .2s;}
+.roster-card:hover{border-color:rgba(0,200,83,.3);}
+.roster-card.is-me{border-color:rgba(0,200,83,.4);}
+.roster-header{padding:.8rem 1rem;background:rgba(0,200,83,.04);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.roster-name{font-weight:700;font-size:.95rem;color:var(--text);}
+.roster-pts{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--green);letter-spacing:1px;}
+.roster-picks{padding:.7rem 1rem;display:flex;flex-direction:column;gap:.3rem;}
+.roster-pick-row{display:flex;align-items:center;gap:.5rem;font-size:.82rem;}
+.roster-pick-row .slot{font-size:.65rem;background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.15);color:var(--green);padding:.05rem .35rem;border-radius:3px;width:2.8rem;text-align:center;flex-shrink:0;}
+.roster-pick-row .pname{flex:1;color:var(--text);}
+.roster-pick-row .empty-slot{color:var(--muted);font-style:italic;}
+.roster-team-row{padding:.5rem 1rem .7rem;border-top:1px solid rgba(255,255,255,.05);display:flex;align-items:center;gap:.5rem;}
+.roster-team-label{font-size:.72rem;color:var(--gold);}
+
 </style>
 </head>
 <body>
@@ -398,35 +445,25 @@ body.admin-visible .admin-only{display:block;}
 
 <nav>
   <button class="tab-btn active" onclick="showScreen('draft',this)">🎯 Draft</button>
-  <button class="tab-btn" onclick="showScreen('draftorder',this)">🎲 Draft Order</button>
-  <button class="tab-btn" onclick="showScreen('redraft',this)">🔄 Redraft / Swap</button>
-  <button class="tab-btn" onclick="showScreen('scoring',this)">📊 Match Scoring</button>
+  <button class="tab-btn" onclick="showScreen('rosters',this);renderRosters()">👥 Rosters</button>
   <button class="tab-btn" onclick="showScreen('leaderboard',this)">🏆 Leaderboard</button>
-  <button class="tab-btn admin-only" id="settingsTab" onclick="showScreen('settings',this)" style="display:none">⚙️ Settings</button>
+  <button class="tab-btn" onclick="showScreen('scoring',this)">📊 Scoring</button>
   <button class="tab-btn" onclick="showScreen('chat',this);initChat()">🤖 AI Chat</button>
+  <button class="tab-btn admin-only" id="settingsTab" onclick="showScreen('settings',this)" style="display:none">⚙️ Settings</button>
 </nav>
 
 <div class="container">
 
 <!-- DRAFT -->
 <div id="screen-draft" class="screen active">
-  <div class="section-title">Season Draft</div>
-  <div class="scoring-key">
-    <div class="key-item"><span class="key-dot" style="background:var(--green)"></span>1 Run = 1 pt</div>
-    <div class="key-item"><span class="key-dot" style="background:var(--red)"></span>1 Wicket = 25 pts</div>
-    <div class="key-item"><span class="key-dot" style="background:var(--gold)"></span>1 Catch = 5 pts</div>
-    <div class="key-item"><span class="key-dot" style="background:#ff9800"></span>1 Run-out = 5 pts (both fielders)</div>
-    <div class="key-item"><span class="key-dot" style="background:var(--purple)"></span>1 Stumping = 5 pts</div>
-    <div class="key-item"><span class="key-dot" style="background:#e91e63"></span>Man of the Match = 5 pts</div>
-    <div class="key-item"><span class="key-dot" style="background:var(--muted)"></span>Max 2 drafts per player <span id="foreignKeySpan"> · Max 4 foreign per fantasy team</span></div>
-    <div class="key-item"><span class="key-dot" style="background:var(--gold)"></span>Draft 1 Team: Win = 30 pts · Draw = 15 pts · Max 2 drafts per team</div>
+  <div class="sub-tab-bar">
+    <button class="sub-tab active" id="sdraft-active" onclick="showSubTab('draft','active',this)">🎯 Draft</button>
+    <button class="sub-tab" id="sdraft-order" onclick="showSubTab('draft','order',this);initDraftOrderScreen()">🎲 Order</button>
+    <button class="sub-tab" id="sdraft-board" onclick="showSubTab('draft','board',this);renderPickHistory()">📋 Board</button>
+    <button class="sub-tab admin-only" id="sdraft-swap" style="display:none" onclick="showSubTab('draft','swap',this);renderRedraftScreen()">🔄 Swap</button>
   </div>
-  <div class="info-box" id="draftInfoBox">
-    Each of the <strong>16 fantasy players</strong> picks <strong>1 player from each team</strong>.
-    <span id="foreignInfoSpan">Max <strong>4 foreign players</strong> per fantasy team.</span>
-    <strong>All picks sync automatically</strong> for everyone.
-  </div>
-  <div id="pCount" style="display:none">0/16</div>
+
+  <div id="sub-draft-active" class="sub-pane active">
   <div id="draftBanner" style="margin-bottom:1rem"></div>
   <div class="draft-layout">
     <div class="participant-sidebar">
@@ -466,10 +503,40 @@ body.admin-visible .admin-only{display:block;}
         <div style="margin-top:.8rem"><button class="btn btn-sm" onclick="savePicks()">💾 Save Picks</button></div>
       </div>
     </div>
-    <!-- Confirm Pick Button — outside picksSummary so it shows even when summary is hidden -->
-    <div id="confirmPickSlot" style="margin-top:.8rem"></div>
+    <!-- AI Suggestions trigger + Confirm Pick Button -->
+    <div id="aiSuggestTrigger" style="margin-top:.6rem;display:none">
+      <button onclick="loadAISuggestions(true)" style="width:100%;padding:.5rem;background:rgba(162,89,255,.1);border:1px solid rgba(162,89,255,.3);border-radius:8px;color:#c084fc;font-size:.8rem;cursor:pointer;font-family:'DM Sans',sans-serif">🤖 Get AI pick suggestions</button>
+    </div>
+    <div id="confirmPickSlot" style="margin-top:.5rem"></div>
   </div>
 </div>
+
+  </div><!-- /sub-draft-active -->
+
+<!-- DRAFT ORDER sub-pane (inside draft screen) -->
+<div id="sub-draft-order" class="sub-pane" style="display:none">
+  <div id="sub-draftorder-content"></div>
+</div>
+
+<!-- DRAFT BOARD sub-pane (inside draft screen) -->
+<div id="sub-draft-board" class="sub-pane" style="display:none">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.8rem;margin-bottom:1rem">
+    <div style="display:flex;gap:.3rem" id="phViewToggle">
+      <button class="ph-view-btn active" onclick="setPhView('round',this)">By Round</button>
+      <button class="ph-view-btn" onclick="setPhView('team',this)">By Team</button>
+    </div>
+    <button class="btn btn-sm" onclick="copyDraftBoard()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.75rem">📋 Copy</button>
+  </div>
+  <div id="pickHistoryContent"></div>
+</div>
+
+<!-- SWAP sub-pane (inside draft screen) -->
+<div id="sub-draft-swap" class="sub-pane" style="display:none">
+  <div class="section-title" style="margin-bottom:.8rem">🔄 Redraft / Swap</div>
+  <div id="sub-redraft-content"></div>
+</div>
+
+</div><!-- /screen-draft -->
 
 <!-- REDRAFT -->
 <div id="screen-redraft" class="screen">
@@ -542,7 +609,7 @@ body.admin-visible .admin-only{display:block;}
 
 <!-- LEADERBOARD -->
 <div id="screen-leaderboard" class="screen">
-  <div class="section-title">🏆 Season Leaderboard</div>
+  <div class="section-title">🏆 Leaderboard</div>
   <div id="leaderboardContent"><div class="empty-state">Complete the draft first.</div></div>
 </div>
 
@@ -749,6 +816,13 @@ body.admin-visible .admin-only{display:block;}
 </div>
 
 
+
+<!-- ROSTERS -->
+<div id="screen-rosters" class="screen">
+  <div class="section-title">👥 Rosters</div>
+  <div id="rostersContent"><div class="empty-state">Complete the draft first.</div></div>
+</div>
+
 <!-- PARTICIPANT DETAIL MODAL -->
 <div class="modal-overlay" id="detailModal" onclick="closeDetailModal(event)">
   <div class="modal-box">
@@ -947,6 +1021,7 @@ async function handleAuthUser(user) {
     currentUser._adminModeOn = true;
     const _st = document.getElementById('settingsTab');
     if (_st) _st.style.display = 'inline-flex';
+    refreshSubTabVisibility();
   } else {
     document.body.classList.remove('admin-visible');
   }
@@ -1235,11 +1310,21 @@ function draftIsComplete() {
 
 function showConfirmPickBtn() {
   const el = document.getElementById('confirmPickSlot');
+  const trigger = document.getElementById('aiSuggestTrigger');
   if (!el) return;
-  // Show during active draft when it's your turn (or admin), or always for admin
   const isAdmin = currentUser?.isAdmin;
-  if (!state.draftActive || draftIsComplete()) { el.innerHTML = ''; return; }
-  if (!isAdmin && !isMyDraftTurn()) { el.innerHTML = ''; return; }
+  if (!state.draftActive || draftIsComplete()) {
+    el.innerHTML = '';
+    if (trigger) trigger.style.display = 'none';
+    return;
+  }
+  if (!isAdmin && !isMyDraftTurn()) {
+    el.innerHTML = '';
+    if (trigger) trigger.style.display = 'none';
+    return;
+  }
+  // Show suggestions trigger when it's your turn
+  if (trigger) trigger.style.display = 'block';
 
   const ai = state.activeParticipant;
   const p = ai !== null ? state.participants[ai] : null;
@@ -1431,6 +1516,7 @@ function toggleAdminMode() {
     if (_st2) _st2.style.display = 'inline-flex';
   }
   // Re-render everything so admin controls appear/disappear
+  refreshSubTabVisibility();
   renderDraftBanner();
   renderParticipantListWithLock();
   renderDraftGrid();
@@ -1520,7 +1606,9 @@ async function advanceTurn() {
   renderPicksSummary();
   showConfirmPickBtn();
   updateDraftPickState();
-  loadAISuggestions(false);
+  // Suggestions reset — user can request them manually
+  const sp2 = document.getElementById('aiSuggestPanel');
+  if (sp2) { sp2.style.display = 'none'; }
 
   // Show pick toast to everyone
   if (justPickedBy && (toastPlayer || toastIsTeam)) {
@@ -1529,6 +1617,9 @@ async function advanceTurn() {
 
   // Notify the NEXT picker
   notifyMyTurn(draftCurrentPicker());
+
+  // Refresh draft board if open
+  if (document.getElementById('screen-pickhistory')?.classList.contains('active')) renderPickHistory();
 }
 
 async function endDraft() {
@@ -1640,7 +1731,6 @@ function autoSelectMyParticipant() {
     state.viewParticipant = state.activeParticipant; // reset view to current picker
     renderParticipantListWithLock();
     renderPicksSummary();
-    loadAISuggestions(false);
   }
 }
 function renderAll() {
@@ -2289,6 +2379,7 @@ async function executeTeamSwap(participantIdx) {
     setSyncStatus('ok','Synced');
     renderRedraftScreen();
     renderLeaderboard();
+    if (document.getElementById('screen-rosters')?.classList.contains('active')) renderRosters();
   } catch(e) { setSyncStatus('err','Save failed'); console.error(e); alert(e.message); }
 }
 
@@ -2553,7 +2644,35 @@ async function applyMatch() {
      (m.t1name||'').toLowerCase().trim() === t2 && (m.t2name||'').toLowerCase().trim() === t1)
   );
   if (duplicate) {
-    if (!confirm(`${imp.t1name} vs ${imp.t2name} on ${today} has already been applied. Apply again anyway?`)) return;
+    const choice = confirm(
+      `${imp.t1name} vs ${imp.t2name} has already been applied today.\n\n` +
+      `Click OK to UPDATE it (reverses old scores, applies new ones — use this for end-of-match full scorecard).\n` +
+      `Click Cancel to abort.`
+    );
+    if (!choice) return;
+    // Remove old match first — reverse its scores
+    setSyncStatus('loading', 'Reversing previous scores…');
+    for (const u of (duplicate.updates||[])) {
+      const sc = state.seasonScores[u.player];
+      if (sc) {
+        const newRuns = sc.runs - u.runs;
+        const newWkts = sc.wickets - u.wkts;
+        const newCtch = sc.catches - u.catches;
+        const newRnout = (sc.runouts||0) - u.runouts;
+        const newStmp = (sc.stumpings||0) - u.stumpings;
+        const newMotm = (sc.motm||0) - (u.motm||0);
+        await dbPatch('season_scores',
+          { runs: newRuns, wickets: newWkts, catches: newCtch, runouts: newRnout, stumpings: newStmp, motm: newMotm },
+          `?player_name=eq.${encodeURIComponent(u.player)}&mode=eq.${state.mode}`
+        );
+        state.seasonScores[u.player] = { runs: newRuns, wickets: newWkts, catches: newCtch, runouts: newRnout, stumpings: newStmp, motm: newMotm };
+      }
+    }
+    // Remove old match record
+    await dbDelete('match_history', `?id=eq.${duplicate.id}`);
+    applyMatchResultToTeamWins(duplicate, false);
+    const di = state.matchHistory.findIndex(m => m.id === duplicate.id);
+    if (di >= 0) state.matchHistory.splice(di, 1);
   }
 
   const updates = [];
@@ -3966,6 +4085,394 @@ function showPickToast(pickerName, playerPicked, teamKey, isTeamPick) {
   setTimeout(() => { if (toast.parentElement) toast.remove(); }, 4000);
 }
 
+
+
+// ═══════════════════════════════════════════════════════
+// SUB-TAB NAVIGATION
+// ═══════════════════════════════════════════════════════
+function showSubTab(screenName, subName, btn) {
+  // Hide all sub-panes in this screen
+  const screen = document.getElementById('screen-' + screenName);
+  if (!screen) return;
+  screen.querySelectorAll('.sub-pane').forEach(p => {
+    p.style.display = 'none';
+    p.classList.remove('active');
+  });
+  screen.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
+
+  const pane = document.getElementById('sub-' + screenName + '-' + subName);
+  if (pane) { pane.style.display = 'block'; pane.classList.add('active'); }
+  if (btn) btn.classList.add('active');
+
+  // Lazy-render content into the sub-pane containers
+  if (screenName === 'draft' && subName === 'order') {
+    const c = document.getElementById('sub-draftorder-content');
+    if (c && !c.dataset.loaded) {
+      const orig = document.getElementById('screen-draftorder');
+      if (orig) {
+        c.innerHTML = orig.innerHTML;
+        c.dataset.loaded = '1';
+      }
+    }
+    initDraftOrderScreen();
+  }
+  if (screenName === 'draft' && subName === 'board') {
+    const c = document.getElementById('sub-draft-board');
+    if (c && !c.dataset.loaded) {
+      const orig = document.getElementById('screen-pickhistory');
+      if (orig) { c.innerHTML = orig.innerHTML; c.dataset.loaded = '1'; }
+    }
+    renderPickHistory();
+  }
+  if (screenName === 'draft' && subName === 'swap') {
+    // Mount redraft screen content into sub-pane on first load
+    const c = document.getElementById('sub-redraft-content');
+    if (c && !c.dataset.loaded) {
+      const orig = document.getElementById('screen-redraft');
+      if (orig) {
+        // Copy inner HTML excluding the section-title we added
+        c.innerHTML = orig.innerHTML;
+        c.dataset.loaded = '1';
+      }
+    }
+    renderRedraftScreen();
+  }
+}
+
+// Show admin sub-tabs when in admin mode
+function refreshSubTabVisibility() {
+  const isAdmin = currentUser?.isAdmin;
+  document.querySelectorAll('.sub-tab.admin-only').forEach(el => {
+    el.style.display = isAdmin ? 'inline-flex' : 'none';
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// ROSTERS
+// ═══════════════════════════════════════════════════════
+function renderRosters() {
+  const el = document.getElementById('rostersContent');
+  if (!el) return;
+
+  const hasPicks = state.participants.some(p => Object.keys(p.picks||{}).length > 0);
+  if (!state.participants.length || !hasPicks) {
+    el.innerHTML = '<div class="empty-state">No picks yet — check back after the draft.</div>';
+    return;
+  }
+
+  const myName = currentUser?.participantName?.toLowerCase();
+
+  // Sort: me first, then by most picks desc
+  const sorted = [...state.participants].sort((a, b) => {
+    const aIsMe = a.name.toLowerCase() === myName;
+    const bIsMe = b.name.toLowerCase() === myName;
+    if (aIsMe) return -1;
+    if (bIsMe) return 1;
+    return Object.keys(b.picks||{}).length - Object.keys(a.picks||{}).length;
+  });
+
+  el.innerHTML = '<div class="rosters-grid">' + sorted.map(p => {
+    const isMe = p.name.toLowerCase() === myName;
+    const {total} = calcSeasonPoints(p);
+    const pickCount = Object.keys(p.picks||{}).length;
+
+    const pickRows = TEAM_KEYS.map(k => {
+      const player = p.picks[k];
+      const playerObj = player ? (IPL_TEAMS[k]?.players||[]).find(pl => pl.name === player) : null;
+      const flag = playerObj?.foreign ? '🌍' : '🇮🇳';
+      const avail = playerObj?.availability || 'active';
+      const availInfo = AVAILABILITY[avail] || AVAILABILITY.active;
+      const badge = availInfo.label
+        ? `<span class="player-status-badge ${availInfo.badge}" style="margin-left:.2rem">${availInfo.label}</span>` : '';
+      return `<div class="roster-pick-row">
+        <span class="slot">${k}</span>
+        ${player
+          ? `<span class="pname">${flag} ${player}${badge}</span>`
+          : `<span class="empty-slot">—</span>`}
+      </div>`;
+    }).join('');
+
+    const teamRow = p.teamPick
+      ? `<div class="roster-team-row">
+          <span class="roster-team-label">🏆 ${IPL_TEAMS[p.teamPick]?.name || p.teamPick}</span>
+        </div>` : '';
+
+    return `<div class="roster-card ${isMe ? 'is-me' : ''}">
+      <div class="roster-header">
+        <div>
+          <div class="roster-name">${isMe ? '<span style="color:var(--green);font-size:.72rem;font-weight:600;margin-right:.3rem">YOU</span>' : ''}${p.name}</div>
+          <div style="font-size:.72rem;color:var(--muted)">${pickCount}/10 picks${p.teamPick ? ' + team' : ''}</div>
+        </div>
+        ${total > 0 ? `<div class="roster-pts">${total} pts</div>` : ''}
+      </div>
+      <div class="roster-picks">${pickRows}</div>
+      ${teamRow}
+    </div>`;
+  }).join('') + '</div>';
+}
+
+// ═══════════════════════════════════════════════════════
+// DRAFT BOARD / PICK HISTORY
+// ═══════════════════════════════════════════════════════
+let phView = 'round'; // 'round' | 'team'
+
+function setPhView(view, btn) {
+  phView = view;
+  document.querySelectorAll('.ph-view-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderPickHistory();
+}
+
+function buildAllPicks() {
+  // Build a flat list of every pick with round, pick-in-round, owner, player, teamSlot
+  const n = state.draftOrder.length;
+  if (!n) return [];
+
+  const allPicks = [];
+
+  state.participants.forEach(p => {
+    // Player picks
+    TEAM_KEYS.forEach(k => {
+      const player = p.picks[k];
+      if (!player) return;
+      const seq = p.pickOrder?.[k] || null;
+      // Derive round and position-in-round from seq number
+      let round = null, pickInRound = null;
+      if (seq && n) {
+        let rem = seq;
+        for (let r = 1; r <= DRAFT_TOTAL_ROUNDS; r++) {
+          if (rem <= n) { round = r; pickInRound = rem; break; }
+          rem -= n;
+        }
+      }
+      // Global pick number = seq (across all participants combined)
+      // Need to compute overall pick number differently — use draftOrder + round
+      allPicks.push({
+        seq, round, pickInRound,
+        owner: p.name,
+        player,
+        teamSlot: k,
+        isTeam: false,
+        foreign: (IPL_TEAMS[k]?.players||[]).find(pl=>pl.name===player)?.foreign || false
+      });
+    });
+
+    // Team pick — assign to round 11 (last slot conceptually, or wherever they picked)
+    if (p.teamPick) {
+      allPicks.push({
+        seq: null, round: null, pickInRound: null,
+        owner: p.name,
+        player: IPL_TEAMS[p.teamPick]?.name || p.teamPick,
+        teamSlot: p.teamPick,
+        isTeam: true,
+        foreign: false
+      });
+    }
+  });
+
+  return allPicks;
+}
+
+function renderPickHistory() {
+  const el = document.getElementById('pickHistoryContent');
+  if (!el) return;
+
+  const n = state.draftOrder.length;
+  const allPicks = buildAllPicks();
+  const myName = currentUser?.participantName?.toLowerCase();
+
+  if (!state.participants.length || (!state.draftActive && allPicks.length === 0)) {
+    el.innerHTML = '<div class="empty-state">No picks yet — draft has not started.</div>';
+    return;
+  }
+
+  if (phView === 'round') {
+    renderPickHistoryByRound(el, allPicks, n, myName);
+  } else {
+    renderPickHistoryByTeam(el, allPicks, myName);
+  }
+}
+
+function renderPickHistoryByRound(el, allPicks, n, myName) {
+  // Group picks by round
+  const byRound = {};
+  allPicks.filter(p => !p.isTeam && p.round).forEach(p => {
+    if (!byRound[p.round]) byRound[p.round] = {};
+    byRound[p.round][p.owner] = p;
+  });
+
+  // Team picks go in a separate "Teams" section
+  const teamPicks = allPicks.filter(p => p.isTeam);
+
+  const maxRound = Math.max(state.draftRound, ...Object.keys(byRound).map(Number), 1);
+  let html = '';
+
+  for (let r = 1; r <= Math.min(maxRound, DRAFT_TOTAL_ROUNDS); r++) {
+    const roundOrder = r % 2 === 1
+      ? [...state.draftOrder]
+      : [...state.draftOrder].reverse();
+    const dir = r % 2 === 1 ? '→' : '←';
+    const picks = byRound[r] || {};
+    const hasPicks = Object.keys(picks).length > 0;
+
+    // Skip future empty rounds unless it's the current round
+    if (!hasPicks && r > state.draftRound) continue;
+
+    html += `<div class="ph-round-block">
+      <div class="ph-round-header">
+        ROUND ${r}
+        <span class="ph-round-dir">${dir} ${r % 2 === 1 ? 'Normal' : 'Reverse'}</span>
+        ${r === state.draftRound && state.draftActive ? '<span style="font-size:.65rem;background:rgba(0,200,83,.15);color:var(--green);padding:.1rem .4rem;border-radius:4px">LIVE</span>' : ''}
+      </div>
+      <div class="ph-picks-row">`;
+
+    roundOrder.forEach((name, i) => {
+      const pick = picks[name];
+      const isMe = name.toLowerCase() === myName;
+      const globalPickNum = r % 2 === 1
+        ? (r - 1) * n + (i + 1)
+        : (r - 1) * n + (n - i);
+
+      if (pick) {
+        const flag = pick.foreign ? '🌍' : '🇮🇳';
+        html += `<div class="ph-pick-card ${isMe ? 'is-me' : ''}">
+          <div class="ph-pick-num">#${globalPickNum}</div>
+          <div class="ph-pick-player">${flag} ${pick.player}</div>
+          <div style="display:flex;align-items:center;gap:.3rem;margin-top:.2rem">
+            <span class="ph-pick-team-tag">${pick.teamSlot}</span>
+          </div>
+          <div class="ph-pick-owner">${isMe ? '<span style="color:var(--green);font-weight:600">YOU</span>' : name}</div>
+        </div>`;
+      } else {
+        // Empty slot
+        const isCurrent = state.draftActive && state.draftRound === r &&
+          draftCurrentPicker()?.toLowerCase() === name.toLowerCase();
+        html += `<div class="ph-pick-card" style="opacity:.35;border-style:dashed">
+          <div class="ph-pick-num">#${globalPickNum}</div>
+          <div class="ph-pick-player" style="color:var(--muted)">${isCurrent ? '⏳ Picking…' : '—'}</div>
+          <div class="ph-pick-owner">${isMe ? '<span style="color:var(--green)">YOU</span>' : name}</div>
+        </div>`;
+      }
+    });
+
+    html += `</div></div>`;
+  }
+
+  // Team picks section
+  if (teamPicks.length) {
+    html += `<div class="ph-round-block">
+      <div class="ph-round-header">🏆 TEAM DRAFTS</div>
+      <div class="ph-picks-row">
+        ${teamPicks.map(tp => {
+          const isMe = tp.owner.toLowerCase() === myName;
+          return `<div class="ph-pick-card ${isMe ? 'is-me' : ''}">
+            <div class="ph-pick-player">🏆 ${tp.player}</div>
+            <div class="ph-pick-owner">${isMe ? '<span style="color:var(--green);font-weight:600">YOU</span>' : tp.owner}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  if (!html) html = '<div class="empty-state">No picks made yet.</div>';
+  el.innerHTML = html;
+}
+
+function renderPickHistoryByTeam(el, allPicks, myName) {
+  // Group by participant
+  const byOwner = {};
+  state.participants.forEach(p => { byOwner[p.name] = []; });
+  allPicks.filter(x => !x.isTeam).forEach(pk => {
+    if (!byOwner[pk.owner]) byOwner[pk.owner] = [];
+    byOwner[pk.owner].push(pk);
+  });
+
+  // Sort each owner's picks by seq
+  Object.keys(byOwner).forEach(owner => {
+    byOwner[owner].sort((a, b) => (a.seq||999) - (b.seq||999));
+  });
+
+  // Sort owners: me first, then alphabetical
+  const owners = Object.keys(byOwner).sort((a, b) => {
+    if (a.toLowerCase() === myName) return -1;
+    if (b.toLowerCase() === myName) return 1;
+    return a.localeCompare(b);
+  });
+
+  let html = owners.map(owner => {
+    const picks = byOwner[owner];
+    const teamPick = allPicks.find(x => x.isTeam && x.owner === owner);
+    const isMe = owner.toLowerCase() === myName;
+    const totalPicks = picks.length + (teamPick ? 1 : 0);
+
+    return `<div class="ph-team-block">
+      <div class="ph-team-header">
+        <span class="ph-team-name">${isMe ? '<span style="color:var(--green)">YOU — </span>' : ''}${owner}</span>
+        <span style="font-size:.72rem;color:var(--muted)">${totalPicks} pick${totalPicks!==1?'s':''}</span>
+      </div>
+      <div class="ph-team-picks">
+        ${picks.length ? picks.map(pk => {
+          const flag = pk.foreign ? '🌍' : '🇮🇳';
+          const roundLabel = pk.round ? `Rd ${pk.round}` : '—';
+          return `<div class="ph-team-pick-row ${isMe?'is-me':''}">
+            <span style="font-size:.7rem;color:var(--muted);width:2.8rem;flex-shrink:0">${roundLabel}</span>
+            <span style="flex:1;font-weight:500">${flag} ${pk.player}</span>
+            <span class="ph-pick-team-tag">${pk.teamSlot}</span>
+          </div>`;
+        }).join('') : '<div class="ph-no-picks">No picks yet</div>'}
+        ${teamPick ? `<div class="ph-team-pick-row ${isMe?'is-me':''}">
+          <span style="font-size:.7rem;color:var(--gold);width:2.8rem;flex-shrink:0">Team</span>
+          <span style="flex:1;font-weight:500;color:var(--gold)">🏆 ${teamPick.player}</span>
+        </div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  if (!html) html = '<div class="empty-state">No picks made yet.</div>';
+  el.innerHTML = html;
+}
+
+function copyDraftBoard() {
+  const n = state.draftOrder.length;
+  if (!n) { alert('No draft order set.'); return; }
+
+  const allPicks = buildAllPicks();
+  const byRound = {};
+  allPicks.filter(p => !p.isTeam && p.round).forEach(p => {
+    if (!byRound[p.round]) byRound[p.round] = {};
+    byRound[p.round][p.owner] = p;
+  });
+
+  let text = '🏏 DRAFT BOARD\n' + '='.repeat(40) + '\n\n';
+
+  for (let r = 1; r <= DRAFT_TOTAL_ROUNDS; r++) {
+    const roundOrder = r % 2 === 1 ? [...state.draftOrder] : [...state.draftOrder].reverse();
+    const picks = byRound[r] || {};
+    if (!Object.keys(picks).length && r > state.draftRound) continue;
+    text += `ROUND ${r} ${r%2===1?'→':'←'}\n`;
+    roundOrder.forEach((name, i) => {
+      const pick = picks[name];
+      text += `  ${name}: ${pick ? pick.player + ' (' + pick.teamSlot + ')' : '—'}\n`;
+    });
+    text += '\n';
+  }
+
+  // Team picks
+  const teamPicks = allPicks.filter(p => p.isTeam);
+  if (teamPicks.length) {
+    text += 'TEAM DRAFTS\n';
+    teamPicks.forEach(tp => { text += `  ${tp.owner}: 🏆 ${tp.player}\n`; });
+  }
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    btn.style.color = 'var(--green)';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
+  });
+}
+
 // ═══════════════════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════════════════
@@ -3979,6 +4486,7 @@ function showScreen(name,btn) {
   if (name==='redraft') renderRedraftScreen();
   if (name==='draftorder') initDraftOrderScreen();
   if (name==='settings') initAvailabilityManager();
+  if (name==='pickhistory') renderPickHistory();
 }
 // ═══════════════════════════════════════════════════════
 // BOOT — check login then load from Supabase
