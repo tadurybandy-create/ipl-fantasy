@@ -458,9 +458,9 @@ body.admin-visible .admin-only{display:block;}
 <div id="screen-draft" class="screen active">
   <div class="sub-tab-bar">
     <button class="sub-tab active" id="sdraft-active" onclick="showSubTab('draft','active',this)">🎯 Draft</button>
-    <button class="sub-tab" id="sdraft-order" onclick="showSubTab('draft','order',this);initDraftOrderScreen()">🎲 Order</button>
-    <button class="sub-tab" id="sdraft-board" onclick="showSubTab('draft','board',this);renderPickHistory()">📋 Board</button>
-    <button class="sub-tab admin-only" id="sdraft-swap" style="display:none" onclick="showSubTab('draft','swap',this);renderRedraftScreen()">🔄 Swap</button>
+    <button class="sub-tab" id="sdraft-order" onclick="showSubTab('draft','order',this)">🎲 Order</button>
+    <button class="sub-tab" id="sdraft-board" onclick="showSubTab('draft','board',this)">📋 Board</button>
+    <button class="sub-tab admin-only" id="sdraft-swap" style="display:none" onclick="showSubTab('draft','swap',this)">🔄 Swap</button>
   </div>
 
   <div id="sub-draft-active" class="sub-pane active">
@@ -514,9 +514,7 @@ body.admin-visible .admin-only{display:block;}
   </div><!-- /sub-draft-active -->
 
 <!-- DRAFT ORDER sub-pane (inside draft screen) -->
-<div id="sub-draft-order" class="sub-pane" style="display:none">
-  <div id="sub-draftorder-content"></div>
-</div>
+<div id="sub-draft-order" class="sub-pane" style="display:none"></div>
 
 <!-- DRAFT BOARD sub-pane (inside draft screen) -->
 <div id="sub-draft-board" class="sub-pane" style="display:none">
@@ -531,10 +529,7 @@ body.admin-visible .admin-only{display:block;}
 </div>
 
 <!-- SWAP sub-pane (inside draft screen) -->
-<div id="sub-draft-swap" class="sub-pane" style="display:none">
-  <div class="section-title" style="margin-bottom:.8rem">🔄 Redraft / Swap</div>
-  <div id="sub-redraft-content"></div>
-</div>
+<div id="sub-draft-swap" class="sub-pane" style="display:none"></div>
 
 </div><!-- /screen-draft -->
 
@@ -4091,53 +4086,57 @@ function showPickToast(pickerName, playerPicked, teamKey, isTeamPick) {
 // SUB-TAB NAVIGATION
 // ═══════════════════════════════════════════════════════
 function showSubTab(screenName, subName, btn) {
-  // Hide all sub-panes in this screen
   const screen = document.getElementById('screen-' + screenName);
   if (!screen) return;
-  screen.querySelectorAll('.sub-pane').forEach(p => {
-    p.style.display = 'none';
-    p.classList.remove('active');
-  });
-  screen.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
 
-  const pane = document.getElementById('sub-' + screenName + '-' + subName);
-  if (pane) { pane.style.display = 'block'; pane.classList.add('active'); }
+  // Update button states
+  screen.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
 
-  // Lazy-render content into the sub-pane containers
-  if (screenName === 'draft' && subName === 'order') {
-    const c = document.getElementById('sub-draftorder-content');
-    if (c && !c.dataset.loaded) {
-      const orig = document.getElementById('screen-draftorder');
-      if (orig) {
-        c.innerHTML = orig.innerHTML;
-        c.dataset.loaded = '1';
+  if (screenName === 'draft') {
+    const activePane  = document.getElementById('sub-draft-active');
+    const orderScreen = document.getElementById('screen-draftorder');
+    const swapScreen  = document.getElementById('screen-redraft');
+
+    // Hide everything first
+    if (activePane)  { activePane.style.display  = 'none'; }
+    if (orderScreen) { orderScreen.style.display = 'none'; orderScreen.classList.remove('active'); }
+    if (swapScreen)  { swapScreen.style.display  = 'none'; swapScreen.classList.remove('active'); }
+
+    // Hide the board pane too
+    const boardPane = document.getElementById('sub-draft-board');
+    if (boardPane) boardPane.style.display = 'none';
+
+    if (subName === 'active') {
+      if (activePane) activePane.style.display = 'block';
+    } else if (subName === 'order') {
+      if (orderScreen) {
+        // Move into draft screen visually by appending to it temporarily
+        orderScreen.style.display = 'block';
+        orderScreen.classList.add('active');
+        // Ensure it's positioned after the sub-tab-bar inside draft screen
+        const bar = screen.querySelector('.sub-tab-bar');
+        if (bar && orderScreen.parentElement !== screen) {
+          screen.appendChild(orderScreen);
+        }
+        initDraftOrderScreen();
+      }
+    } else if (subName === 'board') {
+      if (boardPane) { boardPane.style.display = 'block'; }
+      renderPickHistory();
+    } else if (subName === 'swap') {
+      if (swapScreen) {
+        swapScreen.style.display = 'block';
+        swapScreen.classList.add('active');
+        if (swapScreen.parentElement !== screen) {
+          screen.appendChild(swapScreen);
+        }
+        renderRedraftScreen();
       }
     }
-    initDraftOrderScreen();
-  }
-  if (screenName === 'draft' && subName === 'board') {
-    const c = document.getElementById('sub-draft-board');
-    if (c && !c.dataset.loaded) {
-      const orig = document.getElementById('screen-pickhistory');
-      if (orig) { c.innerHTML = orig.innerHTML; c.dataset.loaded = '1'; }
-    }
-    renderPickHistory();
-  }
-  if (screenName === 'draft' && subName === 'swap') {
-    // Mount redraft screen content into sub-pane on first load
-    const c = document.getElementById('sub-redraft-content');
-    if (c && !c.dataset.loaded) {
-      const orig = document.getElementById('screen-redraft');
-      if (orig) {
-        // Copy inner HTML excluding the section-title we added
-        c.innerHTML = orig.innerHTML;
-        c.dataset.loaded = '1';
-      }
-    }
-    renderRedraftScreen();
   }
 }
+
 
 // Show admin sub-tabs when in admin mode
 function refreshSubTabVisibility() {
