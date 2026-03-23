@@ -477,6 +477,13 @@ body.admin-visible .admin-only{display:block;}
     <button class="sub-tab" id="sdraft-board" onclick="showSubTab('draft','board',this)">📋 Board</button>
     <button class="sub-tab admin-only" id="sdraft-swap" style="display:none" onclick="showSubTab('draft','swap',this)">🔄 Swap</button>
   </div>
+  <!-- Confirm Pick strip — always visible in Draft screen regardless of sub-tab -->
+  <div id="confirmActionStrip" style="display:none;padding:.5rem .6rem 0">
+    <div id="aiSuggestTrigger" style="display:none;margin-bottom:.4rem">
+      <button onclick="loadAISuggestions(true)" style="width:100%;padding:.5rem;background:rgba(162,89,255,.1);border:1px solid rgba(162,89,255,.3);border-radius:8px;color:#c084fc;font-size:.8rem;cursor:pointer;font-family:'DM Sans',sans-serif">🤖 Get AI pick suggestions</button>
+    </div>
+    <div id="confirmPickSlot"></div>
+  </div>
 
   <div id="sub-draft-active" class="sub-pane active">
   <div id="draftBanner" style="margin-bottom:1rem"></div>
@@ -518,11 +525,6 @@ body.admin-visible .admin-only{display:block;}
 
       </div>
     </div>
-    <!-- AI Suggestions trigger + Confirm Pick Button (inside Draft sub-tab only) -->
-    <div id="aiSuggestTrigger" style="margin-top:.6rem;display:none">
-      <button onclick="loadAISuggestions(true)" style="width:100%;padding:.5rem;background:rgba(162,89,255,.1);border:1px solid rgba(162,89,255,.3);border-radius:8px;color:#c084fc;font-size:.8rem;cursor:pointer;font-family:'DM Sans',sans-serif">🤖 Get AI pick suggestions</button>
-    </div>
-    <div id="confirmPickSlot" style="margin-top:.5rem"></div>
   </div>
 </div>
 
@@ -1355,17 +1357,22 @@ function showConfirmPickBtn() {
 
   if (!el) return;
   const isAdmin = currentUser?.isAdmin;
+  const actionStrip = document.getElementById('confirmActionStrip');
   if (!state.draftActive || draftIsComplete()) {
     el.innerHTML = '';
     if (trigger) trigger.style.display = 'none';
+    if (actionStrip) actionStrip.style.display = 'none';
     return;
   }
   if (!isAdmin && !isMyDraftTurn()) {
     el.innerHTML = '';
     if (trigger) trigger.style.display = 'none';
+    if (actionStrip) actionStrip.style.display = 'none';
     return;
   }
-  // Show suggestions trigger when it's your turn
+  // Show the confirm action strip when it's your turn
+  const strip2 = document.getElementById('confirmActionStrip');
+  if (strip2) strip2.style.display = 'block';
   if (trigger) trigger.style.display = 'block';
 
   const ai = state.activeParticipant;
@@ -1383,11 +1390,9 @@ function showConfirmPickBtn() {
 }
 
 async function confirmPickAndAdvance() {
-  clearTurnNotification(); // stop tab flashing once they pick
-  // Hide suggestions panel — new ones will load for next picker
+  clearTurnNotification();
   const sp = document.getElementById('aiSuggestPanel');
   if (sp) sp.style.display = 'none';
-  // Guard: must have made at least one pick since turn started
   const ai = state.activeParticipant;
   const p = ai !== null ? state.participants[ai] : null;
   if (!state.madePickThisTurn) {
@@ -1396,10 +1401,35 @@ async function confirmPickAndAdvance() {
   }
   const btn = document.querySelector('#confirmPickSlot button');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  // NOW save to DB (deferred from pick click)
+  try {
+    setSyncStatus('loading', 'Saving…');
+    const ctp = state.currentTurnPick;
+    if (ctp && !ctp.isTeam) {
+      // Player pick
+      const teamKey = ctp.teamKey, player = ctp.player;
+      if (p.picks[teamKey]) {
+        await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
+      }
+      await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: player, is_active: true, mode: state.mode });
+    } else if (ctp && ctp.isTeam) {
+      // Team pick
+      await dbPatch('participants', { team_pick: ctp.teamKey }, `?id=eq.${p.id}`);
+    }
+    setSyncStatus('ok', 'Synced');
+  } catch(e) {
+    setSyncStatus('err', 'Save failed');
+    if (btn) { btn.disabled = false; btn.textContent = '✅ CONFIRM PICK & END TURN'; }
+    alert('Save failed: ' + e.message);
+    return;
+  }
+
   await advanceTurn();
   const el = document.getElementById('confirmPickSlot');
   if (el) el.innerHTML = '';
-  // Force immediate full re-render so banner updates for everyone on this device
+  const strip2 = document.getElementById('confirmActionStrip');
+  if (strip2) strip2.style.display = 'none';
   renderDraftBanner();
   renderParticipantListWithLock();
   renderDraftGridWithLock();
@@ -2106,14 +2136,10 @@ async function togglePlayerPick(teamKey, player) {
 
   if (!isDeselect && (pc[player]||0)>=MAX_PLAYER_DRAFTS) { alert(`${player} is already drafted ${MAX_PLAYER_DRAFTS} times!`); return; }
 
-  // STRICT: one pick per turn — no exceptions
-  if (!isDeselect && state.draftActive) {
-    const baseline = state.picksAtTurnStart !== undefined ? state.picksAtTurnStart : 0;
-    const currentTotal = TEAM_KEYS.filter(k => p.picks[k]).length + (p.teamPick ? 1 : 0);
-    if (currentTotal > baseline) {
-      alert("You've already made your pick this turn! Deselect your current pick first, then pick again.");
-      return;
-    }
+  // STRICT: one pick per turn
+  if (!isDeselect && state.draftActive && state.madePickThisTurn) {
+    alert("You've already made your pick this turn! Deselect your current pick first, then pick again.");
+    return;
   }
 
   // Block picking into a slot that's already confirmed from a previous round
@@ -2139,30 +2165,21 @@ async function togglePlayerPick(teamKey, player) {
     }
   }
 
-  try {
-    setSyncStatus('loading','Saving…');
-    if (isDeselect) {
-      await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
-      delete p.picks[teamKey];
-      delete p.pickOrder[teamKey]; // clean up seq entry on deselect
-      state.currentTurnPick = null;
-      state.madePickThisTurn = false;
-    } else {
-      if (p.picks[teamKey]) {
-        await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
-      }
-      await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: player, is_active: true, mode: state.mode });
-      p.picks[teamKey] = player;
-      if (!p.pickOrder) p.pickOrder = {};
-      const existingPlayerPicks = Object.keys(p.pickOrder).length;
-      const teamAlreadyPicked = p.teamPickSeq ? 1 : 0;
-      p.pickOrder[teamKey] = existingPlayerPicks + 1 + teamAlreadyPicked;
-      // Track this as the current turn's pick (so only this can be deselected)
-      state.currentTurnPick = { teamKey, player, isTeam: false };
-      state.madePickThisTurn = true;
-    }
-    setSyncStatus('ok','Synced');
-  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); return; }
+  // Update local state only — DB save happens on confirm
+  if (isDeselect) {
+    delete p.picks[teamKey];
+    delete p.pickOrder[teamKey];
+    state.currentTurnPick = null;
+    state.madePickThisTurn = false;
+  } else {
+    if (!p.pickOrder) p.pickOrder = {};
+    const existingPlayerPicks = Object.keys(p.pickOrder).length;
+    const teamAlreadyPicked = p.teamPickSeq ? 1 : 0;
+    p.picks[teamKey] = player;
+    p.pickOrder[teamKey] = existingPlayerPicks + 1 + teamAlreadyPicked;
+    state.currentTurnPick = { teamKey, player, isTeam: false };
+    state.madePickThisTurn = true;
+  }
 
   // Snap view back to the picker so their pick is visible/highlighted
   state.viewParticipant = state.activeParticipant;
@@ -2219,23 +2236,19 @@ async function toggleTeamPick(teamKey) {
     return;
   }
 
-  try {
-    setSyncStatus('loading','Saving…');
-    const newVal = isDeselect ? null : teamKey;
-    await dbPatch('participants', { team_pick: newVal }, `?id=eq.${p.id}`);
-    p.teamPick = newVal;
-    if (newVal) {
-      const playerPicksSoFar = Object.keys(p.pickOrder || {}).length;
-      p.teamPickSeq = playerPicksSoFar + 1;
-      state.currentTurnPick = { teamKey, isTeam: true };
-      state.madePickThisTurn = true;
-    } else {
-      p.teamPickSeq = null;
-      state.currentTurnPick = null;
-      state.madePickThisTurn = false;
-    }
-    setSyncStatus('ok','Synced');
-  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); return; }
+  // Update local state only — DB save happens on confirm
+  if (isDeselect) {
+    p.teamPick = null;
+    p.teamPickSeq = null;
+    state.currentTurnPick = null;
+    state.madePickThisTurn = false;
+  } else {
+    const playerPicksSoFar = Object.keys(p.pickOrder || {}).length;
+    p.teamPick = teamKey;
+    p.teamPickSeq = playerPicksSoFar + 1;
+    state.currentTurnPick = { teamKey, isTeam: true };
+    state.madePickThisTurn = true;
+  }
 
   // Snap view back to the picker so their pick is visible/highlighted
   state.viewParticipant = state.activeParticipant;
