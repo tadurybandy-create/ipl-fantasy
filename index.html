@@ -4582,7 +4582,9 @@ function renderPickHistoryByRound(el, allPicks, n, myName) {
         // Empty slot
         const isCurrent = state.draftActive && state.draftRound === r &&
           draftCurrentPicker()?.toLowerCase() === name.toLowerCase();
-        html += `<div class="ph-pick-card" style="opacity:.35;border-style:dashed">
+        // Only dim empty slots in future rounds, not the current live round
+        const emptyStyle = r > state.draftRound ? 'opacity:.35;border-style:dashed' : 'border-style:dashed';
+        html += `<div class="ph-pick-card" style="${emptyStyle}">
           <div class="ph-pick-num">#${globalPickNum}</div>
           <div class="ph-pick-player" style="color:var(--muted)">${isCurrent ? '⏳ Picking…' : '—'}</div>
           <div class="ph-pick-owner">${isMe ? '<span style="color:var(--green)">YOU</span>' : name}</div>
