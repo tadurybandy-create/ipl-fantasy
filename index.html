@@ -518,7 +518,11 @@ body.admin-visible .admin-only{display:block;}
         <div style="margin-top:.8rem"><button class="btn btn-sm" onclick="savePicks()">💾 Save Picks</button></div>
       </div>
     </div>
-    <!-- AI Suggestions trigger + Confirm Pick Button -->
+    <!-- AI Suggestions trigger + Confirm Pick Button (inside Draft sub-tab only) -->
+    <div id="aiSuggestTrigger" style="margin-top:.6rem;display:none">
+      <button onclick="loadAISuggestions(true)" style="width:100%;padding:.5rem;background:rgba(162,89,255,.1);border:1px solid rgba(162,89,255,.3);border-radius:8px;color:#c084fc;font-size:.8rem;cursor:pointer;font-family:'DM Sans',sans-serif">🤖 Get AI pick suggestions</button>
+    </div>
+    <div id="confirmPickSlot" style="margin-top:.5rem"></div>
   </div>
 </div>
 
@@ -1336,19 +1340,17 @@ function draftIsComplete() {
 function showConfirmPickBtn() {
   const el = document.getElementById('confirmPickSlot');
   const trigger = document.getElementById('aiSuggestTrigger');
-  const strip = document.getElementById('draftActionStrip');
+
   if (!el) return;
   const isAdmin = currentUser?.isAdmin;
   if (!state.draftActive || draftIsComplete()) {
     el.innerHTML = '';
     if (trigger) trigger.style.display = 'none';
-    if (strip) strip.style.display = 'none';
     return;
   }
   if (!isAdmin && !isMyDraftTurn()) {
     el.innerHTML = '';
     if (trigger) trigger.style.display = 'none';
-    if (strip) strip.style.display = 'none';
     return;
   }
   // Show the action strip and suggestions trigger when it's your turn
@@ -1358,9 +1360,7 @@ function showConfirmPickBtn() {
   const ai = state.activeParticipant;
   const p = ai !== null ? state.participants[ai] : null;
   // Count total picks: player picks + team pick (1 thing per turn)
-  const pickCount = p ? TEAM_KEYS.filter(k => p.picks[k]).length + (p.teamPick ? 1 : 0) : 0;
-  const baseline = state.picksAtTurnStart !== undefined ? state.picksAtTurnStart : 0;
-  if (!p || pickCount <= baseline) { el.innerHTML = ''; return; }
+  if (!p || !state.madePickThisTurn) { el.innerHTML = ''; return; }
 
   el.innerHTML = `<button onclick="confirmPickAndAdvance()"
     style="width:100%;padding:.85rem;background:linear-gradient(135deg,var(--dark-green),var(--green));
@@ -1379,9 +1379,7 @@ async function confirmPickAndAdvance() {
   // Guard: must have made at least one pick since turn started
   const ai = state.activeParticipant;
   const p = ai !== null ? state.participants[ai] : null;
-  const pickCount = p ? TEAM_KEYS.filter(k => p.picks[k]).length + (p.teamPick ? 1 : 0) : 0;
-  const baseline = state.picksAtTurnStart !== undefined ? state.picksAtTurnStart : 0;
-  if (pickCount <= baseline) {
+  if (!state.madePickThisTurn) {
     alert('You must select a player OR a team before ending your turn!');
     return;
   }
@@ -1398,13 +1396,17 @@ async function confirmPickAndAdvance() {
 }
 
 function ensureActiveIsCurrentPicker() {
-  // During active draft, activeParticipant must always be the current picker
   if (!state.draftActive || draftIsComplete()) return;
   const picker = draftCurrentPicker();
   if (!picker) return;
   const idx = state.participants.findIndex(p => p.name.toLowerCase() === picker.toLowerCase());
   if (idx >= 0 && state.activeParticipant !== idx) {
     state.activeParticipant = idx;
+    state.viewParticipant = idx;
+    // New picker — reset their turn pick tracking
+    const pp = state.participants[idx];
+    state.picksAtTurnStart = TEAM_KEYS.filter(k => pp.picks[k]).length + (pp.teamPick ? 1 : 0);
+    state.currentTurnPick = null;
   }
 }
 
@@ -1458,7 +1460,7 @@ function renderDraftBanner() {
 
   const adminControls = currentUser?.isAdmin ? `
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-      <button class="btn btn-sm" style="background:rgba(255,23,68,.1);border:1px solid rgba(255,23,68,.3);color:var(--red);font-size:.75rem" onclick="adminUndoLastPick()">↩ Undo Pick</button>
+      <button class="btn btn-sm" style="background:rgba(255,23,68,.1);border:1px solid rgba(255,23,68,.3);color:var(--red);font-size:.75rem" onclick="adminUndoPickFor()">↩ Undo Pick</button>
       <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.75rem" onclick="endDraft()">End Draft</button>
     </div>` : '';
 
@@ -1643,7 +1645,8 @@ async function advanceTurn() {
   state.draftRound = newRound;
   state.draftPickIdx = newPickIdx;
   window._pollForceRefresh = true; // force next poll to re-render for all viewers
-  state.currentTurnPick = null; // clear this turn's pick for next picker
+  state.currentTurnPick = null;
+  state.madePickThisTurn = false; // reset for next picker
 
   // Auto-select the current picker's participant slot and update label
   const picker = draftCurrentPicker();
@@ -1745,7 +1748,8 @@ function startDraftPolling() {
           state.picksAtTurnStart = TEAM_KEYS.filter(k => pp.picks[k]).length + (pp.teamPick ? 1 : 0);
           state.activeParticipant = pi;
           state.viewParticipant = pi;
-          state.currentTurnPick = null; // new turn, fresh pick
+          state.currentTurnPick = null;
+          state.madePickThisTurn = false;
         }
       }
       renderDraftBanner();
@@ -1942,7 +1946,13 @@ function renderDraftGrid() {
       const full = count>=MAX_PLAYER_DRAFTS;
       const isMe = myPickName===player;
       const wouldBreachForeign = state.mode !== 'worldcup' && foreign && !isMe && foreignExcludingSlot >= MAX_FOREIGN_PER_FANTASY;
-      const disabled = !active || (full&&!isMe) || wouldBreachForeign;
+      // Slot already locked: participant has a confirmed pick in this team slot
+      // (not deselectable because it's from a previous round)
+      const slotAlreadyFilled = !!(myPickName && myPickName !== player &&
+        state.draftActive && !draftIsComplete() &&
+        (!state.currentTurnPick || state.currentTurnPick.isTeam ||
+         state.currentTurnPick.teamKey !== key));
+      const disabled = !active || (full&&!isMe) || wouldBreachForeign || slotAlreadyFilled;
       const avail = playerObj.availability || 'active';
       const availInfo = AVAILABILITY[avail] || AVAILABILITY.active;
       const availBadge = availInfo.label
@@ -2039,9 +2049,7 @@ function updateDraftPickState() {
   const ai = state.activeParticipant;
   const p = ai !== null ? state.participants[ai] : null;
   if (!p) { grid.classList.remove('draft-has-pick'); return; }
-  const baseline = state.picksAtTurnStart !== undefined ? state.picksAtTurnStart : 0;
-  const currentTotal = TEAM_KEYS.filter(k => p.picks[k]).length + (p.teamPick ? 1 : 0);
-  if (currentTotal > baseline) {
+  if (state.madePickThisTurn) {
     grid.classList.add('draft-has-pick');
   } else {
     grid.classList.remove('draft-has-pick');
@@ -2096,6 +2104,20 @@ async function togglePlayerPick(teamKey, player) {
     }
   }
 
+  // Block picking into a slot that's already confirmed from a previous round
+  if (!isDeselect && state.draftActive) {
+    const existingInSlot = p.picks[teamKey];
+    if (existingInSlot && existingInSlot !== player) {
+      // Slot is filled — only allow if it's this turn's pick (currentTurnPick)
+      const ctp = state.currentTurnPick;
+      const isThisTurnsPick = ctp && !ctp.isTeam && ctp.teamKey === teamKey;
+      if (!isThisTurnsPick) {
+        alert(`You already have ${existingInSlot} from ${teamKey}. Each team slot can only have one player.`);
+        return;
+      }
+    }
+  }
+
   // Check foreign player limit (exclude this slot since it's being replaced)
   if (!isDeselect && state.mode !== 'worldcup') {
     const playerObj = (IPL_TEAMS[teamKey]?.players||[]).find(pl => pl.name === player);
@@ -2110,7 +2132,9 @@ async function togglePlayerPick(teamKey, player) {
     if (isDeselect) {
       await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
       delete p.picks[teamKey];
-      state.currentTurnPick = null; // allow a fresh pick
+      delete p.pickOrder[teamKey]; // clean up seq entry on deselect
+      state.currentTurnPick = null;
+      state.madePickThisTurn = false;
     } else {
       if (p.picks[teamKey]) {
         await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
@@ -2177,13 +2201,9 @@ async function toggleTeamPick(teamKey) {
   }
 
   // STRICT: one pick per turn
-  if (!isDeselect && state.draftActive) {
-    const baseline = state.picksAtTurnStart !== undefined ? state.picksAtTurnStart : 0;
-    const currentTotal = TEAM_KEYS.filter(k => p.picks[k]).length + (p.teamPick ? 1 : 0);
-    if (currentTotal > baseline) {
-      alert("You've already made your pick this turn! Deselect your current pick first, then pick again.");
-      return;
-    }
+  if (!isDeselect && state.draftActive && state.madePickThisTurn) {
+    alert("You've already made your pick this turn! Deselect your current pick first, then pick again.");
+    return;
   }
 
   try {
@@ -4304,73 +4324,85 @@ function renderRosters() {
 // ═══════════════════════════════════════════════════════
 // ADMIN UNDO PICK
 // ═══════════════════════════════════════════════════════
-async function adminUndoLastPick() {
+async function adminUndoPickFor() {
   if (!currentUser?.isAdmin) return;
-  // Find the current picker
-  const picker = draftCurrentPicker();
-  // The person who just picked is the PREVIOUS picker (pick_idx - 1)
-  const n = state.draftOrder.length;
-  let prevPickIdx = state.draftPickIdx - 1;
-  let prevRound = state.draftRound;
-  if (prevPickIdx < 0) {
-    prevPickIdx = n - 1;
-    prevRound = state.draftRound - 1;
-  }
-  if (prevRound < 1) { alert('Nothing to undo — this is the first pick.'); return; }
+  if (!state.participants.length) return;
 
-  const prevOrder = prevRound % 2 === 1
-    ? [...state.draftOrder]
-    : [...state.draftOrder].reverse();
-  const prevPickerName = prevOrder[prevPickIdx];
-  if (!prevPickerName) { alert('Could not determine previous picker.'); return; }
+  // Show picker selector
+  const names = state.participants
+    .filter(p => Object.keys(p.picks||{}).length > 0 || p.teamPick)
+    .map(p => p.name);
+  if (!names.length) { alert('No picks to undo yet.'); return; }
 
-  const prevP = state.participants.find(p => p.name.toLowerCase() === prevPickerName.toLowerCase());
-  if (!prevP) { alert('Participant not found: ' + prevPickerName); return; }
+  const target = prompt(
+    'Enter participant name to undo their LAST pick:\n\n' +
+    names.join(', ')
+  );
+  if (!target) return;
 
-  // Find their most recent pick (highest seq in pickOrder)
-  const pickOrderEntries = Object.entries(prevP.pickOrder || {});
-  if (!pickOrderEntries.length && !prevP.teamPick) {
-    alert(prevPickerName + ' has no picks to undo.'); return;
-  }
+  const prevP = state.participants.find(p => p.name.toLowerCase() === target.toLowerCase().trim());
+  if (!prevP) { alert('Participant not found: ' + target); return; }
 
-  if (!confirm(`Undo ${prevPickerName}'s last pick and go back to their turn?`)) return;
+  // Find their most recent pick
+  const pickEntries = Object.entries(prevP.pickOrder || {});
+  const teamSeq = prevP.teamPickSeq || 0;
+  const lastPlayerSeq = pickEntries.length ? Math.max(...pickEntries.map(e => e[1])) : 0;
+  const useTeam = prevP.teamPick && teamSeq > lastPlayerSeq;
+
+  if (!useTeam && !pickEntries.length) { alert(prevP.name + ' has no picks to undo.'); return; }
+
+  const pickDesc = useTeam
+    ? `team pick (${IPL_TEAMS[prevP.teamPick]?.name || prevP.teamPick})`
+    : (() => { const [k] = pickEntries.find(e => e[1] === lastPlayerSeq)||[]; return k ? `${prevP.picks[k]} (${k})` : '?'; })();
+
+  if (!confirm(`Undo ${prevP.name}'s pick: ${pickDesc}?
+
+This will also roll back the draft turn.`)) return;
 
   try {
     setSyncStatus('loading', 'Undoing…');
 
-    // Find highest seq pick
-    const lastEntry = pickOrderEntries.sort((a,b) => b[1]-a[1])[0];
-    const teamSeq = prevP.teamPickSeq || 0;
-    const useTeam = prevP.teamPick && (!lastEntry || teamSeq > (lastEntry[1]||0));
-
     if (useTeam) {
-      // Undo team pick
       await dbPatch('participants', { team_pick: null }, `?id=eq.${prevP.id}`);
       prevP.teamPick = null;
       prevP.teamPickSeq = null;
-    } else if (lastEntry) {
-      // Undo player pick
-      const [teamKey] = lastEntry;
-      await dbDelete('picks', `?participant_id=eq.${prevP.id}&team_key=eq.${teamKey}&is_active=eq.true`);
-      delete prevP.picks[teamKey];
-      delete prevP.pickOrder[teamKey];
+    } else {
+      const lastEntry = pickEntries.find(e => e[1] === lastPlayerSeq);
+      if (lastEntry) {
+        const [teamKey] = lastEntry;
+        await dbDelete('picks', `?participant_id=eq.${prevP.id}&team_key=eq.${teamKey}&is_active=eq.true`);
+        delete prevP.picks[teamKey];
+        delete prevP.pickOrder[teamKey];
+      }
     }
 
-    // Roll back draft_state to previous picker
+    // Roll back draft_state to this person's pick position
+    // Find their pick position in draft order
+    const n = state.draftOrder.length;
+    let foundRound = state.draftRound, foundPickIdx = state.draftPickIdx;
+    outer: for (let r = state.draftRound; r >= 1; r--) {
+      const order = r % 2 === 1 ? [...state.draftOrder] : [...state.draftOrder].reverse();
+      const startIdx = r === state.draftRound ? state.draftPickIdx - 1 : n - 1;
+      for (let pi = startIdx; pi >= 0; pi--) {
+        if (order[pi]?.toLowerCase() === prevP.name.toLowerCase()) {
+          foundRound = r; foundPickIdx = order === state.draftOrder ? pi : (n - 1 - pi);
+          break outer;
+        }
+      }
+    }
+
     await sb('PATCH', 'draft_state',
-      { round: prevRound, pick_idx: prevPickIdx },
+      { round: foundRound, pick_idx: foundPickIdx },
       `?id=eq.1&mode=eq.${state.mode}`
     );
-    state.draftRound = prevRound;
-    state.draftPickIdx = prevPickIdx;
+    state.draftRound = foundRound;
+    state.draftPickIdx = foundPickIdx;
 
-    // Set active to previous picker
-    const pi = state.participants.findIndex(p => p.name.toLowerCase() === prevPickerName.toLowerCase());
-    if (pi >= 0) {
-      state.activeParticipant = pi;
-      state.viewParticipant = pi;
-      const pp = state.participants[pi];
-      state.picksAtTurnStart = TEAM_KEYS.filter(k => pp.picks[k]).length + (pp.teamPick ? 1 : 0);
+    const pi2 = state.participants.findIndex(p => p.name.toLowerCase() === prevP.name.toLowerCase());
+    if (pi2 >= 0) {
+      state.activeParticipant = pi2;
+      state.viewParticipant = pi2;
+      state.picksAtTurnStart = TEAM_KEYS.filter(k => state.participants[pi2].picks[k]).length + (state.participants[pi2].teamPick ? 1 : 0);
       state.currentTurnPick = null;
     }
 
@@ -4385,8 +4417,10 @@ async function adminUndoLastPick() {
   } catch(e) {
     setSyncStatus('err', 'Undo failed');
     alert('Undo failed: ' + e.message);
+    console.error(e);
   }
 }
+
 
 // ═══════════════════════════════════════════════════════
 // DRAFT BOARD / PICK HISTORY
@@ -4506,8 +4540,7 @@ function renderPickHistoryByRound(el, allPicks, n, myName) {
     const picks = byRound[r] || {};
     const hasPicks = Object.keys(picks).length > 0;
 
-    // Show: all rounds with picks, current round, and one round ahead (for live draft)
-    if (!hasPicks && r > state.draftRound + 1) continue;
+    // Show rounds that have picks OR are the current/next round
     if (!hasPicks && r > state.draftRound) continue;
 
     html += `<div class="ph-round-block">
