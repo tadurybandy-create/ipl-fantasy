@@ -274,7 +274,7 @@ body.admin-visible .admin-only{display:block;}
 .btn-ai-analyse:hover{background:linear-gradient(135deg,rgba(162,89,255,.25),rgba(0,200,83,.15));border-color:#a259ff;}
 
 /* Player opt row — make it flex so scout btn fits */
-.player-opt{display:flex;align-items:center;justify-content:space-between;padding:.4rem .5rem;border-radius:6px;font-size:.8rem;cursor:pointer;transition:background .15s;gap:.3rem;}
+
 
 
 /* ── AI CHAT ─────────────────────────────────────────── */
@@ -483,7 +483,7 @@ body.admin-visible .admin-only{display:block;}
   <div class="draft-layout">
     <div class="participant-sidebar">
       <div class="card">
-        <div class="subsection" style="margin-top:0">Participants</div>
+        <div class="subsection" style="margin-top:0">Participants <span id="pCount" style="font-size:.72rem;color:var(--muted);font-weight:400"></span></div>
         <div class="participant-list" id="participantList"></div>
         <div style="font-size:.75rem;color:var(--muted)">Click a name to make their picks.</div>
       </div>
@@ -1353,8 +1353,7 @@ function showConfirmPickBtn() {
     if (trigger) trigger.style.display = 'none';
     return;
   }
-  // Show the action strip and suggestions trigger when it's your turn
-  if (strip) strip.style.display = 'block';
+  // Show suggestions trigger when it's your turn
   if (trigger) trigger.style.display = 'block';
 
   const ai = state.activeParticipant;
@@ -2147,6 +2146,7 @@ async function togglePlayerPick(teamKey, player) {
       p.pickOrder[teamKey] = existingPlayerPicks + 1 + teamAlreadyPicked;
       // Track this as the current turn's pick (so only this can be deselected)
       state.currentTurnPick = { teamKey, player, isTeam: false };
+      state.madePickThisTurn = true;
     }
     setSyncStatus('ok','Synced');
   } catch(e) { setSyncStatus('err','Save failed'); console.error(e); return; }
@@ -2211,6 +2211,16 @@ async function toggleTeamPick(teamKey) {
     const newVal = isDeselect ? null : teamKey;
     await dbPatch('participants', { team_pick: newVal }, `?id=eq.${p.id}`);
     p.teamPick = newVal;
+    if (newVal) {
+      const playerPicksSoFar = Object.keys(p.pickOrder || {}).length;
+      p.teamPickSeq = playerPicksSoFar + 1;
+      state.currentTurnPick = { teamKey, isTeam: true };
+      state.madePickThisTurn = true;
+    } else {
+      p.teamPickSeq = null;
+      state.currentTurnPick = null;
+      state.madePickThisTurn = false;
+    }
     setSyncStatus('ok','Synced');
   } catch(e) { setSyncStatus('err','Save failed'); console.error(e); return; }
 
