@@ -1468,6 +1468,8 @@ function renderParticipantListWithLock() {
     const pickCount = playerPickCount + (p.teamPick ? 1 : 0);
     const total = TEAM_KEYS.length + 1; // 10 players + 1 team
     const complete = pickCount === total;
+    // Locking logic: during active draft, only current picker (or admin) can be selected
+    const isCurrentPicker = picker && p.name.toLowerCase() === picker.toLowerCase();
     const isViewed = state.viewParticipant !== undefined && state.viewParticipant !== null
       ? state.viewParticipant === i
       : state.activeParticipant === i;
@@ -1480,9 +1482,6 @@ function renderParticipantListWithLock() {
     const isMe = currentUser && currentUser.participantName &&
       p.name.toLowerCase() === currentUser.participantName.toLowerCase();
     const isAdmin = currentUser?.isAdmin;
-
-    // Locking logic: during active draft, only current picker (or admin) can be selected
-    const isCurrentPicker = picker && p.name.toLowerCase() === picker.toLowerCase();
     const locked = state.draftActive && !draftIsComplete() && !isAdmin && !isCurrentPicker;
     const clickable = !locked;
 
