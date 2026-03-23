@@ -242,16 +242,18 @@ body.admin-visible .admin-only{display:block;}
 
 /* Draft pick dimming — when a pick is made, dim all unselected players */
 .draft-has-pick .player-opt:not(.selected-by-me) {
-  opacity: 0.3;
-  filter: grayscale(40%);
+  opacity: 0.25;
+  filter: grayscale(60%);
+  pointer-events: none; /* fully block clicks — only deselect works */
+  cursor: default !important;
 }
 .draft-has-pick .player-opt.selected-by-me {
   box-shadow: 0 0 0 2px var(--green);
-  background: rgba(0,200,83,.12) !important;
+  background: rgba(0,200,83,.15) !important;
+  pointer-events: auto; /* allow deselect */
 }
-/* Don't dim disabled slots even when no pick made */
 .draft-has-pick .player-opt.disabled {
-  opacity: 0.2;
+  opacity: 0.15;
 }
 
 /* Current picker pulsing dot */
@@ -400,6 +402,11 @@ body.admin-visible .admin-only{display:block;}
 .roster-pick-row .empty-slot{color:var(--muted);font-style:italic;}
 .roster-team-row{padding:.5rem 1rem .7rem;border-top:1px solid rgba(255,255,255,.05);display:flex;align-items:center;gap:.5rem;}
 .roster-team-label{font-size:.72rem;color:var(--gold);}
+
+
+/* Participant being viewed (not the current picker) */
+.p-item.viewing { border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.04); }
+.p-item.viewing .p-name { color: var(--muted); }
 
 </style>
 </head>
@@ -1370,7 +1377,20 @@ async function confirmPickAndAdvance() {
   renderDraftGridWithLock();
   updateDraftPickState();
 }
+
+function ensureActiveIsCurrentPicker() {
+  // During active draft, activeParticipant must always be the current picker
+  if (!state.draftActive || draftIsComplete()) return;
+  const picker = draftCurrentPicker();
+  if (!picker) return;
+  const idx = state.participants.findIndex(p => p.name.toLowerCase() === picker.toLowerCase());
+  if (idx >= 0 && state.activeParticipant !== idx) {
+    state.activeParticipant = idx;
+  }
+}
+
 function renderDraftBanner() {
+  ensureActiveIsCurrentPicker();
   const el = document.getElementById('draftBanner');
   if (!el) return;
   if (!state.draftActive) {
@@ -1432,6 +1452,7 @@ function renderDraftBanner() {
 }
 
 function renderParticipantListWithLock() {
+  ensureActiveIsCurrentPicker();
   const el = document.getElementById('participantList');
   if (!el) return;
   // Update participant count badge
@@ -1447,8 +1468,15 @@ function renderParticipantListWithLock() {
     const pickCount = playerPickCount + (p.teamPick ? 1 : 0);
     const total = TEAM_KEYS.length + 1; // 10 players + 1 team
     const complete = pickCount === total;
-    const viewIdx = (state.draftActive && !draftIsComplete() && state.viewParticipant !== undefined) ? state.viewParticipant : state.activeParticipant;
-    const active = viewIdx === i;
+    const isViewed = state.viewParticipant !== undefined && state.viewParticipant !== null
+      ? state.viewParticipant === i
+      : state.activeParticipant === i;
+    // During draft: current picker is always "active" style
+    // Viewed person (if different from picker) gets "viewing" style
+    const active = state.draftActive && !draftIsComplete()
+      ? isCurrentPicker
+      : isViewed;
+    const viewing = state.draftActive && !draftIsComplete() && !isCurrentPicker && isViewed;
     const isMe = currentUser && currentUser.participantName &&
       p.name.toLowerCase() === currentUser.participantName.toLowerCase();
     const isAdmin = currentUser?.isAdmin;
@@ -1466,7 +1494,7 @@ function renderParticipantListWithLock() {
       ? `<span style="font-size:.6rem;color:var(--muted);background:rgba(255,255,255,.06);border-radius:3px;padding:.05rem .3rem;flex-shrink:0" title="Draft position">#${draftPos}</span>`
       : '';
 
-    return `<div class="p-item ${active ? 'active' : ''} ${complete ? 'complete' : ''} ${isMe ? 'is-me' : ''} ${locked ? 'locked' : ''}"
+    return `<div class="p-item ${active ? 'active' : ''} ${viewing ? 'viewing' : ''} ${complete ? 'complete' : ''} ${isMe ? 'is-me' : ''} ${locked ? 'locked' : ''}"
       onclick="${clickable ? `setActiveParticipant(${i})` : ''}">
       <span class="p-name">${isMe ? '<span class="you-tag">YOU</span>' : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>${isCurrentPicker && state.draftActive && !draftIsComplete() ? '<span class="picker-dot">●</span>' : ''}${posLabel}</span>
       <span class="p-progress">${playerPickCount}/${TEAM_KEYS.length}${p.teamPick?'🏆':''}</span>
@@ -1850,6 +1878,7 @@ function setActiveParticipant(i) {
 // DRAFT GRID
 // ═══════════════════════════════════════════════════════
 function renderDraftGrid() {
+  ensureActiveIsCurrentPicker();
   const {pc} = getDraftCounts();
   // During draft: activeParticipant = current picker (for writing picks)
   //               viewParticipant   = who we're browsing (for display/highlight)
@@ -2019,21 +2048,14 @@ async function togglePlayerPick(teamKey, player) {
 
   if (!isDeselect && (pc[player]||0)>=MAX_PLAYER_DRAFTS) { alert(`${player} is already drafted ${MAX_PLAYER_DRAFTS} times!`); return; }
 
-  // During draft: enforce one pick per turn
-  // Allow switching (deselect then reselect counts as same turn)
-  // Only block if they already have 1 NEW pick this turn AND are trying to add another
+  // STRICT: one pick per turn — no exceptions
+  // To change your pick, deselect first (isDeselect=true), then pick again
   if (!isDeselect && state.draftActive) {
     const baseline = state.picksAtTurnStart !== undefined ? state.picksAtTurnStart : 0;
     const currentTotal = TEAM_KEYS.filter(k => p.picks[k]).length + (p.teamPick ? 1 : 0);
-    const picksThisTurn = currentTotal - baseline;
-    if (picksThisTurn >= 1) {
-      // They already have a pick this turn — but allow if they're replacing the slot
-      // (i.e. this team slot already has a pick that would be replaced)
-      const slotAlreadyPicked = !!p.picks[teamKey];
-      if (!slotAlreadyPicked) {
-        alert("You've already made your pick this turn! Deselect your current pick first, or hit 'Confirm Pick & End Turn'.");
-        return;
-      }
+    if (currentTotal > baseline) {
+      alert("You've already made your pick this turn! Deselect your current pick first, then pick again.");
+      return;
     }
   }
 
@@ -2104,16 +2126,12 @@ async function toggleTeamPick(teamKey) {
     alert(`${IPL_TEAMS[teamKey].name} has already been drafted ${MAX_TEAM_DRAFTS} times!`); return;
   }
 
-  // During draft: enforce one pick per turn
+  // STRICT: one pick per turn
   if (!isDeselect && state.draftActive) {
     const baseline = state.picksAtTurnStart !== undefined ? state.picksAtTurnStart : 0;
     const currentTotal = TEAM_KEYS.filter(k => p.picks[k]).length + (p.teamPick ? 1 : 0);
-    const picksThisTurn = currentTotal - baseline;
-    if (picksThisTurn >= 1) {
-      // Already have a pick — block only if it's a different type (player vs team)
-      // Team slot: if they already have a team pick, that's the slot — allow replacement (isDeselect handles it)
-      // If they have a player pick this turn, block adding a team pick on top
-      alert("You've already made your pick this turn! Deselect your current pick first, or hit 'Confirm Pick & End Turn'.");
+    if (currentTotal > baseline) {
+      alert("You've already made your pick this turn! Deselect your current pick first, then pick again.");
       return;
     }
   }
