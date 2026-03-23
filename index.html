@@ -3997,11 +3997,18 @@ function initDraftOrderScreen() {
   if (isAdmin) {
     const inp = document.getElementById('doTeamInput');
     if (inp) {
-      // Pre-fill with saved order if exists, otherwise with participant names
+      // Always sync textarea with current participants
+      // If a saved draft order exists, use it as base but ADD any new participants missing from it
+      const participantNames = [...state.participants.map(p => p.name)]
+        .sort((a, b) => a.localeCompare(b)); // always alphabetical
       if (state.draftOrder && state.draftOrder.length > 0) {
-        if (!inp.value.trim()) inp.value = state.draftOrder.join('\n');
-      } else if (state.participants && state.participants.length > 0) {
-        if (!inp.value.trim()) inp.value = state.participants.map(p => p.name).join('\n');
+        // Keep saved order, append missing participants alphabetically
+        const inOrder = new Set(state.draftOrder.map(n => n.toLowerCase()));
+        const missing = participantNames.filter(n => !inOrder.has(n.toLowerCase()));
+        const merged = [...state.draftOrder, ...missing];
+        inp.value = merged.join('\n');
+      } else {
+        inp.value = participantNames.join('\n');
       }
       doUpdateCount();
     }
