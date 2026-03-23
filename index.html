@@ -515,7 +515,7 @@ body.admin-visible .admin-only{display:block;}
       <div class="picks-summary" id="picksSummary" style="display:none">
         <h5>Current Picks for <span id="picksSummaryName"></span> &nbsp; <span id="picksSummaryForeign" style="font-size:.75rem;color:var(--muted)"></span></h5>
         <div id="picksSummaryRows"></div>
-        <div style="margin-top:.8rem"><button class="btn btn-sm" onclick="savePicks()">💾 Save Picks</button></div>
+
       </div>
     </div>
     <!-- AI Suggestions trigger + Confirm Pick Button (inside Draft sub-tab only) -->
@@ -1297,8 +1297,20 @@ async function loadAll() {
     setSyncStatus('ok', 'Synced');
     renderAll();
     autoSelectMyParticipant();
-    // Restore confirm button if it's still my turn after reload
+    // Recalculate madePickThisTurn from actual state after DB sync
+    const _ai = state.activeParticipant;
+    const _p = _ai !== null ? state.participants[_ai] : null;
+    if (_p && state.draftActive && !draftIsComplete()) {
+      const _total = TEAM_KEYS.filter(k => _p.picks[k]).length + (_p.teamPick ? 1 : 0);
+      const _baseline = state.picksAtTurnStart || 0;
+      state.madePickThisTurn = _total > _baseline;
+      // Restore currentTurnPick if team was picked this turn
+      if (!state.currentTurnPick && _p.teamPick && _total > _baseline) {
+        state.currentTurnPick = { teamKey: _p.teamPick, isTeam: true };
+      }
+    }
     showConfirmPickBtn();
+    updateDraftPickState();
   } catch(e) {
     console.error(e);
     setSyncStatus('err', 'Sync failed — check console');
