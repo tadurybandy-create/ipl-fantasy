@@ -1677,8 +1677,9 @@ async function advanceTurn() {
   // Notify the NEXT picker
   notifyMyTurn(draftCurrentPicker());
 
-  // Refresh draft board if open
-  if (document.getElementById('screen-pickhistory')?.classList.contains('active')) renderPickHistory();
+  // Refresh draft board if open (board is now in sub-draft-board pane)
+  const boardPane = document.getElementById('sub-draft-board');
+  if (boardPane && boardPane.style.display !== 'none') renderPickHistory();
 }
 
 async function endDraft() {
@@ -2297,15 +2298,8 @@ function renderPicksSummary() {
 
   // Helper: get round number from sequential pick order
   function getRound(seqNum) {
-    if (!seqNum) return null;
-    const n = state.draftOrder && state.draftOrder.length;
-    if (!n) return seqNum; // fallback: use seq number as round
-    let remaining = seqNum;
-    for (let round = 1; round <= 11; round++) {
-      if (remaining <= n) return round;
-      remaining -= n;
-    }
-    return null;
+    // seqNum is per-participant: 1=R1, 2=R2, 3=R3
+    return seqNum || null;
   }
 
   // Build rows sorted by round ascending (picked first at top), unpicked at bottom
@@ -4390,15 +4384,21 @@ This will also roll back the draft turn.`)) return;
     // Find their pick position in draft order
     const n = state.draftOrder.length;
     let foundRound = state.draftRound, foundPickIdx = state.draftPickIdx;
-    outer: for (let r = state.draftRound; r >= 1; r--) {
-      const order = r % 2 === 1 ? [...state.draftOrder] : [...state.draftOrder].reverse();
-      const startIdx = r === state.draftRound ? state.draftPickIdx - 1 : n - 1;
-      for (let pi = startIdx; pi >= 0; pi--) {
-        if (order[pi]?.toLowerCase() === prevP.name.toLowerCase()) {
-          foundRound = r; foundPickIdx = order === state.draftOrder ? pi : (n - 1 - pi);
-          break outer;
-        }
-      }
+    // Find prevP's last pick position: their seq tells us the round
+    // pickOrder seq = round number for that person
+    const entries = Object.entries(prevP.pickOrder || {});
+    const teamSeqVal = prevP.teamPickSeq || 0;
+    const lastPlayerSeq2 = entries.length ? Math.max(...entries.map(e => e[1])) : 0;
+    const lastSeq = Math.max(lastPlayerSeq2, teamSeqVal);
+    // lastSeq = which round this person last picked (1=R1, 2=R2...)
+    if (lastSeq >= 1) {
+      foundRound = lastSeq;
+      // Find their pick_idx in that round's order
+      const roundOrder = foundRound % 2 === 1
+        ? [...state.draftOrder]
+        : [...state.draftOrder].reverse();
+      foundPickIdx = roundOrder.findIndex(n2 => n2.toLowerCase() === prevP.name.toLowerCase());
+      if (foundPickIdx === -1) foundPickIdx = 0;
     }
 
     await sb('PATCH', 'draft_state',
@@ -4457,15 +4457,10 @@ function buildAllPicks() {
       const player = p.picks[k];
       if (!player) return;
       const seq = p.pickOrder?.[k] || null;
-      // Derive round and position-in-round from seq number
-      let round = null, pickInRound = null;
-      if (seq && n) {
-        let rem = seq;
-        for (let r = 1; r <= DRAFT_TOTAL_ROUNDS; r++) {
-          if (rem <= n) { round = r; pickInRound = rem; break; }
-          rem -= n;
-        }
-      }
+      // seq is per-participant: 1=R1, 2=R2, 3=R3 etc.
+      // Each participant picks exactly once per round
+      const round = seq || null;
+      const pickInRound = seq || null;
       // Global pick number = seq (across all participants combined)
       // Need to compute overall pick number differently — use draftOrder + round
       allPicks.push({
@@ -4488,11 +4483,9 @@ function buildAllPicks() {
       const teamSeq = p.teamPickSeq || (playerPickCount2 + 1);
       const n2 = state.draftOrder.length || 1;
       let teamRound = null, teamPickInRound = null;
-      let rem2 = teamSeq;
-      for (let r = 1; r <= DRAFT_TOTAL_ROUNDS; r++) {
-        if (rem2 <= n2) { teamRound = r; teamPickInRound = rem2; break; }
-        rem2 -= n2;
-      }
+      // teamSeq is per-participant: 1=R1, 2=R2 etc.
+      teamRound = teamSeq;
+      teamPickInRound = teamSeq;
       allPicks.push({
         seq: teamSeq, round: teamRound, pickInRound: teamPickInRound,
         owner: p.name,
@@ -4583,7 +4576,7 @@ function renderPickHistoryByRound(el, allPicks, n, myName) {
         const isCurrent = state.draftActive && state.draftRound === r &&
           draftCurrentPicker()?.toLowerCase() === name.toLowerCase();
         // Only dim empty slots in future rounds, not the current live round
-        const emptyStyle = r > state.draftRound ? 'opacity:.35;border-style:dashed' : 'border-style:dashed';
+        const emptyStyle = r > state.draftRound ? 'opacity:.35;border-style:dashed' : '';
         html += `<div class="ph-pick-card" style="${emptyStyle}">
           <div class="ph-pick-num">#${globalPickNum}</div>
           <div class="ph-pick-player" style="color:var(--muted)">${isCurrent ? '⏳ Picking…' : '—'}</div>
