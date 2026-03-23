@@ -504,14 +504,18 @@ body.admin-visible .admin-only{display:block;}
       </div>
     </div>
     <!-- AI Suggestions trigger + Confirm Pick Button -->
+  </div>
+</div>
+
+  </div><!-- /sub-draft-active -->
+
+  <!-- Always-visible confirm + suggest strip — shown regardless of sub-tab -->
+  <div id="draftActionStrip" style="display:none">
     <div id="aiSuggestTrigger" style="margin-top:.6rem;display:none">
       <button onclick="loadAISuggestions(true)" style="width:100%;padding:.5rem;background:rgba(162,89,255,.1);border:1px solid rgba(162,89,255,.3);border-radius:8px;color:#c084fc;font-size:.8rem;cursor:pointer;font-family:'DM Sans',sans-serif">🤖 Get AI pick suggestions</button>
     </div>
     <div id="confirmPickSlot" style="margin-top:.5rem"></div>
   </div>
-</div>
-
-  </div><!-- /sub-draft-active -->
 
 <!-- DRAFT ORDER sub-pane (inside draft screen) -->
 <div id="sub-draft-order" class="sub-pane" style="display:none"></div>
@@ -1306,19 +1310,23 @@ function draftIsComplete() {
 function showConfirmPickBtn() {
   const el = document.getElementById('confirmPickSlot');
   const trigger = document.getElementById('aiSuggestTrigger');
+  const strip = document.getElementById('draftActionStrip');
   if (!el) return;
   const isAdmin = currentUser?.isAdmin;
   if (!state.draftActive || draftIsComplete()) {
     el.innerHTML = '';
     if (trigger) trigger.style.display = 'none';
+    if (strip) strip.style.display = 'none';
     return;
   }
   if (!isAdmin && !isMyDraftTurn()) {
     el.innerHTML = '';
     if (trigger) trigger.style.display = 'none';
+    if (strip) strip.style.display = 'none';
     return;
   }
-  // Show suggestions trigger when it's your turn
+  // Show the action strip and suggestions trigger when it's your turn
+  if (strip) strip.style.display = 'block';
   if (trigger) trigger.style.display = 'block';
 
   const ai = state.activeParticipant;
@@ -1356,6 +1364,11 @@ async function confirmPickAndAdvance() {
   await advanceTurn();
   const el = document.getElementById('confirmPickSlot');
   if (el) el.innerHTML = '';
+  // Force immediate full re-render so banner updates for everyone on this device
+  renderDraftBanner();
+  renderParticipantListWithLock();
+  renderDraftGridWithLock();
+  updateDraftPickState();
 }
 function renderDraftBanner() {
   const el = document.getElementById('draftBanner');
@@ -1582,6 +1595,7 @@ async function advanceTurn() {
   await sb('PATCH', 'draft_state', { round: newRound, pick_idx: newPickIdx }, `?id=eq.1&mode=eq.${state.mode}`);
   state.draftRound = newRound;
   state.draftPickIdx = newPickIdx;
+  window._pollForceRefresh = true; // force next poll to re-render for all viewers
 
   // Auto-select the current picker's participant slot and update label
   const picker = draftCurrentPicker();
@@ -1647,7 +1661,9 @@ function startDraftPolling() {
     const ds = (res||[])[0];
     if (!ds) return;
     const changed = ds.round !== state.draftRound || ds.pick_idx !== state.draftPickIdx || ds.active !== state.draftActive;
-    if (changed) {
+
+    if (changed || window._pollForceRefresh) {
+      window._pollForceRefresh = false;
       state.draftActive = ds.active || false;
       state.draftOrder = ds.order ? JSON.parse(ds.order) : [];
       state.draftRound = ds.round || 1;
@@ -1667,7 +1683,10 @@ function startDraftPolling() {
       const picker = draftCurrentPicker();
       if (picker) {
         const idx = state.participants.findIndex(p => p.name.toLowerCase() === picker.toLowerCase());
-        if (idx >= 0) state.activeParticipant = idx;
+        if (idx >= 0) {
+          state.activeParticipant = idx;
+          state.viewParticipant = idx; // ensure banner shows correct current picker
+        }
       }
       // Update baseline for new picker
       const newPicker = draftCurrentPicker();
@@ -1688,7 +1707,7 @@ function startDraftPolling() {
       const nowPicker = draftCurrentPicker();
       notifyMyTurn(nowPicker);
     }
-  }, 5000);
+  }, 3000);
 }
 
 async function autoAddParticipant() {
@@ -1813,21 +1832,18 @@ function renderParticipantListOld() {
 }
 
 function setActiveParticipant(i) {
-  state.activeParticipant = i;
-  renderParticipantList();
+  if (state.draftActive && !draftIsComplete()) {
+    // During draft: clicking a name only changes VIEW — activeParticipant stays locked to current picker
+    state.viewParticipant = i;
+  } else {
+    // Outside draft: normal behaviour
+    state.activeParticipant = i;
+    state.viewParticipant = i;
+  }
+  renderParticipantListWithLock();
   renderDraftGrid();
   renderPicksSummary();
-  const picker = draftCurrentPicker();
-  const name = state.participants[i].name;
-  const isCurrentPicker = picker && picker.toLowerCase() === name.toLowerCase();
-  const label = document.getElementById('draftActiveLabel');
-  if (label) {
-    if (state.draftActive && !isCurrentPicker && currentUser?.isAdmin) {
-      label.innerHTML = `Viewing <strong style="color:var(--muted)">${name}</strong> <span style="font-size:.75rem;color:var(--muted)">(${picker}'s turn to pick)</span>`;
-    } else {
-      label.innerHTML = `Drafting for <strong style="color:var(--green)">${name}</strong>`;
-    }
-  }
+  // Label is handled inside renderDraftGrid via the draftActiveLabel block
 }
 
 // ═══════════════════════════════════════════════════════
