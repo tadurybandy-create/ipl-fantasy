@@ -3621,11 +3621,16 @@ async function importIPLSquad(teamName) {
   if (btn) btn.disabled = true;
   status.innerHTML = `<span style="color:var(--gold)">⏳ Searching for ${name} squad…</span>`;
   try {
-    const prompt = `Search for the current IPL 2026 squad for ${name}.
-Find the full squad with all player names. Mark overseas/foreign players correctly (is_foreign: true).
-Use the standard 2-3 letter team key (CSK, MI, RCB, KKR, SRH, DC, GT, PBKS, RR, LSG).
-Respond ONLY with valid JSON, no markdown:
-{"team_key":"CSK","team_name":"Chennai Super Kings","players":[{"player_name":"MS Dhoni","is_foreign":false},{"player_name":"Devon Conway","is_foreign":true}]}`;
+    const prompt = `Return ONLY a raw JSON object with no markdown, no code fences, no explanation. Just the JSON.
+
+The JSON must follow this exact structure for the IPL 2026 squad of ${name}:
+{"team_key":"SRH","team_name":"Sunrisers Hyderabad","players":[{"player_name":"Pat Cummins","is_foreign":true},{"player_name":"Abhishek Sharma","is_foreign":false}]}
+
+Rules:
+- team_key must be the standard abbreviation: CSK, MI, RCB, KKR, SRH, DC, GT, PBKS, RR, or LSG
+- is_foreign: true for overseas/non-Indian players, false for Indian players
+- Include all players in the squad (typically 20-25 players)
+- Output RAW JSON only. No text before or after. No backticks. No markdown.`;
 
     const response = await fetch('/.netlify/functions/anthropic', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -3645,9 +3650,25 @@ Respond ONLY with valid JSON, no markdown:
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
     const fullText = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Could not parse squad data. Try again.');
-    const parsed = JSON.parse(jsonMatch[0]);
+    console.log('importIPLSquad raw response:', fullText.substring(0, 300));
+    // Strip markdown code fences if present
+    const stripped = fullText
+      .replace(/^```(?:json)?\s*/m, '')
+      .replace(/\s*```\s*$/m, '')
+      .trim();
+    // Extract first complete JSON object
+    const jsonMatch = stripped.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error('Full response was:', fullText);
+      throw new Error('Could not parse squad data. Try again.');
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch(parseErr) {
+      console.error('JSON parse failed on:', jsonMatch[0].substring(0, 200));
+      throw new Error('Could not parse squad data. Try again.');
+    }
     if (!parsed.team_key || !parsed.players?.length) throw new Error('No players found in response.');
 
     // Delete existing IPL squad for this team then insert fresh
