@@ -4704,9 +4704,21 @@ function buildAllPicks() {
     });
 
     if (p.teamPick) {
-      // If teamPickSeq unknown, place team after all player picks
-      // teamPickSeq comes from DB; if still null, place team last (shouldn't happen after fix)
-      const seq = p.teamPickSeq || (allPersonPicks.length + 1);
+      // teamPickSeq: which pick number (1=first, 2=second...) the team was for this person
+      // If unknown (null), determine from context:
+      // - if no player picks yet: team was pick #1 (seq=1)
+      // - if player picks exist: team was after them (seq=players+1)
+      // This is better than the old fallback which caused ties at seq=2
+      let seq;
+      if (p.teamPickSeq) {
+        seq = p.teamPickSeq;
+      } else if (allPersonPicks.length === 0) {
+        seq = 1; // only pick = first pick
+      } else {
+        // Unknown — check if all player seqs are >= 2 (suggests team was first)
+        const minPlayerSeq = Math.min(...allPersonPicks.map(x => x.seq || 99));
+        seq = minPlayerSeq >= 2 ? 1 : allPersonPicks.length + 1;
+      }
       allPersonPicks.push({ type:'team', teamSlot:p.teamPick, player:IPL_TEAMS[p.teamPick]?.name||p.teamPick, seq });
     }
 
