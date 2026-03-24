@@ -1444,14 +1444,19 @@ async function confirmPickAndAdvance() {
       }
       await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: player, is_active: true, mode: state.mode });
     } else if (ctp && ctp.isTeam) {
-      // Team pick — save teamPickSeq alongside team_pick
-      await dbPatch('participants', { team_pick: ctp.teamKey, team_pick_seq: p.teamPickSeq || 1 }, `?id=eq.${p.id}`);
+      // Team pick — try saving teamPickSeq, fall back if column doesn't exist yet
+      try {
+        await dbPatch('participants', { team_pick: ctp.teamKey, team_pick_seq: p.teamPickSeq || 1 }, `?id=eq.${p.id}`);
+      } catch(e) {
+        // Column may not exist yet — save without it
+        await dbPatch('participants', { team_pick: ctp.teamKey }, `?id=eq.${p.id}`);
+      }
     }
     setSyncStatus('ok', 'Synced');
   } catch(e) {
     setSyncStatus('err', 'Save failed');
     if (btn) { btn.disabled = false; btn.textContent = '✅ CONFIRM PICK & END TURN'; }
-    alert('Save failed: ' + e.message);
+    showToast('Save failed — please try again.', 'err');
     return;
   }
 
@@ -4468,7 +4473,11 @@ This will also roll back the draft turn.`)) return;
     setSyncStatus('loading', 'Undoing…');
 
     if (useTeam) {
-      await dbPatch('participants', { team_pick: null, team_pick_seq: null }, `?id=eq.${prevP.id}`);
+      try {
+        await dbPatch('participants', { team_pick: null, team_pick_seq: null }, `?id=eq.${prevP.id}`);
+      } catch(e) {
+        await dbPatch('participants', { team_pick: null }, `?id=eq.${prevP.id}`);
+      }
       prevP.teamPick = null;
       prevP.teamPickSeq = null;
     } else {
