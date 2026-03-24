@@ -4920,30 +4920,39 @@ function copyDraftBoard() {
 
   const allPicks = buildAllPicks();
   const byRound = {};
-  allPicks.filter(p => !p.isTeam && p.round).forEach(p => {
+  // Include ALL picks (player + team) — same as board display
+  allPicks.filter(p => p.round).forEach(p => {
     if (!byRound[p.round]) byRound[p.round] = {};
     byRound[p.round][p.owner] = p;
   });
 
+  const effectiveOrder = state.draftOrder.filter(name =>
+    state.participants.some(p => p.name.toLowerCase() === name.toLowerCase()));
+
   let text = '🏏 DRAFT BOARD\n' + '='.repeat(40) + '\n\n';
 
   for (let r = 1; r <= DRAFT_TOTAL_ROUNDS; r++) {
-    const roundOrder = r % 2 === 1 ? [...state.draftOrder] : [...state.draftOrder].reverse();
+    const roundOrder = r % 2 === 1 ? [...effectiveOrder] : [...effectiveOrder].reverse();
     const picks = byRound[r] || {};
     if (!Object.keys(picks).length && r > state.draftRound) continue;
     text += `ROUND ${r} ${r%2===1?'→':'←'}\n`;
-    roundOrder.forEach((name, i) => {
+    roundOrder.forEach(name => {
       const pick = picks[name];
-      text += `  ${name}: ${pick ? pick.player + ' (' + pick.teamSlot + ')' : '—'}\n`;
+      if (pick) {
+        const prefix = pick.isTeam ? '🏆 ' : (pick.foreign ? '🌍 ' : '🇮🇳 ');
+        text += `  ${name}: ${prefix}${pick.player} (${pick.teamSlot})\n`;
+      } else {
+        text += `  ${name}: —\n`;
+      }
     });
     text += '\n';
   }
 
-  // Team picks
-  const teamPicks = allPicks.filter(p => p.isTeam);
-  if (teamPicks.length) {
-    text += 'TEAM DRAFTS\n';
-    teamPicks.forEach(tp => { text += `  ${tp.owner}: 🏆 ${tp.player}\n`; });
+  // Only show separate TEAM DRAFTS for any teams that couldn't be assigned a round
+  const unassignedTeams = allPicks.filter(p => p.isTeam && !p.round);
+  if (unassignedTeams.length) {
+    text += 'TEAM DRAFTS (unassigned)\n';
+    unassignedTeams.forEach(tp => { text += `  ${tp.owner}: 🏆 ${tp.player}\n`; });
   }
 
   navigator.clipboard.writeText(text).then(() => {
