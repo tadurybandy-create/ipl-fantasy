@@ -1301,7 +1301,7 @@ async function loadAll() {
           pickHistory[pk.team_key].push(pk.player_name);
         }
       });
-      return { id: p.id, name: p.name, picks: activePicks, pickHistory, pickOrder, teamPick: p.team_pick||null };
+      return { id: p.id, name: p.name, picks: activePicks, pickHistory, pickOrder, teamPick: p.team_pick||null, teamPickSeq: p.team_pick_seq||null };
     });
 
     state.seasonScores = {};
@@ -1444,8 +1444,8 @@ async function confirmPickAndAdvance() {
       }
       await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: player, is_active: true, mode: state.mode });
     } else if (ctp && ctp.isTeam) {
-      // Team pick
-      await dbPatch('participants', { team_pick: ctp.teamKey }, `?id=eq.${p.id}`);
+      // Team pick — save teamPickSeq alongside team_pick
+      await dbPatch('participants', { team_pick: ctp.teamKey, team_pick_seq: p.teamPickSeq || 1 }, `?id=eq.${p.id}`);
     }
     setSyncStatus('ok', 'Synced');
   } catch(e) {
@@ -1808,9 +1808,19 @@ function startDraftPolling() {
         const myPicks = (state._lastPicksFromDB||[]).filter(pk => pk.participant_id === p.id && pk.is_active);
         const newPicks = {};
         const newOrder = {};
-        let seq = 0;
-        [...myPicks].sort((a,b) => new Date(a.created_at||0) - new Date(b.created_at||0))
-          .forEach(pk => { newPicks[pk.team_key] = pk.player_name; newOrder[pk.team_key] = ++seq; });
+        // Sort by created_at to get true pick order
+        const sorted = [...myPicks].sort((a,b) => new Date(a.created_at||0) - new Date(b.created_at||0));
+        // Assign seq accounting for team pick position
+        // teamPickSeq tells us where the team pick fits in the sequence
+        const tSeq = p.teamPickSeq || null;
+        let playerSeq = 0;
+        sorted.forEach(pk => {
+          playerSeq++;
+          // If team was picked before this player pick, offset by 1
+          const adjustedSeq = tSeq && tSeq <= playerSeq ? playerSeq + 1 : playerSeq;
+          newPicks[pk.team_key] = pk.player_name;
+          newOrder[pk.team_key] = adjustedSeq;
+        });
         p.picks = newPicks;
         p.pickOrder = newOrder;
       });
@@ -4458,7 +4468,7 @@ This will also roll back the draft turn.`)) return;
     setSyncStatus('loading', 'Undoing…');
 
     if (useTeam) {
-      await dbPatch('participants', { team_pick: null }, `?id=eq.${prevP.id}`);
+      await dbPatch('participants', { team_pick: null, team_pick_seq: null }, `?id=eq.${prevP.id}`);
       prevP.teamPick = null;
       prevP.teamPickSeq = null;
     } else {
@@ -4616,14 +4626,16 @@ function setPhView(view, btn) {
 }
 
 function buildAllPicks() {
-  const n = state.draftOrder.length;
+  const participantNames = state.participants.map(p => p.name.toLowerCase());
+  const effectiveDraftOrder = state.draftOrder.filter(name => participantNames.includes(name.toLowerCase()));
+  const n = effectiveDraftOrder.length || state.draftOrder.length;
   if (!n) return [];
 
   const allPicks = [];
 
   // Helper: given participant name and round number, compute global pick number
   function globalPickNum(ownerName, round) {
-    const pos = state.draftOrder.findIndex(name => name.toLowerCase() === ownerName.toLowerCase());
+    const pos = effectiveDraftOrder.findIndex(name => name.toLowerCase() === ownerName.toLowerCase());
     if (pos === -1) return null;
     // Snake draft: odd rounds normal, even rounds reversed
     let pickInRound;
@@ -4685,7 +4697,10 @@ function renderPickHistory() {
   const el = document.getElementById('pickHistoryContent');
   if (!el) return;
 
-  const n = state.draftOrder.length;
+  // Use only draftOrder entries that match actual participants
+  const participantNames = state.participants.map(p => p.name.toLowerCase());
+  const effectiveOrder = state.draftOrder.filter(name => participantNames.includes(name.toLowerCase()));
+  const n = effectiveOrder.length || state.draftOrder.length;
   const allPicks = buildAllPicks();
   const myName = currentUser?.participantName?.toLowerCase();
 
@@ -4695,13 +4710,14 @@ function renderPickHistory() {
   }
 
   if (phView === 'round') {
-    renderPickHistoryByRound(el, allPicks, n, myName);
+    renderPickHistoryByRound(el, allPicks, n, myName, effectiveOrder);
   } else {
     renderPickHistoryByTeam(el, allPicks, myName);
   }
 }
 
-function renderPickHistoryByRound(el, allPicks, n, myName) {
+function renderPickHistoryByRound(el, allPicks, n, myName, effectiveOrder) {
+  effectiveOrder = effectiveOrder || state.draftOrder;
   // Group picks by round
   const byRound = {};
   // Include ALL picks (player + team) in round grouping
@@ -4718,8 +4734,8 @@ function renderPickHistoryByRound(el, allPicks, n, myName) {
 
   for (let r = 1; r <= Math.min(maxRound, DRAFT_TOTAL_ROUNDS); r++) {
     const roundOrder = r % 2 === 1
-      ? [...state.draftOrder]
-      : [...state.draftOrder].reverse();
+      ? [...effectiveOrder]
+      : [...effectiveOrder].reverse();
     const dir = r % 2 === 1 ? '→' : '←';
     const picks = byRound[r] || {};
     const hasPicks = Object.keys(picks).length > 0;
