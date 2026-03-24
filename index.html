@@ -1784,26 +1784,28 @@ function startDraftPolling() {
     window._pollRunning = true;
     const res = await dbGet('draft_state', `?mode=eq.${state.mode}&id=eq.1`).catch(() => null);
     const ds = (res||[])[0];
-    if (!ds) return;
+    if (!ds) { window._pollRunning = false; return; }
     const changed = ds.round !== state.draftRound || ds.pick_idx !== state.draftPickIdx || ds.active !== state.draftActive;
 
     if (!changed && !window._pollForceRefresh) { window._pollRunning = false; return; }
     if (changed || window._pollForceRefresh) {
       window._pollForceRefresh = false;
+      // Capture old round BEFORE updating state
+      const prevRound = state.draftRound;
       state.draftActive = ds.active || false;
       state.draftOrder = ds.order ? JSON.parse(ds.order) : [];
       state.draftRound = ds.round || 1;
       state.draftPickIdx = ds.pick_idx || 0;
-      // Only reload picks when round changes (heavier operation)
-      // For same-round turn changes, picks are already up to date locally
-      const roundChanged = ds.round !== state.draftRound;
-      const picks = roundChanged
-        ? await dbGet('picks', `?mode=eq.${state.mode}&order=created_at.asc`).catch(()=>[])
-        : null;
-      const picksToUse = picks || state._lastPicksFromDB || [];
-      if (picks) state._lastPicksFromDB = picks;
+      // Reload picks from DB when round changes OR no cached picks yet
+      const roundChanged = ds.round !== prevRound;
+      if (roundChanged || !state._lastPicksFromDB) {
+        const picks = await dbGet('picks', `?mode=eq.${state.mode}&order=created_at.asc`).catch(()=>[]);
+        state._lastPicksFromDB = picks || [];
+      }
+      // Rebuild participant picks from cached DB picks
+      // But preserve any LOCAL pending pick (madePickThisTurn) — don't wipe it
       state.participants.forEach(p => {
-        const myPicks = picksToUse.filter(pk => pk.participant_id === p.id && pk.is_active);
+        const myPicks = (state._lastPicksFromDB||[]).filter(pk => pk.participant_id === p.id && pk.is_active);
         const newPicks = {};
         const newOrder = {};
         let seq = 0;
@@ -1820,17 +1822,29 @@ function startDraftPolling() {
           state.viewParticipant = idx; // ensure banner shows correct current picker
         }
       }
-      // Update baseline for new picker — ALL clients must track this correctly
+      // Update baseline and restore any local pending pick
       const newPicker = draftCurrentPicker();
       if (newPicker) {
         const pi = state.participants.findIndex(p => p.name.toLowerCase() === newPicker.toLowerCase());
         if (pi >= 0) {
-          const pp = state.participants[pi];
-          state.picksAtTurnStart = TEAM_KEYS.filter(k => pp.picks[k]).length + (pp.teamPick ? 1 : 0);
           state.activeParticipant = pi;
           state.viewParticipant = pi;
-          state.currentTurnPick = null;
-          state.madePickThisTurn = false;
+          const pp = state.participants[pi];
+          // Restore local pending pick if it belongs to this picker
+          const ctp = state.currentTurnPick;
+          if (ctp && state.madePickThisTurn) {
+            // Re-apply the local pick on top of DB state
+            if (!ctp.isTeam) {
+              pp.picks[ctp.teamKey] = ctp.player;
+            } else {
+              pp.teamPick = ctp.teamKey;
+            }
+          } else {
+            // No local pick — baseline is what DB says
+            state.picksAtTurnStart = TEAM_KEYS.filter(k => pp.picks[k]).length + (pp.teamPick ? 1 : 0);
+            state.currentTurnPick = null;
+            state.madePickThisTurn = false;
+          }
         }
       }
       renderDraftBanner();
