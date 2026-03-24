@@ -4893,7 +4893,12 @@ async function recoverDraftTurn() {
 // NAVIGATION
 // ═══════════════════════════════════════════════════════
 function showScreen(name,btn) {
-  // Return any reparented sub-screens back to the container before hiding
+  // Force-hide all sub-panes with inline style to override any inline display:block
+  ['sub-draft-active','sub-draft-board','sub-draft-order','sub-draft-swap'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  // Return any reparented sub-screens back to the container
   const container = document.querySelector('.container');
   if (container) {
     ['screen-draftorder','screen-redraft'].forEach(id => {
@@ -4913,16 +4918,10 @@ function showScreen(name,btn) {
   if (target) target.classList.add('active');
   if (btn) btn.classList.add('active');
 
-  // When returning to Draft tab, reset to Draft sub-tab (not Board/Order)
+  // When returning to Draft tab, show only sub-draft-active
   if (name === 'draft') {
     const activePane = document.getElementById('sub-draft-active');
     if (activePane) activePane.style.display = 'block';
-    const boardPane = document.getElementById('sub-draft-board');
-    if (boardPane) boardPane.style.display = 'none';
-    const orderPane = document.getElementById('sub-draft-order');
-    if (orderPane) orderPane.style.display = 'none';
-    const swapPane = document.getElementById('sub-draft-swap');
-    if (swapPane) swapPane.style.display = 'none';
     document.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
     const activeBtn = document.getElementById('sdraft-active');
     if (activeBtn) activeBtn.classList.add('active');
