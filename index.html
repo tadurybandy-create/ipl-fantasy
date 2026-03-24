@@ -2021,7 +2021,11 @@ function renderDraftGrid() {
       </div>`;
     }).join('');
 
-    return `<div class="team-draft-card">
+    // Dim entire card if slot already filled from a previous round
+    const slotFilledPrevRound = !!(myPickName && state.draftActive && !draftIsComplete() &&
+      (!state.currentTurnPick || state.currentTurnPick.isTeam || state.currentTurnPick.teamKey !== key));
+    const cardStyle = slotFilledPrevRound ? 'opacity:0.25;pointer-events:none;' : '';
+    return `<div class="team-draft-card" style="${cardStyle}">
       <h4>${team.name} <span class="team-abbr">${key}</span></h4>
       <div class="player-pick-list">${rows}</div>
     </div>`;
@@ -2029,14 +2033,18 @@ function renderDraftGrid() {
 
   // Team pick card — appended after all player cards
   const {tc} = getDraftCounts();
-  const myTeamPick = viewed ? viewed.teamPick : null;
+  const myTeamPick = viewed ? viewed.teamPick : null;       // for visual highlight
+  const activeTeamPick = active ? active.teamPick : null;   // for lock/disable logic
   const teamCardRows = TEAM_KEYS.map(key => {
     const count = tc[key]||0;
     const full = count >= MAX_TEAM_DRAFTS;
-    const isMe = myTeamPick === key;
-    const isLockedTeamPick = isMe && state.draftActive && !draftIsComplete() &&
-      (!state.currentTurnPick || !state.currentTurnPick.isTeam || state.currentTurnPick.teamKey !== key);
-    const disabled = !active || (full && !isMe) || isLockedTeamPick;
+    const isMe = myTeamPick === key;           // highlight: viewed person has this team
+    const activeHasThisTeam = activeTeamPick === key;
+    // Grey out ALL team options if active participant already has a team drafted
+    // Each participant can only draft 1 IPL team in the entire draft
+    const activeAlreadyHasTeam = !!(activeTeamPick && state.draftActive && !draftIsComplete() &&
+      (!state.currentTurnPick || !state.currentTurnPick.isTeam));
+    const disabled = !active || (full && !isMe) || activeAlreadyHasTeam;
     const wins = state.teamWins[key]?.wins||0;
     const draws = state.teamWins[key]?.draws||0;
     const earnedPts = wins*TEAM_WIN_PTS + draws*TEAM_DRAW_PTS;
