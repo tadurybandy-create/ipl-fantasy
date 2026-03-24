@@ -1779,22 +1779,31 @@ function startHeartbeat() {
 function startDraftPolling() {
   if (draftPollInterval) return;
   draftPollInterval = setInterval(async () => {
+    if (window._pollRunning) return; // prevent overlapping polls
     if (!state.draftActive && !document.getElementById('screen-draft')?.classList.contains('active')) return;
+    window._pollRunning = true;
     const res = await dbGet('draft_state', `?mode=eq.${state.mode}&id=eq.1`).catch(() => null);
     const ds = (res||[])[0];
     if (!ds) return;
     const changed = ds.round !== state.draftRound || ds.pick_idx !== state.draftPickIdx || ds.active !== state.draftActive;
 
+    if (!changed && !window._pollForceRefresh) { window._pollRunning = false; return; }
     if (changed || window._pollForceRefresh) {
       window._pollForceRefresh = false;
       state.draftActive = ds.active || false;
       state.draftOrder = ds.order ? JSON.parse(ds.order) : [];
       state.draftRound = ds.round || 1;
       state.draftPickIdx = ds.pick_idx || 0;
-      // Refresh participants picks (full rebuild to keep pickOrder accurate)
-      const picks = await dbGet('picks', `?mode=eq.${state.mode}&order=created_at.asc`).catch(()=>[]);
+      // Only reload picks when round changes (heavier operation)
+      // For same-round turn changes, picks are already up to date locally
+      const roundChanged = ds.round !== state.draftRound;
+      const picks = roundChanged
+        ? await dbGet('picks', `?mode=eq.${state.mode}&order=created_at.asc`).catch(()=>[])
+        : null;
+      const picksToUse = picks || state._lastPicksFromDB || [];
+      if (picks) state._lastPicksFromDB = picks;
       state.participants.forEach(p => {
-        const myPicks = (picks||[]).filter(pk => pk.participant_id === p.id && pk.is_active);
+        const myPicks = picksToUse.filter(pk => pk.participant_id === p.id && pk.is_active);
         const newPicks = {};
         const newOrder = {};
         let seq = 0;
@@ -1829,10 +1838,12 @@ function startDraftPolling() {
       renderDraftGridWithLock();
       renderPicksSummary();
       showConfirmPickBtn();
+      window._pollRunning = false;
       // Notify if it just became my turn
       const nowPicker = draftCurrentPicker();
       notifyMyTurn(nowPicker);
     }
+    window._pollRunning = false;
   }, 3000);
 }
 
@@ -4591,56 +4602,66 @@ function setPhView(view, btn) {
 }
 
 function buildAllPicks() {
-  // Build a flat list of every pick with round, pick-in-round, owner, player, teamSlot
   const n = state.draftOrder.length;
   if (!n) return [];
 
   const allPicks = [];
 
+  // Helper: given participant name and round number, compute global pick number
+  function globalPickNum(ownerName, round) {
+    const pos = state.draftOrder.findIndex(name => name.toLowerCase() === ownerName.toLowerCase());
+    if (pos === -1) return null;
+    // Snake draft: odd rounds normal, even rounds reversed
+    let pickInRound;
+    if (round % 2 === 1) {
+      pickInRound = pos + 1; // normal order
+    } else {
+      pickInRound = n - pos; // reversed
+    }
+    return (round - 1) * n + pickInRound;
+  }
+
   state.participants.forEach(p => {
-    // Player picks
+    // Collect all picks for this participant with their round number
+    // pickOrder[k] = which pick number this was FOR THIS PARTICIPANT (1st, 2nd, 3rd...)
+    // That pick number = round number (each person picks once per round)
+    // BUT teamPickSeq counts separately — need to merge and sort
+    
+    const allPersonPicks = [];
+    
     TEAM_KEYS.forEach(k => {
       const player = p.picks[k];
       if (!player) return;
-      const seq = p.pickOrder?.[k] || null;
-      // seq is per-participant: 1=R1, 2=R2, 3=R3 etc.
-      // Each participant picks exactly once per round
-      const round = seq || null;
-      const pickInRound = seq || null;
-      // Global pick number = seq (across all participants combined)
-      // Need to compute overall pick number differently — use draftOrder + round
-      allPicks.push({
-        seq, round, pickInRound,
-        owner: p.name,
-        player,
-        teamSlot: k,
-        isTeam: false,
-        foreign: (IPL_TEAMS[k]?.players||[]).find(pl=>pl.name===player)?.foreign || false
-      });
+      const seq = p.pickOrder?.[k] || null; // which pick for this person (1=first, 2=second...)
+      allPersonPicks.push({ type:'player', teamSlot:k, player, seq });
     });
 
-    // Team pick — figure out what round/seq it was picked in
     if (p.teamPick) {
-      // Team pick seq = total player picks + 1 if player picks came first,
-      // or 1 if team was first pick. Use pickOrder count as proxy.
-      const playerPickCount2 = Object.keys(p.pickOrder || {}).length;
-      // Team pick seq: if player picks exist, team is one of them (seq = playerPickCount2 + 1 or embedded)
-      // We store teamPickSeq on the participant if available, otherwise estimate
-      const teamSeq = p.teamPickSeq || (playerPickCount2 + 1);
-      const n2 = state.draftOrder.length || 1;
-      let teamRound = null, teamPickInRound = null;
-      // teamSeq is per-participant: 1=R1, 2=R2 etc.
-      teamRound = teamSeq;
-      teamPickInRound = teamSeq;
-      allPicks.push({
-        seq: teamSeq, round: teamRound, pickInRound: teamPickInRound,
-        owner: p.name,
-        player: IPL_TEAMS[p.teamPick]?.name || p.teamPick,
-        teamSlot: p.teamPick,
-        isTeam: true,
-        foreign: false
-      });
+      const seq = p.teamPickSeq || null;
+      allPersonPicks.push({ type:'team', teamSlot:p.teamPick, player:IPL_TEAMS[p.teamPick]?.name||p.teamPick, seq });
     }
+
+    // Sort by seq to get true pick order for this person
+    allPersonPicks.sort((a,b) => (a.seq||999) - (b.seq||999));
+
+    // Assign round = position in sorted order (1st pick = R1, 2nd pick = R2...)
+    allPersonPicks.forEach((pick, i) => {
+      const round = i + 1;
+      const gpn = globalPickNum(p.name, round);
+      allPicks.push({
+        seq: pick.seq,
+        round,
+        pickInRound: round,
+        globalPick: gpn,
+        owner: p.name,
+        player: pick.player,
+        teamSlot: pick.teamSlot,
+        isTeam: pick.type === 'team',
+        foreign: pick.type === 'player'
+          ? (IPL_TEAMS[pick.teamSlot]?.players||[]).find(pl=>pl.name===pick.player)?.foreign || false
+          : false
+      });
+    });
   });
 
   return allPicks;
@@ -4703,9 +4724,9 @@ function renderPickHistoryByRound(el, allPicks, n, myName) {
     roundOrder.forEach((name, i) => {
       const pick = picks[name];
       const isMe = name.toLowerCase() === myName;
-      const globalPickNum = r % 2 === 1
+      const globalPickNum = pick?.globalPick || (r % 2 === 1
         ? (r - 1) * n + (i + 1)
-        : (r - 1) * n + (n - i);
+        : (r - 1) * n + (n - i));
 
       if (pick) {
         const flag = pick.foreign ? '🌍' : '🇮🇳';
