@@ -225,7 +225,7 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 
 /* ── DRAFT GRID OVERLAY ──────────────────────────────── */
 .draft-grid-blocked{position:relative;pointer-events:none;}
-.draft-grid-blocked::after{content:"Wait for your turn…";position:absolute;inset:0;background:rgba(13,26,13,.75);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:3px;color:var(--muted);border-radius:12px;z-index:10;}
+.draft-grid-blocked::after{content:var(--blocked-msg,"Wait for your turn…");position:absolute;inset:0;background:rgba(13,26,13,.75);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:3px;color:var(--muted);border-radius:12px;z-index:10;}
 
 /* ── ADMIN-ONLY VISIBILITY ───────────────────────────── */
 .admin-only{display:none;}
@@ -717,7 +717,11 @@ body.admin-visible .admin-only{display:block;}
 
   <!-- Import Squads -->
   <div class="card" style="margin-bottom:1.5rem">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">📋 Import Squads</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleSettingsCard('importSquadsBody',this)">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green)">📋 Import Squads</div>
+      <span id="importSquadsBodyChevron" style="color:var(--muted);font-size:.9rem;transition:transform .2s">▼</span>
+    </div>
+    <div id="importSquadsBody" style="display:none;margin-top:.8rem">
     <div style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
       Type a team name and Claude will search for their current squad automatically. Does <strong style="color:var(--text)">not</strong> affect existing picks or scores.
     </div>
@@ -733,6 +737,7 @@ body.admin-visible .admin-only{display:block;}
         <button class="btn btn-sm" onclick="importAllIPLSquads()" id="iplAllBtn" style="background:rgba(0,200,83,.15);border:1px solid var(--green)">🏏 Import All 10 Teams</button>
       </div>
       <div id="iplSquadStatus" style="font-size:.82rem;min-height:1.2rem"></div>
+      <div id="importAllProgress" style="font-size:.78rem;color:var(--muted);margin-top:.3rem;min-height:1rem"></div>
     </div>
 
     <!-- WC SQUAD IMPORTER — commented out until WC season
@@ -748,6 +753,7 @@ body.admin-visible .admin-only{display:block;}
     </div>
     -->
     <div id="importSquadsStatus" style="margin-top:.4rem;font-size:.82rem;min-height:1rem"></div>
+    </div><!-- /importSquadsBody -->
   </div>
 
   <!-- Password / Auth -->
@@ -767,7 +773,11 @@ body.admin-visible .admin-only{display:block;}
 
   <!-- Allowlist Management (admin only) -->
   <div class="card admin-only" style="margin-bottom:1.5rem" id="allowlistCard">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.4rem">👥 Access List</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleSettingsCard('allowlistBody',this)">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green)">👥 Access List</div>
+      <span id="allowlistBodyChevron" style="color:var(--muted);font-size:.9rem;transition:transform .2s">▼</span>
+    </div>
+    <div id="allowlistBody" style="display:none;margin-top:.8rem">
     <div style="font-size:.83rem;color:var(--muted);margin-bottom:1rem">Manage who can access this app. Add friends by their Google email and link them to their fantasy team name.</div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem">
       <input type="email" id="alEmail" placeholder="friend@gmail.com"
@@ -781,32 +791,31 @@ body.admin-visible .admin-only{display:block;}
     </div>
     <div id="alStatus" style="font-size:.82rem;min-height:1rem;margin-bottom:.6rem"></div>
     <div id="alList" style="display:flex;flex-direction:column;gap:.4rem"></div>
+    </div><!-- /allowlistBody -->
   </div>
 
 
-  <!-- Player Availability Manager -->
-  <div class="card">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:1px;margin-bottom:.3rem">🏥 Player Availability</div>
-    <div style="font-size:.82rem;color:var(--muted);margin-bottom:1rem">Mark players as Withdrawn, Injured, Missing games etc. Visible to everyone in the draft grid.</div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem">
-      <input id="availSearch" type="text" placeholder="Search player name…" oninput="renderAvailList()"
-        style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.45rem .8rem;color:var(--text);font-size:.85rem;font-family:'DM Sans',sans-serif"/>
-      <select id="availTeamFilter" onchange="renderAvailList()"
-        style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.45rem .8rem;color:var(--text);font-size:.85rem;font-family:'DM Sans',sans-serif">
-        <option value="">All Teams</option>
-      </select>
-    </div>
-    <div id="availList" style="display:flex;flex-direction:column;gap:.3rem;max-height:380px;overflow-y:auto"></div>
-    <div id="availStatus" style="font-size:.78rem;margin-top:.5rem;min-height:1.2rem"></div>
-  </div>
 
   <!-- Draft Recovery (Admin) -->
   <div class="card admin-only" style="border-color:rgba(255,152,0,.3);background:rgba(255,152,0,.04)">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:1px;color:#ff9800;margin-bottom:.4rem">🔧 Draft Recovery</div>
-    <div style="font-size:.82rem;color:var(--muted);margin-bottom:.8rem">If a turn was skipped or the draft is stuck, manually set who should pick next.</div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-      <select id="recoveryPicker" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.45rem .8rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.85rem"></select>
-      <button class="btn btn-sm" onclick="recoverDraftTurn()" style="background:rgba(255,152,0,.15);border:1px solid rgba(255,152,0,.4);color:#ff9800">Set as Current Picker</button>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:.8rem">Rewind to a specific pick. Select the participant and their pick number (round) to restart from.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.5rem;align-items:center;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:.25rem">Participant</div>
+        <select id="recoveryPicker" onchange="updateRecoveryRounds()" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.45rem .8rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.85rem">
+          <option value="">— Select —</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:.25rem">Their Pick #</div>
+        <select id="recoveryRound" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.45rem .8rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.85rem">
+          <option value="">— Select participant first —</option>
+        </select>
+      </div>
+      <div style="padding-top:1.2rem">
+        <button class="btn btn-sm" onclick="recoverDraftTurn()" style="background:rgba(255,152,0,.15);border:1px solid rgba(255,152,0,.4);color:#ff9800;white-space:nowrap">↩ Set Turn</button>
+      </div>
     </div>
     <div id="recoveryStatus" style="font-size:.78rem;margin-top:.5rem;min-height:1rem"></div>
   </div>
@@ -1604,16 +1613,25 @@ function renderDraftGridWithLock() {
   const grid = document.getElementById('teamDraftGrid');
   if (!grid) return;
 
-  if (draftIsComplete()) {
+  if (!state.draftActive && !draftIsComplete()) {
+    // Draft not started yet — dim everything, nothing clickable
+    grid.classList.add('draft-grid-blocked');
+    grid.classList.remove('draft-grid-complete');
+    // Override the "Wait for your turn" message with "Draft not started"
+    grid.style.setProperty('--blocked-msg', '"Draft has not started yet"');
+  } else if (draftIsComplete()) {
     // Draft done — full read-only overlay
     grid.classList.add('draft-grid-complete');
     grid.classList.remove('draft-grid-blocked');
+    grid.style.removeProperty('--blocked-msg');
   } else if (state.draftActive && !currentUser?.isAdmin) {
     grid.classList.remove('draft-grid-complete');
+    grid.style.removeProperty('--blocked-msg');
     const myTurn = isMyDraftTurn();
     if (!myTurn) grid.classList.add('draft-grid-blocked');
     else grid.classList.remove('draft-grid-blocked');
   } else {
+    grid.style.removeProperty('--blocked-msg');
     grid.classList.remove('draft-grid-complete');
     grid.classList.remove('draft-grid-blocked');
   }
@@ -3646,9 +3664,13 @@ Respond ONLY with valid JSON, no markdown:
     renderDraftGrid();
     status.innerHTML = `<span style="color:var(--green)">✓ ${parsed.team_name} — ${parsed.players.length} players imported.</span>`;
     if (document.getElementById('iplSquadTeam')) document.getElementById('iplSquadTeam').value = '';
+    return true; // success
   } catch(e) {
-    status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+    const is429 = e.message && e.message.includes('429');
+    status.innerHTML = `<span style="color:var(--red)">${is429 ? '⏱ Rate limit hit — will retry…' : 'Error: ' + e.message}</span>`;
     console.error(e);
+    if (is429) throw new Error('429'); // signal to caller to retry
+    throw e;
   }
   if (btn) btn.disabled = false;
 }
@@ -3660,21 +3682,46 @@ const IPL_TEAMS_LIST = [
 ];
 
 async function importAllIPLSquads() {
-  if (!confirm('This will import all 10 IPL squads one by one. Takes about 30-60 seconds. Continue?')) return;
+  let goAhead = false;
+  await new Promise(res => confirmSwapModal(
+    'This will import all 10 IPL squads one by one.<br>Takes about 2-3 minutes (rate limit delays).<br><br>Continue?',
+    () => { goAhead = true; res(); }
+  ));
+  if (!goAhead) return;
   const allBtn = document.getElementById('iplAllBtn');
+  const progEl = document.getElementById('importAllProgress');
   const status = document.getElementById('iplSquadStatus');
-  allBtn.disabled = true;
+  if (allBtn) allBtn.disabled = true;
   let failed = [];
   for (let i = 0; i < IPL_TEAMS_LIST.length; i++) {
     const team = IPL_TEAMS_LIST[i];
-    status.innerHTML = `<span style="color:var(--gold)">⏳ Importing ${i+1}/10: ${team}…</span>`;
-    try {
-      await importIPLSquad(team);
-    } catch(e) {
-      failed.push(team);
+    const msg = `⏳ Importing ${i+1}/${IPL_TEAMS_LIST.length}: ${team}…`;
+    status.innerHTML = `<span style="color:var(--gold)">${msg}</span>`;
+    if (progEl) progEl.textContent = msg;
+    let success = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await importIPLSquad(team);
+        success = true;
+        break;
+      } catch(e) {
+        if (e.message === '429' && attempt < 2) {
+          // Rate limited — wait 15s then retry
+          const waitMsg = `⏱ Rate limit hit for ${team} — waiting 15s before retry ${attempt+2}/3…`;
+          status.innerHTML = `<span style="color:#ff9800">${waitMsg}</span>`;
+          if (progEl) progEl.textContent = waitMsg;
+          await new Promise(r => setTimeout(r, 15000));
+        } else {
+          failed.push(team);
+          break;
+        }
+      }
     }
-    // pause between calls to avoid rate limits
-    await new Promise(r => setTimeout(r, 2000));
+    if (!success && !failed.includes(team)) failed.push(team);
+    // Wait 8s between teams to avoid rate limits
+    if (i < IPL_TEAMS_LIST.length - 1) {
+      await new Promise(r => setTimeout(r, 8000));
+    }
   }
   if (failed.length) {
     status.innerHTML = `<span style="color:#ff9800">⚠ Done — but failed: ${failed.join(', ')}. Try importing those individually.</span>`;
@@ -3819,8 +3866,9 @@ function initAvailabilityManager() {
   // Populate draft recovery picker
   const recSel = document.getElementById('recoveryPicker');
   if (recSel) {
-    recSel.innerHTML = '<option value="">— Select participant —</option>' +
+    recSel.innerHTML = '<option value="">— Select —</option>' +
       state.participants.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+    updateRecoveryRounds(); // reset round dropdown
   }
   // Populate team filter
   const sel = document.getElementById('availTeamFilter');
@@ -4654,6 +4702,39 @@ function confirmSwapModal(msg, onConfirm) {
   document.getElementById('swapConfirmOk').onclick = () => { modal.remove(); onConfirm(); };
 }
 
+
+// ── SETTINGS CARD COLLAPSE ───────────────────────────────
+function toggleSettingsCard(bodyId, headerEl) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  const chevron = headerEl.querySelector('span[id$="Chevron"]');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+}
+
+// ── DRAFT RECOVERY — populate picks dropdown ─────────────
+function updateRecoveryRounds() {
+  const pickerSel = document.getElementById('recoveryPicker');
+  const roundSel  = document.getElementById('recoveryRound');
+  if (!roundSel) return;
+  const name = pickerSel?.value;
+  if (!name) { roundSel.innerHTML = '<option value="">— Select participant first —</option>'; return; }
+
+  const n = state.draftOrder.length;
+  const options = [];
+  for (let r = 1; r <= DRAFT_TOTAL_ROUNDS; r++) {
+    const order = r % 2 === 1 ? [...state.draftOrder] : [...state.draftOrder].reverse();
+    const posInRound = order.findIndex(x => x.toLowerCase() === name.toLowerCase());
+    if (posInRound === -1) continue;
+    const globalPick = (r - 1) * n + posInRound + 1;
+    options.push(`<option value="${r}:${posInRound}">Round ${r} — Pick #${globalPick} (${r%2===1?'Normal':'Reverse'} order)</option>`);
+  }
+  roundSel.innerHTML = options.length
+    ? options.join('')
+    : '<option value="">No picks found</option>';
+}
+
 // ═══════════════════════════════════════════════════════
 // DRAFT BOARD / PICK HISTORY
 // ═══════════════════════════════════════════════════════
@@ -4966,24 +5047,29 @@ function copyDraftBoard() {
 
 
 async function recoverDraftTurn() {
-  const sel = document.getElementById('recoveryPicker');
-  const statusEl = document.getElementById('recoveryStatus');
-  const targetName = sel?.value;
-  if (!targetName) { statusEl.innerHTML = '<span style="color:var(--red)">Select a participant first.</span>'; return; }
+  const pickerSel = document.getElementById('recoveryPicker');
+  const roundSel  = document.getElementById('recoveryRound');
+  const statusEl  = document.getElementById('recoveryStatus');
+  const targetName = pickerSel?.value;
+  const roundVal   = roundSel?.value; // format "round:pickIdx"
 
-  // Find pick_idx in draftOrder for this person
+  if (!targetName) { statusEl.innerHTML = '<span style="color:var(--red)">Select a participant first.</span>'; return; }
+  if (!roundVal)   { statusEl.innerHTML = '<span style="color:var(--red)">Select a pick number.</span>'; return; }
+
+  const [roundStr, pickIdxStr] = roundVal.split(':');
+  const targetRound = parseInt(roundStr);
+  const pickIdx     = parseInt(pickIdxStr);
+
   const order = state.draftOrder;
   if (!order.length) { statusEl.innerHTML = '<span style="color:var(--red)">No draft order set.</span>'; return; }
-
-  const pickIdx = order.findIndex(n => n.toLowerCase() === targetName.toLowerCase());
-  if (pickIdx === -1) { statusEl.innerHTML = '<span style="color:var(--red)">${targetName} not found in draft order.</span>'; return; }
 
   try {
     statusEl.innerHTML = '<span style="color:var(--muted)">Updating…</span>';
     await sb('PATCH', 'draft_state',
-      { pick_idx: pickIdx, active: true },
+      { round: targetRound, pick_idx: pickIdx, active: true },
       `?id=eq.1&mode=eq.${state.mode}`
     );
+    state.draftRound = targetRound;
     state.draftPickIdx = pickIdx;
     state.draftActive = true;
     const pi = state.participants.findIndex(p => p.name.toLowerCase() === targetName.toLowerCase());
