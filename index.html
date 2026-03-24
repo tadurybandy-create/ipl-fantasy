@@ -1301,16 +1301,25 @@ async function loadAll() {
       // Sort by created_at so order is chronological
       const sorted = [...myPicks].sort((a,b) => new Date(a.created_at||0) - new Date(b.created_at||0));
       let pickSeq = 0;
+      // Also track pick windows: {teamKey: [{player, from, to}]}
+      const pickWindows = {}; // teamKey -> [{player, from (ISO), to (ISO or null)}]
       sorted.forEach(pk => {
+        if (!pickWindows[pk.team_key]) pickWindows[pk.team_key] = [];
+        pickWindows[pk.team_key].push({
+          player: pk.player_name,
+          from: pk.created_at || null,
+          to: pk.swapped_at || null,   // null = still active
+          active: pk.is_active
+        });
         if (pk.is_active) {
           activePicks[pk.team_key] = pk.player_name;
-          pickOrder[pk.team_key] = ++pickSeq; // 1-based chronological pick number
+          pickOrder[pk.team_key] = ++pickSeq;
         } else {
           if (!pickHistory[pk.team_key]) pickHistory[pk.team_key] = [];
           pickHistory[pk.team_key].push(pk.player_name);
         }
       });
-      return { id: p.id, name: p.name, picks: activePicks, pickHistory, pickOrder, teamPick: p.team_pick||null, teamPickSeq: p.team_pick_seq||null };
+      return { id: p.id, name: p.name, picks: activePicks, pickHistory, pickOrder, pickWindows, teamPick: p.team_pick||null, teamPickSeq: p.team_pick_seq||null };
     });
 
     state.seasonScores = {};
@@ -1320,6 +1329,7 @@ async function loadAll() {
 
     state.matchHistory = (matches||[]).map(m => ({
       id:m.id, title:m.title, date:m.match_date,
+      appliedAt: m.created_at || null,  // ISO timestamp when match was applied
       result:m.result, t1name:m.t1_name, t2name:m.t2_name, updates:m.updates||[]
     }));
 
@@ -1328,9 +1338,11 @@ async function loadAll() {
     state.matchHistory.forEach(m => applyMatchResultToTeamWins(m, true));
 
     state.swapHistory = (swaps||[]).map(s => ({
-      id:s.id, participantName:s.participant_name, teamKey:s.team_key,
-      teamName:s.team_name, oldPlayer:s.old_player, newPlayer:s.new_player,
-      frozenPts:s.frozen_pts, date:s.swap_date
+      id:s.id, participantId:s.participant_id, participantName:s.participant_name,
+      teamKey:s.team_key, teamName:s.team_name, oldPlayer:s.old_player, newPlayer:s.new_player,
+      frozenPts:s.frozen_pts, date:s.swap_date,
+      swapTimestamp:s.swap_timestamp||null, isTeamSwap:s.is_team_swap||false,
+      newTeam:s.new_team||null
     }));
 
     setSyncStatus('ok', 'Synced');
@@ -2686,6 +2698,8 @@ async function executeSwap(participantIdx, teamKey) {
       new_player: newPlayer,
       frozen_pts: frozenPts,
       swap_date: new Date().toLocaleDateString(),
+      swap_timestamp: new Date().toISOString(),
+      is_team_swap: false,
       mode: state.mode
     });
 
@@ -2978,7 +2992,7 @@ async function applyMatch() {
       mode: state.mode
     });
 
-    const newMatch = { id:matchRow.id, title:matchRow.title, date:matchRow.match_date, result:matchRow.result, t1name:matchRow.t1_name, t2name:matchRow.t2_name, updates };
+    const newMatch = { id:matchRow.id, title:matchRow.title, date:matchRow.match_date, appliedAt: matchRow.created_at || new Date().toISOString(), result:matchRow.result, t1name:matchRow.t1_name, t2name:matchRow.t2_name, updates };
     state.matchHistory.push(newMatch);
     applyMatchResultToTeamWins(newMatch, true);
 
@@ -3426,27 +3440,106 @@ async function removeMatch(id) {
 // LEADERBOARD
 // ═══════════════════════════════════════════════════════
 function calcSeasonPoints(participant) {
-  let playerPts=0;
-  const breakdown={};
+  // Points are calculated per match, per player, respecting swap windows.
+  // A player earns points ONLY for matches applied while they were active
+  // in this participant's team (between their pick time and swap-out time).
+  let playerPts = 0;
+  const breakdown = {};
+
+  const windows = participant.pickWindows || {};
+
   TEAM_KEYS.forEach(k => {
-    const current=participant.picks[k];
-    const history=participant.pickHistory?.[k]||[];
-    const allInSlot=[...history,current].filter(Boolean);
-    if (!allInSlot.length) return;
-    let slotPts=0;
-    const slotPlayers=allInSlot.map(name=>{
-      const sc=state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0,stumpings:0};
-      const pts=sc.runs+sc.wickets*25+sc.catches*5+(sc.runouts||0)*5+(sc.stumpings||0)*5+(sc.motm||0)*MOTM_PTS;
-      slotPts+=pts;
-      return {name,sc,pts};
-    });
-    playerPts+=slotPts;
-    breakdown[k]={current,history,slotPlayers,slotPts};
+    const slotWindows = windows[k] || [];
+    if (!slotWindows.length && !participant.picks[k]) return;
+
+    // If no window data (old draft without timestamps), fall back to full season scores
+    const hasWindowData = slotWindows.some(w => w.from);
+
+    let slotPts = 0;
+    const slotPlayers = [];
+
+    if (!hasWindowData) {
+      // Fallback: use cumulative season_scores (old behaviour)
+      const allInSlot = [...(participant.pickHistory?.[k]||[]), participant.picks[k]].filter(Boolean);
+      allInSlot.forEach(name => {
+        const sc = state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0,stumpings:0};
+        const pts = sc.runs+sc.wickets*25+sc.catches*5+(sc.runouts||0)*5+(sc.stumpings||0)*5+(sc.motm||0)*MOTM_PTS;
+        slotPts += pts;
+        slotPlayers.push({name, sc, pts});
+      });
+    } else {
+      // New behaviour: only count match stats when player was active in slot
+      // Build per-player stats by iterating match history
+      const playerStats = {}; // playerName -> {runs,wickets,catches,runouts,stumpings,motm}
+
+      state.matchHistory.forEach(match => {
+        const matchTime = match.appliedAt ? new Date(match.appliedAt) : null;
+        if (!matchTime) return;
+
+        (match.updates||[]).forEach(u => {
+          const playerName = u.player;
+          // Find if this player was active in this slot at match time
+          const win = slotWindows.find(w =>
+            w.player === playerName &&
+            new Date(w.from) <= matchTime &&
+            (w.to === null || new Date(w.to) > matchTime)
+          );
+          if (!win) return; // not active in this slot at match time
+
+          if (!playerStats[playerName]) playerStats[playerName] = {runs:0,wickets:0,catches:0,runouts:0,stumpings:0,motm:0};
+          playerStats[playerName].runs       += u.runs   || 0;
+          playerStats[playerName].wickets    += u.wkts   || 0;
+          playerStats[playerName].catches    += u.catches || 0;
+          playerStats[playerName].runouts    += u.runouts || 0;
+          playerStats[playerName].stumpings  += u.stumpings || 0;
+          playerStats[playerName].motm       += u.motm   || 0;
+        });
+      });
+
+      // Sum points per player in this slot
+      slotWindows.forEach(w => {
+        const sc = playerStats[w.player] || {runs:0,wickets:0,catches:0,runouts:0,stumpings:0,motm:0};
+        const pts = sc.runs+sc.wickets*25+sc.catches*5+(sc.runouts||0)*5+(sc.stumpings||0)*5+(sc.motm||0)*MOTM_PTS;
+        slotPts += pts;
+        slotPlayers.push({name:w.player, sc, pts, active:w.active});
+      });
+    }
+
+    playerPts += slotPts;
+    breakdown[k] = {current:participant.picks[k], history:participant.pickHistory?.[k]||[], slotPlayers, slotPts};
   });
 
   // Team pick points — disabled in World Cup mode
-  const tw = (state.mode !== 'worldcup' && participant.teamPick) ? (state.teamWins[participant.teamPick]||{wins:0,draws:0}) : null;
-  const teamPts = tw ? tw.wins*TEAM_WIN_PTS + tw.draws*TEAM_DRAW_PTS : 0;
+  // Only count wins from matches applied AFTER this participant's team was active
+  let teamPts = 0;
+  if (state.mode !== 'worldcup' && participant.teamPick) {
+    // Find when this participant last acquired their current team
+    // Check swap_history for a team swap — or use draft pick time
+    const teamSwap = (state.swapHistory||[])
+      .filter(s => s.participantId === participant.id && s.isTeamSwap && s.newTeam === participant.teamPick)
+      .sort((a,b) => new Date(b.swapTimestamp||0) - new Date(a.swapTimestamp||0))[0];
+
+    const teamActiveFrom = teamSwap?.swapTimestamp
+      ? new Date(teamSwap.swapTimestamp)
+      : null; // null = from beginning (draft pick, no cutoff)
+
+    let wins = 0, draws = 0;
+    state.matchHistory.forEach(match => {
+      const matchTime = match.appliedAt ? new Date(match.appliedAt) : null;
+      if (teamActiveFrom && matchTime && matchTime <= teamActiveFrom) return; // before swap-in
+      // Check if this match involved the participant's team winning/drawing
+      const result = match.result || '';
+      const t1 = (match.t1name||'').toLowerCase();
+      const t2 = (match.t2name||'').toLowerCase();
+      const myTeamName = (IPL_TEAMS[participant.teamPick]?.name||'').toLowerCase();
+      if (!t1.includes(myTeamName.split(' ')[0]) && !t2.includes(myTeamName.split(' ')[0])) return;
+      if (result === 'team1' && t1.includes(myTeamName.split(' ')[0])) wins++;
+      else if (result === 'team2' && t2.includes(myTeamName.split(' ')[0])) wins++;
+      else if (result === 'draw') draws++;
+    });
+    teamPts = wins * TEAM_WIN_PTS + draws * TEAM_DRAW_PTS;
+  }
+  const tw = participant.teamPick ? (state.teamWins[participant.teamPick]||{wins:0,draws:0}) : null;
   const total = playerPts + teamPts;
 
   return {playerPts, teamPts, total, breakdown, teamPick:participant.teamPick, teamWinData:tw};
