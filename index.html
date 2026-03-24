@@ -1327,17 +1327,19 @@ async function loadAll() {
     setSyncStatus('ok', 'Synced');
     renderAll();
     autoSelectMyParticipant();
-    // Recalculate madePickThisTurn from actual state after DB sync
+    // After DB sync: recalculate picksAtTurnStart correctly, then check madePickThisTurn
+    // picksAtTurnStart must be set based on picker's CONFIRMED picks (from DB)
+    // madePickThisTurn is only true if a PENDING (unconfirmed) pick exists in local state
+    // Since picks only go to DB on confirm, after loadAll all picks are confirmed →
+    // madePickThisTurn should always be false after a full DB reload
     const _ai = state.activeParticipant;
     const _p = _ai !== null ? state.participants[_ai] : null;
     if (_p && state.draftActive && !draftIsComplete()) {
-      const _total = TEAM_KEYS.filter(k => _p.picks[k]).length + (_p.teamPick ? 1 : 0);
-      const _baseline = state.picksAtTurnStart || 0;
-      state.madePickThisTurn = _total > _baseline;
-      // Restore currentTurnPick if team was picked this turn
-      if (!state.currentTurnPick && _p.teamPick && _total > _baseline) {
-        state.currentTurnPick = { teamKey: _p.teamPick, isTeam: true };
-      }
+      // Reset baseline to match actual DB state (all confirmed picks)
+      state.picksAtTurnStart = TEAM_KEYS.filter(k => _p.picks[k]).length + (_p.teamPick ? 1 : 0);
+      // After DB reload, no pick is pending — reset pick state
+      state.madePickThisTurn = false;
+      state.currentTurnPick = null;
     }
     showConfirmPickBtn();
     updateDraftPickState();
