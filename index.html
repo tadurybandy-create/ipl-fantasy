@@ -4893,16 +4893,45 @@ async function recoverDraftTurn() {
 // NAVIGATION
 // ═══════════════════════════════════════════════════════
 function showScreen(name,btn) {
+  // Return any reparented sub-screens back to the container before hiding
+  const container = document.querySelector('.container');
+  if (container) {
+    ['screen-draftorder','screen-redraft'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.parentElement && el.parentElement.id === 'screen-draft') {
+        el.style.display = 'none';
+        el.classList.remove('active');
+        container.appendChild(el);
+      }
+    });
+  }
+
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById(`screen-${name}`).classList.add('active');
+
+  const target = document.getElementById('screen-'+name);
+  if (target) target.classList.add('active');
   if (btn) btn.classList.add('active');
+
+  // When returning to Draft tab, reset to Draft sub-tab (not Board/Order)
+  if (name === 'draft') {
+    const activePane = document.getElementById('sub-draft-active');
+    if (activePane) activePane.style.display = 'block';
+    const boardPane = document.getElementById('sub-draft-board');
+    if (boardPane) boardPane.style.display = 'none';
+    const orderPane = document.getElementById('sub-draft-order');
+    if (orderPane) orderPane.style.display = 'none';
+    const swapPane = document.getElementById('sub-draft-swap');
+    if (swapPane) swapPane.style.display = 'none';
+    document.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
+    const activeBtn = document.getElementById('sdraft-active');
+    if (activeBtn) activeBtn.classList.add('active');
+  }
+
   if (name==='leaderboard') renderLeaderboard();
   if (name==='scoring') renderMatchLog();
-  if (name==='redraft') renderRedraftScreen();
-  if (name==='draftorder') initDraftOrderScreen();
   if (name==='settings') initAvailabilityManager();
-  if (name==='pickhistory') renderPickHistory();
+  if (name==='rosters') renderRosters();
 }
 // ═══════════════════════════════════════════════════════
 // BOOT — check login then load from Supabase
