@@ -11,13 +11,22 @@ exports.handler = async function(event) {
   try {
     const body = JSON.parse(event.body);
 
+    // Check if the request uses web_search tool — requires beta header
+    const usesWebSearch = body.tools && body.tools.some(t => t.type === 'web_search_20250305');
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_KEY,
+      'anthropic-version': '2023-06-01',
+    };
+
+    if (usesWebSearch) {
+      headers['anthropic-beta'] = 'web-search-2025-03-05';
+    }
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-      },
+      headers,
       body: JSON.stringify(body)
     });
 

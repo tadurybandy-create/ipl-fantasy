@@ -3630,8 +3630,7 @@ Respond ONLY with valid JSON, no markdown:
     const response = await fetch('/.netlify/functions/anthropic', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        model:'claude-sonnet-4-20250514', max_tokens:2000,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
+        model:'claude-sonnet-4-6', max_tokens:2000,
         messages:[{role:'user',content:prompt}]
       })
     });
@@ -3748,8 +3747,7 @@ Respond ONLY with valid JSON, no markdown, no explanation:
     const response = await fetch('/.netlify/functions/anthropic', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        model:'claude-sonnet-4-20250514', max_tokens:2000,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
+        model:'claude-sonnet-4-6', max_tokens:2000,
         messages:[{role:'user',content:prompt}]
       })
     });
@@ -4235,7 +4233,7 @@ When asked about fantasy league specifics, use the context above. When asked abo
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1024,
         system: systemPrompt,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
