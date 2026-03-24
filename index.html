@@ -3634,7 +3634,14 @@ Respond ONLY with valid JSON, no markdown:
         messages:[{role:'user',content:prompt}]
       })
     });
-    if (!response.ok) throw new Error(`Server error ${response.status}`);
+    if (!response.ok) {
+      let errMsg = `Server error ${response.status}`;
+      try {
+        const errData = await response.json();
+        if (errData?.error?.message) errMsg = errData.error.message;
+      } catch(e) {}
+      throw new Error(errMsg);
+    }
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
     const fullText = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
@@ -3666,10 +3673,10 @@ Respond ONLY with valid JSON, no markdown:
     return true; // success
   } catch(e) {
     const is429 = e.message && e.message.includes('429');
-    status.innerHTML = `<span style="color:var(--red)">${is429 ? '⏱ Rate limit hit — will retry…' : 'Error: ' + e.message}</span>`;
-    console.error(e);
-    if (is429) throw new Error('429'); // signal to caller to retry
-    throw e;
+    const isTransient = e.message && (e.message.includes('400') || e.message.includes('500') || e.message.includes('529'));
+    status.innerHTML = `<span style="color:var(--red)">${is429 ? '⏱ Rate limit — will retry…' : isTransient ? '⏱ Transient error — will retry…' : 'Error: ' + e.message}</span>`;
+    console.error('importIPLSquad error:', e.message);
+    throw e; // always throw so caller can retry
   }
   if (btn) btn.disabled = false;
 }
@@ -3704,12 +3711,14 @@ async function importAllIPLSquads() {
         success = true;
         break;
       } catch(e) {
-        if (e.message === '429' && attempt < 2) {
-          // Rate limited — wait 15s then retry
-          const waitMsg = `⏱ Rate limit hit for ${team} — waiting 15s before retry ${attempt+2}/3…`;
+        const is429 = e.message.includes('429');
+        const isRetryable = is429 || e.message.includes('400') || e.message.includes('500') || e.message.includes('529');
+        if (isRetryable && attempt < 2) {
+          const waitSecs = is429 ? 15 : 5;
+          const waitMsg = `⏱ Error for ${team} (${e.message}) — waiting ${waitSecs}s before retry ${attempt+2}/3…`;
           status.innerHTML = `<span style="color:#ff9800">${waitMsg}</span>`;
           if (progEl) progEl.textContent = waitMsg;
-          await new Promise(r => setTimeout(r, 15000));
+          await new Promise(r => setTimeout(r, waitSecs * 1000));
         } else {
           failed.push(team);
           break;
