@@ -1662,7 +1662,12 @@ function toggleAdminMode() {
 async function startDraft() {
   if (!currentUser?.isAdmin) return;
   if (!state.participants.length) { showToast('No participants yet.','warn'); return; }
-  if (!confirm(`Start the snake draft with ${state.participants.length} participants across ${DRAFT_TOTAL_ROUNDS} rounds?`)) return;
+  let goAhead = false;
+  await new Promise(res => confirmSwapModal(
+    `Start the snake draft with <strong>${state.participants.length} participants</strong> across ${DRAFT_TOTAL_ROUNDS} rounds?<br><br>This will clear all existing picks and team selections.`,
+    () => { goAhead = true; res(); }
+  ));
+  if (!goAhead) return;
 
   // STRICT: never auto-generate. A draft order must be set from the Draft Order tab.
   if (!state.draftOrder || state.draftOrder.length === 0) {
@@ -1673,6 +1678,19 @@ async function startDraft() {
 
   const ds = { id: 1, mode: state.mode, active: true, order: JSON.stringify(shuffled), round: 1, pick_idx: 0 };
   await sb('POST', 'draft_state', ds, '', { 'Prefer': 'return=minimal,resolution=merge-duplicates' });
+
+  // Clear team_pick_seq and team_pick from all participants for fresh draft
+  try {
+    await dbPatch('participants', { team_pick: null, team_pick_seq: null }, `?mode=eq.${state.mode}`);
+  } catch(e) {
+    await dbPatch('participants', { team_pick: null }, `?mode=eq.${state.mode}`);
+  }
+  state.participants.forEach(p => {
+    p.teamPick = null;
+    p.teamPickSeq = null;
+    p.picks = {};
+    p.pickOrder = {};
+  });
 
   state.draftActive = true;
   state.draftOrder = shuffled;
@@ -1803,9 +1821,19 @@ function startDraftPolling() {
       state.draftPickIdx = ds.pick_idx || 0;
       // Reload picks from DB when round changes OR no cached picks yet
       const roundChanged = ds.round !== prevRound;
-      if (roundChanged || !state._lastPicksFromDB) {
-        const picks = await dbGet('picks', `?mode=eq.${state.mode}&order=created_at.asc`).catch(()=>[]);
-        state._lastPicksFromDB = picks || [];
+      // Always reload picks AND participants on any detected change
+      const picks = await dbGet('picks', `?mode=eq.${state.mode}&order=created_at.asc`).catch(()=>[]);
+      state._lastPicksFromDB = picks || [];
+      // Always refresh team_pick and team_pick_seq — critical for correct board ordering
+      const freshParts = await dbGet('participants', `?mode=eq.${state.mode}`).catch(()=>[]);
+      if (freshParts && freshParts.length) {
+        freshParts.forEach(fp => {
+          const p = state.participants.find(p => p.id === fp.id);
+          if (p) {
+            p.teamPick = fp.team_pick || null;
+            p.teamPickSeq = fp.team_pick_seq || null;
+          }
+        });
       }
       // Rebuild participant picks from cached DB picks
       // But preserve any LOCAL pending pick (madePickThisTurn) — don't wipe it
@@ -1828,6 +1856,10 @@ function startDraftPolling() {
         });
         p.picks = newPicks;
         p.pickOrder = newOrder;
+        // If teamPickSeq not yet in DB, derive it from position relative to player picks
+        // so the board shows team in correct round
+        // DO NOT guess teamPickSeq — it comes from DB (refreshed above)
+        // Wrong guesses cause picks to appear in wrong rounds
       });
       const picker = draftCurrentPicker();
       if (picker) {
@@ -4672,7 +4704,9 @@ function buildAllPicks() {
     });
 
     if (p.teamPick) {
-      const seq = p.teamPickSeq || null;
+      // If teamPickSeq unknown, place team after all player picks
+      // teamPickSeq comes from DB; if still null, place team last (shouldn't happen after fix)
+      const seq = p.teamPickSeq || (allPersonPicks.length + 1);
       allPersonPicks.push({ type:'team', teamSlot:p.teamPick, player:IPL_TEAMS[p.teamPick]?.name||p.teamPick, seq });
     }
 
