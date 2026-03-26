@@ -966,7 +966,8 @@ let TEAM_KEYS = [];
 
 function buildIPLTeamsFromRows(rows) {
   const teams = {};
-  rows.forEach(r => {
+  // Player rows
+  rows.filter(r => !r.is_team).forEach(r => {
     if (!teams[r.team_key]) teams[r.team_key] = { name: r.team_name, players: [] };
     teams[r.team_key].players.push({
       name: r.player_name,
@@ -974,6 +975,17 @@ function buildIPLTeamsFromRows(rows) {
       availability: r.availability || 'active'
     });
   });
+  // Team rows (is_team=true) — build draftable teams list
+  // stored as {team_key, team_name} in squads with player_name = team_name
+  const draftableTeams = {};
+  rows.filter(r => r.is_team).forEach(r => {
+    draftableTeams[r.team_key] = r.player_name || r.team_name;
+  });
+  // Fallback: if no team rows in squads yet, derive from player rows
+  if (Object.keys(draftableTeams).length === 0) {
+    Object.keys(teams).forEach(k => { draftableTeams[k] = teams[k].name; });
+  }
+  state.draftableTeams = draftableTeams;
   return teams;
 }
 
@@ -999,6 +1011,7 @@ let state = {
   participants: [],   // [{id, name, picks:{CSK:'Player',...}, pickHistory:{CSK:['Old'...]}, teamPick:'MI'}]
   seasonScores: {},   // player_name -> {runs,wickets,catches,runouts,stumpings,motm}
   teamWins: {},       // team_key -> {wins, draws}
+  draftableTeams: {}, // team_key -> team_name (from squads is_team=true rows)
   matchHistory: [],
   swapHistory: [],
   activeParticipant: null,
@@ -1301,14 +1314,25 @@ async function loadAll() {
       // Sort by created_at so order is chronological
       const sorted = [...myPicks].sort((a,b) => new Date(a.created_at||0) - new Date(b.created_at||0));
       let pickSeq = 0;
+      let derivedTeamPick = null;
+      let derivedTeamPickSeq = null;
       // Also track pick windows: {teamKey: [{player, from, to}]}
       const pickWindows = {}; // teamKey -> [{player, from (ISO), to (ISO or null)}]
       sorted.forEach(pk => {
+        if (pk.is_team_pick) {
+          // Team pick row — derive teamPick from picks table (source of truth)
+          pickSeq++;
+          if (pk.is_active) {
+            derivedTeamPick = pk.team_key;
+            derivedTeamPickSeq = pickSeq;
+          }
+          return; // don't add to activePicks/pickOrder
+        }
         if (!pickWindows[pk.team_key]) pickWindows[pk.team_key] = [];
         pickWindows[pk.team_key].push({
           player: pk.player_name,
           from: pk.created_at || null,
-          to: pk.swapped_at || null,   // null = still active
+          to: pk.swapped_at || null,
           active: pk.is_active
         });
         if (pk.is_active) {
@@ -1319,7 +1343,10 @@ async function loadAll() {
           pickHistory[pk.team_key].push(pk.player_name);
         }
       });
-      return { id: p.id, name: p.name, picks: activePicks, pickHistory, pickOrder, pickWindows, teamPick: p.team_pick||null, teamPickSeq: p.team_pick_seq||null };
+      // Use picks-derived teamPick if available, else fall back to participants column
+      const finalTeamPick = derivedTeamPick || p.team_pick || null;
+      const finalTeamPickSeq = derivedTeamPickSeq || p.team_pick_seq || null;
+      return { id: p.id, name: p.name, picks: activePicks, pickHistory, pickOrder, pickWindows, teamPick: finalTeamPick, teamPickSeq: finalTeamPickSeq };
     });
 
     state.seasonScores = {};
@@ -1465,13 +1492,19 @@ async function confirmPickAndAdvance() {
       }
       await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: player, is_active: true, mode: state.mode });
     } else if (ctp && ctp.isTeam) {
-      // Team pick — try saving teamPickSeq, fall back if column doesn't exist yet
-      try {
-        await dbPatch('participants', { team_pick: ctp.teamKey, team_pick_seq: p.teamPickSeq || 1 }, `?id=eq.${p.id}`);
-      } catch(e) {
-        // Column may not exist yet — save without it
-        await dbPatch('participants', { team_pick: ctp.teamKey }, `?id=eq.${p.id}`);
-      }
+      // Team pick — save to picks table (source of truth) AND participants (cache)
+      // picks table entry gives us created_at for correct chronological ordering
+      await dbPost('picks', {
+        participant_id: p.id,
+        team_key: ctp.teamKey,
+        player_name: ctp.teamKey,  // team_key stored as player_name for team picks
+        is_active: true,
+        is_team_pick: true,
+        mode: state.mode
+      });
+      // Also update participants.team_pick as a fast-access cache
+      const teamPickSeqVal = p.teamPickSeq || state.picksAtTurnStart + 1 || 1;
+      await dbPatch('participants', { team_pick: ctp.teamKey, team_pick_seq: teamPickSeqVal }, `?id=eq.${p.id}`);
     }
     setSyncStatus('ok', 'Synced');
   } catch(e) {
@@ -1709,7 +1742,8 @@ async function startDraft() {
   const ds = { id: 1, mode: state.mode, active: true, order: JSON.stringify(shuffled), round: 1, pick_idx: 0 };
   await sb('POST', 'draft_state', ds, '', { 'Prefer': 'return=minimal,resolution=merge-duplicates' });
 
-  // Clear team_pick_seq and team_pick from all participants for fresh draft
+  // Clear team picks from picks table AND participants for fresh draft
+  await dbDelete('picks', `?mode=eq.${state.mode}&is_team_pick=eq.true`);
   try {
     await dbPatch('participants', { team_pick: null, team_pick_seq: null }, `?mode=eq.${state.mode}`);
   } catch(e) {
@@ -1871,25 +1905,29 @@ function startDraftPolling() {
         const myPicks = (state._lastPicksFromDB||[]).filter(pk => pk.participant_id === p.id && pk.is_active);
         const newPicks = {};
         const newOrder = {};
-        // Sort by created_at to get true pick order
-        const sorted = [...myPicks].sort((a,b) => new Date(a.created_at||0) - new Date(b.created_at||0));
-        // Assign seq accounting for team pick position
-        // teamPickSeq tells us where the team pick fits in the sequence
-        const tSeq = p.teamPickSeq || null;
-        let playerSeq = 0;
-        sorted.forEach(pk => {
-          playerSeq++;
-          // If team was picked before this player pick, offset by 1
-          const adjustedSeq = tSeq && tSeq <= playerSeq ? playerSeq + 1 : playerSeq;
-          newPicks[pk.team_key] = pk.player_name;
-          newOrder[pk.team_key] = adjustedSeq;
+        // Sort ALL picks (player + team marker) by created_at — true chronological order
+        const allDbPicks = [...myPicks].sort((a,b) => new Date(a.created_at||0) - new Date(b.created_at||0));
+        let pickSeq = 0;
+        let teamSeqFromTimestamp = null;
+        allDbPicks.forEach(pk => {
+          pickSeq++;
+          if (pk.is_team_pick || (pk.player_name && pk.player_name.startsWith('__TEAM__'))) {
+            // Team pick row — record its chronological position
+            teamSeqFromTimestamp = pickSeq;
+            // Don't add to picks/pickOrder
+          } else {
+            newPicks[pk.team_key] = pk.player_name;
+            newOrder[pk.team_key] = pickSeq;
+          }
         });
         p.picks = newPicks;
         p.pickOrder = newOrder;
-        // If teamPickSeq not yet in DB, derive it from position relative to player picks
-        // so the board shows team in correct round
-        // DO NOT guess teamPickSeq — it comes from DB (refreshed above)
-        // Wrong guesses cause picks to appear in wrong rounds
+        // Use timestamp-derived teamSeq if available (most accurate)
+        // else keep what came from freshParts (team_pick_seq column)
+        if (teamSeqFromTimestamp !== null) {
+          p.teamPickSeq = teamSeqFromTimestamp;
+        }
+        // teamPickSeq now comes from picks table timestamp (if available) or DB column
       });
       const picker = draftCurrentPicker();
       if (picker) {
@@ -2170,13 +2208,16 @@ function renderDraftGrid() {
   const {tc} = getDraftCounts();
   const myTeamPick = viewed ? viewed.teamPick : null;       // for visual highlight
   const activeTeamPick = active ? active.teamPick : null;   // for lock/disable logic
-  const teamCardRows = TEAM_KEYS.map(key => {
+  // Use draftableTeams from squads table — not hardcoded list
+  const draftTeamKeys = Object.keys(state.draftableTeams||{}).length > 0
+    ? Object.keys(state.draftableTeams).sort()
+    : TEAM_KEYS;
+  const teamCardRows = draftTeamKeys.map(key => {
+    const teamName = (state.draftableTeams||{})[key] || IPL_TEAMS[key]?.name || key;
     const count = tc[key]||0;
     const full = count >= MAX_TEAM_DRAFTS;
-    const isMe = myTeamPick === key;           // highlight: viewed person has this team
+    const isMe = myTeamPick === key;
     const activeHasThisTeam = activeTeamPick === key;
-    // Grey out ALL team options if active participant already has a team drafted
-    // Each participant can only draft 1 IPL team in the entire draft
     const activeAlreadyHasTeam = !!(activeTeamPick && state.draftActive && !draftIsComplete() &&
       (!state.currentTurnPick || !state.currentTurnPick.isTeam));
     const disabled = !active || (full && !isMe) || activeAlreadyHasTeam;
@@ -2185,10 +2226,10 @@ function renderDraftGrid() {
     const earnedPts = wins*TEAM_WIN_PTS + draws*TEAM_DRAW_PTS;
     return `<div class="player-opt ${disabled?'disabled':''} ${isMe?'selected-by-me':''}"
         onclick="${disabled?'':`toggleTeamPick('${key}')`}" title="${full&&!isMe?'Team already drafted '+MAX_TEAM_DRAFTS+' times':''}">
-      <span>🏏 ${IPL_TEAMS[key].name} <span style="font-size:.65rem;background:rgba(0,200,83,.12);color:var(--green);border-radius:3px;padding:.05rem .3rem">${key}</span></span>
+      <span>🏆 ${teamName} <span style="font-size:.65rem;background:rgba(0,200,83,.12);color:var(--green);border-radius:3px;padding:.05rem .3rem">${key}</span></span>
       <span style="display:flex;align-items:center;gap:4px">
         <span style="font-size:.7rem;color:var(--muted)">${earnedPts?earnedPts+'pts':''}</span>
-        <span class="draft-pips">${[0,1].map(j=>`<span class="mini-pip ${j<count?'filled':''}" style="${isMe&&j===0?'background:#FFD600':''}""></span>`).join('')}</span>
+        <span class="draft-pips">${[0,1].map(j=>`<span class="mini-pip ${j<count?'filled':''}" style="${isMe&&j===0?'background:#FFD600':''}"></span>`).join('')}</span>
         ${isMe?'<span style="font-size:.9rem">✓</span>':''}
       </span>
     </div>`;
@@ -2386,7 +2427,11 @@ async function toggleTeamPick(teamKey) {
     state.currentTurnPick = null;
     state.madePickThisTurn = false;
   } else {
-    const playerPicksSoFar = Object.keys(p.pickOrder || {}).length;
+    // Use picksAtTurnStart = number of confirmed picks before this turn started
+    // This is the accurate position of the team pick in the overall sequence
+    const playerPicksSoFar = state.picksAtTurnStart !== undefined 
+      ? state.picksAtTurnStart 
+      : Object.keys(p.pickOrder || {}).length;
     p.teamPick = teamKey;
     p.teamPickSeq = playerPicksSoFar + 1;
     state.currentTurnPick = { teamKey, isTeam: true };
@@ -2645,6 +2690,19 @@ async function executeTeamSwap(participantIdx) {
   if ((tc[newTeam]||0) >= MAX_TEAM_DRAFTS) { showToast(`${IPL_TEAMS[newTeam].name} already drafted ${MAX_TEAM_DRAFTS} times.`,'warn'); return; }
   try {
     setSyncStatus('loading','Saving…');
+    // Mark old team pick inactive in picks table
+    await dbPatch('picks', { is_active: false, swapped_at: new Date().toISOString() },
+      `?participant_id=eq.${p.id}&is_team_pick=eq.true&is_active=eq.true`);
+    // Insert new team pick into picks table
+    await dbPost('picks', {
+      participant_id: p.id,
+      team_key: newTeam,
+      player_name: newTeam,
+      is_active: true,
+      is_team_pick: true,
+      mode: state.mode
+    });
+    // Update participants cache
     await dbPatch('participants', { team_pick: newTeam }, `?id=eq.${p.id}`);
     p.teamPick = newTeam;
     setSyncStatus('ok','Synced');
@@ -4674,6 +4732,9 @@ This will also roll back the draft turn.`)) return;
     setSyncStatus('loading', 'Undoing…');
 
     if (useTeam) {
+      // Delete from picks table (source of truth)
+      await dbDelete('picks', `?participant_id=eq.${prevP.id}&is_team_pick=eq.true&is_active=eq.true`);
+      // Also clear participants cache
       try {
         await dbPatch('participants', { team_pick: null, team_pick_seq: null }, `?id=eq.${prevP.id}`);
       } catch(e) {
