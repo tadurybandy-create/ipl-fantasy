@@ -5616,6 +5616,23 @@ function showScreen(name,btn) {
 // PREDICTIONS
 // ═══════════════════════════════════════════════════════
 
+// Returns true if a match has started based on its date+time (IST = UTC+5:30)
+function matchHasStarted(m) {
+  if (!m.match_date || !m.match_time) return false;
+  try {
+    // Parse '22 Mar 2026' + '19:30 IST'
+    const timeStr = m.match_time.replace(' IST','').trim(); // '19:30'
+    const [hours, mins] = timeStr.split(':').map(Number);
+    // Build a date string parseable by JS: '22 Mar 2026 19:30'
+    const dateStr = `${m.match_date} ${hours.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}`;
+    const matchDateIST = new Date(dateStr + ' GMT+0530');
+    if (isNaN(matchDateIST.getTime())) return false;
+    return Date.now() >= matchDateIST.getTime();
+  } catch(e) {
+    return false;
+  }
+}
+
 async function loadPredictions() {
   if (!currentUser) return;
   try {
@@ -5751,7 +5768,7 @@ function buildMatchCard(m, myId) {
   const pendingPick = (state.pendingPredictions||{})[m.id];
   const myPick = pendingPick === '__deleted__' ? null : (pendingPick || state.myPredictions[m.id]);
   const isPending = pendingPick && pendingPick !== '__deleted__' && pendingPick !== state.myPredictions[m.id];
-  const isLocked = m.locked || !!m.result;
+  const isLocked = m.locked || !!m.result || matchHasStarted(m);
   const hasResult = !!m.result;
 
   // TBD playoff — teams not yet known
@@ -5809,7 +5826,7 @@ function savePrediction(matchId, pick) {
   // Only update local pending state — nothing saved to DB until submitPredictions()
   const m = state.matchSchedule.find(x => x.id === matchId);
   if (!m) return;
-  if (m.locked || m.result) { showToast('This match is locked — no more changes.', 'warn'); return; }
+  if (m.locked || m.result || matchHasStarted(m)) { showToast('This match has started — picks are locked.', 'warn'); return; }
 
   const currentPick = state.pendingPredictions[matchId] ?? state.myPredictions[matchId] ?? null;
   const isToggleOff = currentPick === pick;
