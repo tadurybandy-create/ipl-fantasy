@@ -357,6 +357,156 @@ body.admin-visible .admin-only{display:block;}
 
 
 
+
+/* ── PREDICTIONS ───────────────────────────────────────── */
+.pred-stage-header {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  letter-spacing: 2px;
+  color: var(--gold);
+  padding: .4rem 0 .2rem;
+  margin: 1.2rem 0 .5rem;
+  border-bottom: 1px solid rgba(255,214,0,.2);
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.pred-date-group { margin-bottom: 1rem; }
+.pred-date-label {
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: .4rem;
+  padding-left: .2rem;
+}
+.pred-match-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: .7rem 1rem;
+  margin-bottom: .5rem;
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  flex-wrap: wrap;
+  transition: border-color .15s;
+}
+.pred-match-card.locked { opacity: .7; }
+.pred-match-card.correct { border-color: rgba(0,200,83,.4); background: rgba(0,200,83,.04); }
+.pred-match-card.wrong   { border-color: rgba(255,23,68,.3); background: rgba(255,23,68,.03); }
+.pred-match-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  color: var(--muted);
+  width: 2rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+.pred-teams {
+  flex: 1;
+  min-width: 200px;
+}
+.pred-match-title {
+  font-weight: 600;
+  font-size: .88rem;
+  color: var(--text);
+  margin-bottom: .15rem;
+}
+.pred-match-meta {
+  font-size: .7rem;
+  color: var(--muted);
+}
+.pred-btns {
+  display: flex;
+  gap: .4rem;
+  flex-shrink: 0;
+}
+.pred-btn {
+  padding: .3rem .75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+  font-family: 'DM Sans', sans-serif;
+  white-space: nowrap;
+}
+.pred-btn:hover:not(:disabled) {
+  border-color: var(--gold);
+  color: var(--text);
+  background: rgba(255,214,0,.06);
+}
+.pred-btn.selected-t1 {
+  background: linear-gradient(135deg, rgba(0,200,83,.15), rgba(0,200,83,.08));
+  border-color: var(--green);
+  color: var(--green);
+}
+.pred-btn.selected-t2 {
+  background: linear-gradient(135deg, rgba(162,89,255,.15), rgba(162,89,255,.08));
+  border-color: var(--purple);
+  color: var(--purple);
+}
+.pred-btn:disabled { cursor: not-allowed; opacity: .5; }
+.pred-result-chip {
+  font-size: .65rem;
+  padding: .2rem .5rem;
+  border-radius: 5px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pred-result-chip.correct { background: rgba(0,200,83,.15); color: var(--green); }
+.pred-result-chip.wrong   { background: rgba(255,23,68,.12); color: var(--red); }
+.pred-result-chip.pending { background: rgba(255,214,0,.1);  color: var(--gold); }
+.pred-result-chip.locked  { background: rgba(255,255,255,.06); color: var(--muted); }
+.pred-standings-table { width: 100%; border-collapse: collapse; }
+.pred-standings-table th {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--muted); padding: .5rem .8rem;
+  border-bottom: 1px solid var(--border); text-align: left; font-weight: 600;
+}
+.pred-standings-table td {
+  padding: .6rem .8rem; border-bottom: 1px solid rgba(255,255,255,.04);
+  font-size: .85rem;
+}
+.pred-standings-table tr.is-me td { background: rgba(0,200,83,.04); }
+.pred-standings-table tr.rank-1 td:first-child { color: var(--gold); font-weight: 700; }
+.pred-all-grid { overflow-x: auto; }
+.pred-all-table { border-collapse: collapse; font-size: .75rem; min-width: 100%; }
+.pred-all-table th, .pred-all-table td {
+  padding: .35rem .5rem; border: 1px solid rgba(255,255,255,.06); white-space: nowrap;
+}
+.pred-all-table th { background: var(--card); color: var(--muted); font-size:.65rem; letter-spacing:1px; text-transform:uppercase; }
+.pred-all-table td.pick-correct { color: var(--green); }
+.pred-all-table td.pick-wrong   { color: var(--red); }
+.pred-all-table td.pick-none    { color: rgba(255,255,255,.15); }
+.pred-manage-match {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: .7rem 1rem; margin-bottom: .4rem;
+  display: flex; align-items: center; gap: .8rem; flex-wrap: wrap;
+}
+.pred-manage-title { flex: 1; font-size: .85rem; font-weight: 600; min-width: 180px; }
+.pred-manage-meta  { font-size: .7rem; color: var(--muted); margin-top: .1rem; }
+.pred-result-sel   { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: .25rem .5rem; font-size: .78rem; }
+.pred-lock-btn {
+  padding: .25rem .6rem; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-size: .7rem; cursor: pointer;
+}
+.pred-lock-btn.locked { border-color: rgba(255,23,68,.3); color: var(--red); }
+.pred-summary-bar {
+  display: flex; gap: 1.2rem; padding: .7rem 1rem;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; margin-bottom: 1rem; flex-wrap: wrap;
+}
+.pred-summary-stat { text-align: center; }
+.pred-summary-val  { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; letter-spacing: 1px; }
+.pred-summary-label { font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
 @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(12px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
 
 
@@ -493,6 +643,7 @@ body.admin-visible .admin-only{display:block;}
   <button class="tab-btn" onclick="showScreen('leaderboard',this)">🏆 Leaderboard</button>
   <button class="tab-btn" onclick="showScreen('scoring',this)">📊 Scoring</button>
   <button class="tab-btn" onclick="showScreen('chat',this);initChat()">🤖 AI Chat</button>
+  <button class="tab-btn" id="predictionsTab" onclick="showScreen('predictions',this);loadPredictions()">🔮 Predictions</button>
   <button class="tab-btn admin-only" id="settingsTab" onclick="showScreen('settings',this)" style="display:none">⚙️ Settings</button>
 </nav>
 
@@ -656,6 +807,11 @@ body.admin-visible .admin-only{display:block;}
   </div>
   <div class="subsection">Match History</div>
   <div id="matchLog" class="match-log"><div class="empty-state">No matches scored yet.</div></div>
+
+  <div style="margin-top:2rem">
+    <div class="subsection" style="margin-bottom:.6rem">🔮 Predictions Leaderboard</div>
+    <div id="predScoringSection"><div class="empty-state">No completed matches yet.</div></div>
+  </div>
 </div>
 
 <!-- LEADERBOARD -->
@@ -715,6 +871,39 @@ body.admin-visible .admin-only{display:block;}
 </div>
 
 <!-- SETTINGS -->
+<div id="screen-predictions" class="screen">
+  <div class="screen-header">
+    <span class="screen-icon">🔮</span>
+    <div>
+      <div class="screen-title">PREDICTIONS</div>
+      <div class="screen-sub">Pick winners for every IPL match</div>
+    </div>
+  </div>
+
+  <div class="sub-tab-bar" style="margin-bottom:1rem">
+    <button class="sub-tab active" id="spred-mypicks" onclick="showPredSubTab('mypicks',this)">🎯 My Picks</button>
+    <button class="sub-tab" id="spred-standings" onclick="showPredSubTab('standings',this)">🏆 Standings</button>
+    <button class="sub-tab admin-only" id="spred-allpicks" onclick="showPredSubTab('allpicks',this)" style="display:none">📋 All Picks</button>
+    <button class="sub-tab admin-only" id="spred-manage" onclick="showPredSubTab('manage',this)" style="display:none">⚙️ Manage</button>
+  </div>
+
+  <div id="pred-mypicks">
+    <div id="predMyPicksContent"><div class="empty-state">Loading schedule…</div></div>
+  </div>
+
+  <div id="pred-standings" style="display:none">
+    <div id="predStandingsContent"><div class="empty-state">Loading…</div></div>
+  </div>
+
+  <div id="pred-allpicks" style="display:none">
+    <div id="predAllPicksContent"><div class="empty-state">Loading…</div></div>
+  </div>
+
+  <div id="pred-manage" style="display:none">
+    <div id="predManageContent"></div>
+  </div>
+</div>
+
 <div id="screen-settings" class="screen">
   <div class="section-title">⚙️ Settings</div>
 
@@ -1015,6 +1204,10 @@ let state = {
   seasonScores: {},   // player_name -> {runs,wickets,catches,runouts,stumpings,motm}
   teamWins: {},       // team_key -> {wins, draws}
   draftableTeams: {}, // team_key -> team_name (from squads is_team=true rows)
+  matchSchedule:  [],  // array of match objects from match_schedule table
+  myPredictions:  {},  // match_id -> 'team1'|'team2'
+  allPredictions: {},  // match_id -> {participantId: 'team1'|'team2'}
+  predSubTab: 'mypicks', // 'mypicks'|'standings'|'allpicks'
   matchHistory: [],
   swapHistory: [],
   activeParticipant: null,
@@ -1699,7 +1892,11 @@ function renderParticipantListWithLock() {
 }
 
 function renderDraftGridWithLock() {
+  // Save scroll position — full innerHTML rebuild resets it to top
+  const scrollY = window.scrollY || window.pageYOffset || 0;
   renderDraftGrid();
+  // Restore after rebuild (use requestAnimationFrame so DOM has painted)
+  if (scrollY > 0) requestAnimationFrame(() => window.scrollTo(0, scrollY));
   const grid = document.getElementById('teamDraftGrid');
   if (!grid) return;
 
@@ -4692,6 +4889,9 @@ function refreshSubTabVisibility() {
   document.querySelectorAll('.sub-tab.admin-only').forEach(el => {
     el.style.display = isAdmin ? 'inline-flex' : 'none';
   });
+  // Predictions tab always visible to all users
+  const predTab = document.getElementById('predictionsTab');
+  if (predTab) predTab.style.display = 'inline-flex';
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5384,10 +5584,466 @@ function showScreen(name,btn) {
   }
 
   if (name==='leaderboard') renderLeaderboard();
-  if (name==='scoring') renderMatchLog();
+  if (name==='scoring') { renderMatchLog(); renderPredictionsScoring(); }
   if (name==='settings') initAvailabilityManager();
   if (name==='rosters') renderRosters();
 }
+
+// ═══════════════════════════════════════════════════════
+// PREDICTIONS
+// ═══════════════════════════════════════════════════════
+
+async function loadPredictions() {
+  if (!currentUser) return;
+  try {
+    setSyncStatus('loading', 'Loading predictions…');
+    const [schedule, myPreds, allPreds] = await Promise.all([
+      dbGet('match_schedule', `?mode=eq.${state.mode}&order=match_num.asc`),
+      dbGet('predictions', `?mode=eq.${state.mode}`),
+      currentUser.isAdmin
+        ? dbGet('predictions', `?mode=eq.${state.mode}`)
+        : Promise.resolve([])
+    ]);
+    state.matchSchedule = schedule || [];
+    // My predictions: match_id -> 'team1'|'team2'
+    const myId = state.participants.find(p => p.name.toLowerCase() === currentUser.participantName?.toLowerCase())?.id;
+    state.myPredictions = {};
+    (myPreds || []).filter(p => p.participant_id === myId).forEach(p => {
+      state.myPredictions[p.match_id] = p.predicted_winner;
+    });
+    // All predictions: match_id -> {participantId: pick}
+    state.allPredictions = {};
+    (allPreds || []).forEach(p => {
+      if (!state.allPredictions[p.match_id]) state.allPredictions[p.match_id] = {};
+      state.allPredictions[p.match_id][p.participant_id] = p.predicted_winner;
+    });
+    setSyncStatus('ok', 'Synced');
+    renderPredSubTab();
+  } catch(e) {
+    setSyncStatus('err', 'Failed');
+    console.error('loadPredictions error:', e);
+  }
+}
+
+function showPredSubTab(name, btn) {
+  state.predSubTab = name;
+  document.querySelectorAll('.sub-tab').forEach(b => {
+    if (b.id && b.id.startsWith('spred-')) b.classList.remove('active');
+  });
+  if (btn) btn.classList.add('active');
+  ['mypicks','standings','allpicks','manage'].forEach(t => {
+    const el = document.getElementById(`pred-${t}`);
+    if (el) el.style.display = t === name ? 'block' : 'none';
+  });
+  renderPredSubTab();
+}
+
+function renderPredSubTab() {
+  const t = state.predSubTab;
+  if (t === 'mypicks')   renderMyPicks();
+  if (t === 'standings') renderPredStandings();
+  if (t === 'allpicks')  renderAllPicks();
+  if (t === 'manage')    renderPredManage();
+}
+
+// ── MY PICKS ─────────────────────────────────────────────
+function renderMyPicks() {
+  const el = document.getElementById('predMyPicksContent');
+  if (!el) return;
+  if (!state.matchSchedule.length) {
+    el.innerHTML = '<div class="empty-state">No schedule loaded yet. Admin needs to load the IPL schedule.</div>';
+    return;
+  }
+
+  const myId = state.participants.find(p => p.name.toLowerCase() === currentUser?.participantName?.toLowerCase())?.id;
+
+  // Count summary
+  let total=0, picked=0, correct=0, wrong=0, pending=0;
+  state.matchSchedule.forEach(m => {
+    if (!m.team1 || !m.team2) return; // TBD playoff match
+    total++;
+    const myPick = state.myPredictions[m.id];
+    if (myPick) {
+      picked++;
+      if (m.result) {
+        if (myPick === m.result) correct++;
+        else wrong++;
+      } else pending++;
+    }
+  });
+  const pts = correct - wrong;
+
+  // Summary bar
+  let html = `<div class="pred-summary-bar">
+    <div class="pred-summary-stat"><div class="pred-summary-val" style="color:var(--green)">${correct}</div><div class="pred-summary-label">Correct</div></div>
+    <div class="pred-summary-stat"><div class="pred-summary-val" style="color:var(--red)">${wrong}</div><div class="pred-summary-label">Wrong</div></div>
+    <div class="pred-summary-stat"><div class="pred-summary-val" style="color:var(--gold)">${pts >= 0 ? '+' : ''}${pts}</div><div class="pred-summary-label">Points</div></div>
+    <div class="pred-summary-stat"><div class="pred-summary-val">${picked}/${total}</div><div class="pred-summary-label">Picked</div></div>
+  </div>`;
+
+  // Group by stage then date
+  const stages = ['league','qualifier1','eliminator','qualifier2','semifinal','final'];
+  const stageLabels = {
+    league:'League Stage', qualifier1:'Qualifier 1', eliminator:'Eliminator',
+    qualifier2:'Qualifier 2', semifinal:'Semi-Finals', final:'Final'
+  };
+
+  stages.forEach(stage => {
+    const matches = state.matchSchedule.filter(m => m.stage === stage);
+    if (!matches.length) return;
+
+    html += `<div class="pred-stage-header">📅 ${stageLabels[stage]||stage.toUpperCase()}</div>`;
+
+    // Group by date
+    const byDate = {};
+    matches.forEach(m => {
+      const d = m.match_date || 'TBD';
+      if (!byDate[d]) byDate[d] = [];
+      byDate[d].push(m);
+    });
+
+    Object.entries(byDate).forEach(([date, dayMatches]) => {
+      html += `<div class="pred-date-group"><div class="pred-date-label">${date}</div>`;
+      dayMatches.forEach(m => {
+        html += buildMatchCard(m, myId);
+      });
+      html += '</div>';
+    });
+  });
+
+  el.innerHTML = html;
+}
+
+function buildMatchCard(m, myId) {
+  const myPick = state.myPredictions[m.id];
+  const isLocked = m.locked || !!m.result;
+  const hasResult = !!m.result;
+
+  // TBD playoff — teams not yet known
+  if (!m.team1 || !m.team2) {
+    return `<div class="pred-match-card locked">
+      <div class="pred-match-num">${m.match_num}</div>
+      <div class="pred-teams">
+        <div class="pred-match-title">${m.team1_name||'TBD'} vs ${m.team2_name||'TBD'}</div>
+        <div class="pred-match-meta">${m.match_date} · ${m.match_time||''}</div>
+      </div>
+      <span class="pred-result-chip locked">Teams TBD</span>
+    </div>`;
+  }
+
+  // Result chip
+  let chip = '';
+  if (hasResult) {
+    const winnerName = m.result === 'team1' ? (m.team1_name||m.team1) : (m.team2_name||m.team2);
+    if (myPick) {
+      const isCorrect = myPick === m.result;
+      chip = `<span class="pred-result-chip ${isCorrect?'correct':'wrong'}">${isCorrect?'✓ +1':'✗ −1'} · ${winnerName} won</span>`;
+    } else {
+      chip = `<span class="pred-result-chip pending">${winnerName} won</span>`;
+    }
+  } else if (isLocked) {
+    chip = `<span class="pred-result-chip locked">🔒 Locked</span>`;
+  }
+
+  const cardClass = hasResult && myPick ? (myPick === m.result ? 'correct' : 'wrong') : (isLocked ? 'locked' : '');
+
+  const t1Sel = myPick === 'team1' ? 'selected-t1' : '';
+  const t2Sel = myPick === 'team2' ? 'selected-t2' : '';
+  const disAttr = isLocked ? 'disabled' : '';
+
+  return `<div class="pred-match-card ${cardClass}">
+    <div class="pred-match-num">${m.match_num}</div>
+    <div class="pred-teams">
+      <div class="pred-match-title">${m.team1_name||m.team1} vs ${m.team2_name||m.team2}</div>
+      <div class="pred-match-meta">${m.match_date} · ${m.match_time||''} ${m.venue ? '· '+m.venue.split(',')[0] : ''}</div>
+    </div>
+    <div class="pred-btns">
+      <button class="pred-btn ${t1Sel}" ${disAttr} onclick="savePrediction(${m.id},'team1',this)">
+        ${m.team1}
+      </button>
+      <button class="pred-btn ${t2Sel}" ${disAttr} onclick="savePrediction(${m.id},'team2',this)">
+        ${m.team2}
+      </button>
+    </div>
+    ${chip}
+  </div>`;
+}
+
+async function savePrediction(matchId, pick, btnEl) {
+  if (!currentUser) return;
+  const myPart = state.participants.find(p => p.name.toLowerCase() === currentUser.participantName?.toLowerCase());
+  if (!myPart) { showToast('Could not find your participant entry.', 'warn'); return; }
+  const m = state.matchSchedule.find(x => x.id === matchId);
+  if (!m) return;
+  if (m.locked || m.result) { showToast('This match is locked — no more changes.', 'warn'); return; }
+
+  const prevPick = state.myPredictions[matchId];
+  const isToggleOff = prevPick === pick; // clicking same = clear pick
+  const newPick = isToggleOff ? null : pick;
+
+  // Optimistic UI update
+  if (newPick) state.myPredictions[matchId] = newPick;
+  else delete state.myPredictions[matchId];
+  renderMyPicks();
+
+  try {
+    if (newPick) {
+      // Upsert (insert or update)
+      await sb('POST', 'predictions',
+        { participant_id: myPart.id, match_id: matchId, predicted_winner: newPick, mode: state.mode },
+        '',
+        { 'Prefer': 'return=minimal,resolution=merge-duplicates' }
+      );
+    } else {
+      // Remove prediction
+      await dbDelete('predictions', `?participant_id=eq.${myPart.id}&match_id=eq.${matchId}`);
+    }
+  } catch(e) {
+    // Revert on failure
+    if (prevPick) state.myPredictions[matchId] = prevPick;
+    else delete state.myPredictions[matchId];
+    showToast('Save failed: ' + e.message, 'err');
+    renderMyPicks();
+  }
+}
+
+// ── STANDINGS ─────────────────────────────────────────────
+function renderPredStandings() {
+  const el = document.getElementById('predStandingsContent');
+  if (!el) return;
+  if (!state.matchSchedule.length) {
+    el.innerHTML = '<div class="empty-state">No schedule loaded yet.</div>';
+    return;
+  }
+
+  // Need all predictions — reload if admin, otherwise only have own
+  // For standings we need all participants' predictions
+  // Re-fetch all predictions
+  loadAllPredictionsForStandings().then(allPreds => {
+    const myName = currentUser?.participantName?.toLowerCase();
+    const rows = state.participants.map(p => {
+      let correct = 0, wrong = 0, picked = 0;
+      state.matchSchedule.forEach(m => {
+        if (!m.result) return;
+        const pred = allPreds[m.id]?.[p.id];
+        if (!pred) return;
+        picked++;
+        if (pred === m.result) correct++;
+        else wrong++;
+      });
+      return { name: p.name, id: p.id, correct, wrong, picked, pts: correct - wrong };
+    }).sort((a,b) => b.pts - a.pts || b.correct - a.correct);
+
+    const myRank = rows.findIndex(r => r.name.toLowerCase() === myName) + 1;
+    const completedMatches = state.matchSchedule.filter(m => !!m.result).length;
+
+    let html = `<div style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">
+      ${completedMatches} matches completed · Correct picks +1 · Wrong picks −1
+    </div>
+    <table class="pred-standings-table">
+      <thead><tr>
+        <th>#</th><th>Player</th><th style="text-align:right">✓</th>
+        <th style="text-align:right">✗</th><th style="text-align:right">Pts</th>
+        <th style="text-align:right">Picked</th>
+      </tr></thead><tbody>`;
+
+    rows.forEach((r, i) => {
+      const isMe = r.name.toLowerCase() === myName;
+      const medal = ['🥇','🥈','🥉'][i] || (i+1);
+      html += `<tr class="${isMe?'is-me':''}">
+        <td>${medal}</td>
+        <td><strong>${r.name}</strong>${isMe?' <span style="font-size:.65rem;color:var(--green)">(YOU)</span>':''}</td>
+        <td style="text-align:right;color:var(--green)">${r.correct}</td>
+        <td style="text-align:right;color:var(--red)">${r.wrong}</td>
+        <td style="text-align:right;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${r.pts>=0?'var(--gold)':'var(--red)'}">${r.pts>=0?'+':''}${r.pts}</td>
+        <td style="text-align:right;color:var(--muted)">${r.picked}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }).catch(() => {
+    el.innerHTML = '<div class="empty-state">Could not load standings.</div>';
+  });
+}
+
+async function loadAllPredictionsForStandings() {
+  const allPreds = await dbGet('predictions', `?mode=eq.${state.mode}`);
+  const byMatch = {};
+  (allPreds||[]).forEach(p => {
+    if (!byMatch[p.match_id]) byMatch[p.match_id] = {};
+    byMatch[p.match_id][p.participant_id] = p.predicted_winner;
+  });
+  return byMatch;
+}
+
+// ── ALL PICKS (admin) ─────────────────────────────────────
+function renderAllPicks() {
+  const el = document.getElementById('predAllPicksContent');
+  if (!el) return;
+  if (!currentUser?.isAdmin) { el.innerHTML = '<div class="empty-state">Admin only.</div>'; return; }
+  loadAllPredictionsForStandings().then(allPreds => {
+    const completedMatches = state.matchSchedule.filter(m => m.result || m.locked);
+    const participants = state.participants;
+    if (!participants.length) { el.innerHTML = '<div class="empty-state">No participants.</div>'; return; }
+
+    // Build table: rows=matches, cols=participants
+    let html = '<div class="pred-all-grid"><table class="pred-all-table"><thead><tr><th>Match</th><th>Date</th><th>Teams</th><th>Result</th>';
+    participants.forEach(p => { html += `<th>${p.name}</th>`; });
+    html += '</tr></thead><tbody>';
+
+    state.matchSchedule.filter(m => m.team1 && m.team2).forEach(m => {
+      const resultLabel = m.result === 'team1' ? m.team1 : m.result === 'team2' ? m.team2 : '—';
+      html += `<tr><td>#${m.match_num}</td><td>${m.match_date}</td><td>${m.team1} vs ${m.team2}</td><td>${resultLabel}</td>`;
+      participants.forEach(p => {
+        const pred = allPreds[m.id]?.[p.id];
+        if (!pred) { html += `<td class="pick-none">—</td>`; return; }
+        const teamKey = pred === 'team1' ? m.team1 : m.team2;
+        let cls = 'pick-none';
+        if (m.result) cls = pred === m.result ? 'pick-correct' : 'pick-wrong';
+        html += `<td class="${cls}">${teamKey}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+  });
+}
+
+// ── MANAGE (admin) ────────────────────────────────────────
+function renderPredManage() {
+  const el = document.getElementById('predManageContent');
+  if (!el || !currentUser?.isAdmin) return;
+
+  let html = `<div style="font-size:.82rem;color:var(--muted);margin-bottom:.8rem">
+    Set match results and lock/unlock matches.
+    Locking prevents participants from changing predictions.
+  </div>`;
+
+  state.matchSchedule.filter(m => m.team1 && m.team2).forEach(m => {
+    const resultLabel = m.result === 'team1' ? m.team1 : m.result === 'team2' ? m.team2 : '';
+    html += `<div class="pred-manage-match">
+      <div class="pred-manage-title">
+        <div>#${m.match_num} · ${m.team1} vs ${m.team2}</div>
+        <div class="pred-manage-meta">${m.match_date} · ${m.match_time||''}</div>
+      </div>
+      <select class="pred-result-sel" id="predRes_${m.id}" onchange="setPredResult(${m.id},this.value)">
+        <option value="">— No result —</option>
+        <option value="team1" ${m.result==='team1'?'selected':''}>${m.team1} won</option>
+        <option value="team2" ${m.result==='team2'?'selected':''}>${m.team2} won</option>
+      </select>
+      <button class="pred-lock-btn ${m.locked?'locked':''}" onclick="togglePredLock(${m.id})">
+        ${m.locked ? '🔒 Locked' : '🔓 Unlock'}
+      </button>
+    </div>`;
+  });
+
+  // Playoff team assignment
+  const playoffMatches = state.matchSchedule.filter(m => m.stage !== 'league');
+  if (playoffMatches.length) {
+    html += `<div class="pred-stage-header" style="margin-top:1.5rem">⚡ Playoff Teams</div>
+    <div style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">
+      Once playoff teams are known, enter them here to unlock predictions.
+    </div>`;
+    playoffMatches.forEach(m => {
+      html += `<div class="pred-manage-match">
+        <div class="pred-manage-title">
+          <div>#${m.match_num} · ${m.stage.toUpperCase()}</div>
+          <div class="pred-manage-meta">${m.match_date}</div>
+        </div>
+        <input type="text" placeholder="Team 1 key (e.g. CSK)" value="${m.team1||''}"
+          style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.25rem .5rem;font-size:.78rem;width:90px"
+          onchange="updatePlayoffTeam(${m.id},'team1',this.value)">
+        <span style="color:var(--muted)">vs</span>
+        <input type="text" placeholder="Team 2 key (e.g. MI)" value="${m.team2||''}"
+          style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.25rem .5rem;font-size:.78rem;width:90px"
+          onchange="updatePlayoffTeam(${m.id},'team2',this.value)">
+        <button class="btn btn-sm" onclick="savePlayoffTeams(${m.id})" style="font-size:.72rem;padding:.25rem .6rem">Save</button>
+      </div>`;
+    });
+  }
+  el.innerHTML = html;
+}
+
+async function setPredResult(matchId, result) {
+  const m = state.matchSchedule.find(x => x.id === matchId);
+  if (!m) return;
+  try {
+    await dbPatch('match_schedule', { result: result || null, locked: !!result }, `?id=eq.${matchId}`);
+    m.result = result || null;
+    m.locked = !!result;
+    showToast(`Match #${m.match_num} result set: ${result ? (result==='team1'?m.team1:m.team2)+' won' : 'cleared'}`, 'ok');
+    renderPredManage();
+  } catch(e) { showToast('Save failed: ' + e.message, 'err'); }
+}
+
+async function togglePredLock(matchId) {
+  const m = state.matchSchedule.find(x => x.id === matchId);
+  if (!m) return;
+  const newLocked = !m.locked;
+  try {
+    await dbPatch('match_schedule', { locked: newLocked }, `?id=eq.${matchId}`);
+    m.locked = newLocked;
+    showToast(`Match #${m.match_num} ${newLocked ? 'locked' : 'unlocked'}`, 'ok');
+    renderPredManage();
+  } catch(e) { showToast('Save failed: ' + e.message, 'err'); }
+}
+
+async function savePlayoffTeams(matchId) {
+  const m = state.matchSchedule.find(x => x.id === matchId);
+  if (!m) return;
+  const t1 = m.team1?.trim().toUpperCase();
+  const t2 = m.team2?.trim().toUpperCase();
+  if (!t1 || !t2) { showToast('Enter both team keys first.', 'warn'); return; }
+  const t1Name = (state.draftableTeams||{})[t1] || IPL_TEAMS[t1]?.name || t1;
+  const t2Name = (state.draftableTeams||{})[t2] || IPL_TEAMS[t2]?.name || t2;
+  try {
+    await dbPatch('match_schedule', { team1:t1, team2:t2, team1_name:t1Name, team2_name:t2Name }, `?id=eq.${matchId}`);
+    m.team1 = t1; m.team2 = t2; m.team1_name = t1Name; m.team2_name = t2Name;
+    showToast(`Playoff teams saved: ${t1} vs ${t2}`, 'ok');
+    renderPredManage();
+  } catch(e) { showToast('Save failed: ' + e.message, 'err'); }
+}
+
+function updatePlayoffTeam(matchId, field, value) {
+  const m = state.matchSchedule.find(x => x.id === matchId);
+  if (m) m[field] = value.trim().toUpperCase();
+}
+
+// ── PREDICTIONS SCORING (for Scoring tab) ─────────────────
+async function renderPredictionsScoring() {
+  const el = document.getElementById('predScoringSection');
+  if (!el) return;
+  const allPreds = await loadAllPredictionsForStandings().catch(() => ({}));
+  const completedMatches = state.matchSchedule.filter(m => !!m.result);
+  if (!completedMatches.length) {
+    el.innerHTML = '<div class="empty-state">No completed matches yet.</div>';
+    return;
+  }
+  const rows = state.participants.map(p => {
+    let correct=0, wrong=0;
+    completedMatches.forEach(m => {
+      const pred = allPreds[m.id]?.[p.id];
+      if (!pred) return;
+      if (pred === m.result) correct++;
+      else wrong++;
+    });
+    return { name:p.name, correct, wrong, pts:correct-wrong };
+  }).sort((a,b) => b.pts-a.pts);
+
+  let html = `<table class="pred-standings-table">
+    <thead><tr><th>#</th><th>Player</th><th style="text-align:right">Correct</th><th style="text-align:right">Wrong</th><th style="text-align:right">Pts</th></tr></thead><tbody>`;
+  rows.forEach((r,i) => {
+    const medal = ['🥇','🥈','🥉'][i]||(i+1);
+    html += `<tr><td>${medal}</td><td>${r.name}</td>
+      <td style="text-align:right;color:var(--green)">${r.correct}</td>
+      <td style="text-align:right;color:var(--red)">${r.wrong}</td>
+      <td style="text-align:right;color:${r.pts>=0?'var(--gold)':'var(--red)'};font-family:'Bebas Neue',sans-serif;font-size:1.1rem">${r.pts>=0?'+':''}${r.pts}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
 // ═══════════════════════════════════════════════════════
 // BOOT — check login then load from Supabase
 // ═══════════════════════════════════════════════════════
