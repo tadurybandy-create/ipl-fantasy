@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>⚡ Cricket Fantasy League</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1034,7 +1037,14 @@ let state = {
 
 
 // ── AUTH — Google OAuth via Supabase ─────────────────────────────────────────
-const _supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const _supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: true,          // store session in localStorage
+    autoRefreshToken: true,        // auto-refresh before expiry
+    detectSessionInUrl: true,      // pick up OAuth redirect tokens from URL
+    storageKey: 'fantasy-cricket-session', // explicit key so it survives refreshes
+  }
+});
 let currentUser = null; // { email, name, isAdmin, participantName }
 
 async function initAuth() {
@@ -1046,16 +1056,30 @@ async function initAuth() {
     } else if (event === 'TOKEN_REFRESHED' && session) {
       if (session.access_token) _sessionToken = session.access_token;
     } else if (event === 'SIGNED_OUT') {
-      _sessionToken = null;
-      currentUser = null;
-      showLoginOverlay();
+      // Small delay — sometimes Supabase fires SIGNED_OUT transiently
+      // during tab restore while it's still loading from localStorage.
+      // Re-check the session before fully signing out.
+      setTimeout(async () => {
+        const { data: { session: recheck } } = await _supaClient.auth.getSession();
+        if (recheck && recheck.user) {
+          // Session is actually still valid — was a transient event, ignore
+          if (recheck.access_token) _sessionToken = recheck.access_token;
+          return;
+        }
+        _sessionToken = null;
+        currentUser = null;
+        showLoginOverlay();
+      }, 1500);
     }
   });
-  // Then check for existing session (handles page refresh while logged in)
+  // Check for existing session — handles page refresh while logged in
+  // Supabase automatically restores from localStorage if persistSession=true
   const { data: { session } } = await _supaClient.auth.getSession();
   if (session && session.user) {
+    if (session.access_token) _sessionToken = session.access_token;
     await handleAuthUser(session.user);
   } else {
+    // No session in storage — show login
     showLoginOverlay();
   }
 }
@@ -1298,6 +1322,7 @@ async function loadAll() {
     const ds = (draftStateRes||[])[0];
     if (ds) {
       state.draftActive = ds.active || false;
+      state._draftWasActiveLastPoll = ds.active || false; // track for next poll skip check
       state.draftOrder = ds.order ? JSON.parse(ds.order) : [];
       state.draftRound = ds.round || 1;
       state.draftPickIdx = ds.pick_idx || 0;
@@ -1485,8 +1510,28 @@ async function confirmPickAndAdvance() {
     setSyncStatus('loading', 'Saving…');
     const ctp = state.currentTurnPick;
     if (ctp && !ctp.isTeam) {
-      // Player pick
+      // Player pick — FRESH DB CHECK before inserting to prevent race condition
+      // where two people see the same player as available due to stale poll state
       const teamKey = ctp.teamKey, player = ctp.player;
+      const freshPicks = await dbGet('picks', `?player_name=eq.${encodeURIComponent(player)}&is_active=eq.true&mode=eq.${state.mode}&is_team_pick=eq.false`).catch(()=>[]);
+      const alreadyDrafted = (freshPicks||[]).length;
+      if (alreadyDrafted >= MAX_PLAYER_DRAFTS) {
+        // Player was drafted by someone else while this person was picking
+        showToast(`${player} was just drafted — already at ${MAX_PLAYER_DRAFTS} picks. Please choose another player.`, 'err', 5000);
+        // Force a poll refresh so grid updates immediately
+        window._pollForceRefresh = true;
+        state.madePickThisTurn = false;
+        state.currentTurnPick = null;
+        // Remove the local pending pick from the grid
+        delete p.picks[teamKey];
+        delete p.pickOrder[teamKey];
+        renderDraftGridWithLock();
+        renderPicksSummary();
+        showConfirmPickBtn();
+        if (btn) { btn.disabled = false; btn.textContent = '✅ CONFIRM PICK & END TURN'; }
+        setSyncStatus('warn', 'Pick conflict — refresh');
+        return;
+      }
       if (p.picks[teamKey]) {
         await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
       }
@@ -1867,15 +1912,23 @@ function startDraftPolling() {
   if (draftPollInterval) return;
   draftPollInterval = setInterval(async () => {
     if (window._pollRunning) return; // prevent overlapping polls
-    if (!state.draftActive && !document.getElementById('screen-draft')?.classList.contains('active')) return;
+    // Always poll if draft is active (either locally or per DB from last check)
+    // Don't skip based on which tab they're on — stale picks caused Krunal-style bugs
+    const onDraftScreen = document.getElementById('screen-draft')?.classList.contains('active');
+    if (!state.draftActive && !onDraftScreen && !state._draftWasActiveLastPoll) return;
     window._pollRunning = true;
     const res = await dbGet('draft_state', `?mode=eq.${state.mode}&id=eq.1`).catch(() => null);
     const ds = (res||[])[0];
     if (!ds) { window._pollRunning = false; return; }
     const changed = ds.round !== state.draftRound || ds.pick_idx !== state.draftPickIdx || ds.active !== state.draftActive;
 
-    if (!changed && !window._pollForceRefresh) { window._pollRunning = false; return; }
-    if (changed || window._pollForceRefresh) {
+    // During active draft: ALWAYS reload picks on every poll tick
+    // This ensures player availability (full/available) is always fresh.
+    // Prevents race condition where two people see the same player available.
+    const alwaysReload = state.draftActive || ds.active;
+
+    if (!changed && !alwaysReload && !window._pollForceRefresh) { window._pollRunning = false; return; }
+    if (changed || alwaysReload || window._pollForceRefresh) {
       window._pollForceRefresh = false;
       // Capture old round BEFORE updating state
       const prevRound = state.draftRound;
@@ -1967,6 +2020,11 @@ function startDraftPolling() {
       renderDraftGridWithLock();
       renderPicksSummary();
       showConfirmPickBtn();
+      // If board tab is currently visible, keep it live
+      const boardPane = document.getElementById('sub-draft-board');
+      if (boardPane && boardPane.style.display !== 'none') {
+        renderPickHistory();
+      }
       window._pollRunning = false;
       // Notify if it just became my turn
       const nowPicker = draftCurrentPicker();
@@ -2073,7 +2131,7 @@ async function addParticipant() {
     setSyncStatus('ok','Synced');
     renderParticipantList();
     setActiveParticipant(state.participants.length-1);
-  } catch(e) { setSyncStatus('err','Save failed'); alert(e.message); }
+  } catch(e) { setSyncStatus('err','Save failed'); showToast(e.message, 'err'); }
 }
 
 function renderParticipantList() {
@@ -2410,13 +2468,24 @@ async function toggleTeamPick(teamKey) {
     }
   }
 
+  // Verify team exists in draftableTeams (loaded from squads table)
+  if (!isDeselect && Object.keys(state.draftableTeams||{}).length > 0 && !(state.draftableTeams||{})[teamKey]) {
+    showToast(`${teamKey} not available to draft.`,'warn'); return;
+  }
+
   if (!isDeselect && (tc[teamKey]||0) >= MAX_TEAM_DRAFTS) {
-    showToast(`${IPL_TEAMS[teamKey].name} already drafted ${MAX_TEAM_DRAFTS} times.`,'warn'); return;
+    showToast(`${(state.draftableTeams||{})[teamKey]||teamKey} already drafted ${MAX_TEAM_DRAFTS} times.`,'warn'); return;
+  }
+
+  // Block if participant already has a team from a previous confirmed round
+  if (!isDeselect && p.teamPick && state.draftActive && !draftIsComplete() &&
+      (!state.currentTurnPick || !state.currentTurnPick.isTeam)) {
+    showToast('You already have a team drafted.','warn'); return;
   }
 
   // STRICT: one pick per turn
   if (!isDeselect && state.draftActive && state.madePickThisTurn) {
-    showToast("Already picked this turn — deselect first.",'warn');
+    showToast('Already picked this turn — deselect first.','warn');
     return;
   }
 
@@ -2709,7 +2778,7 @@ async function executeTeamSwap(participantIdx) {
     renderRedraftScreen();
     renderLeaderboard();
     if (document.getElementById('screen-rosters')?.classList.contains('active')) renderRosters();
-  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); alert(e.message); }
+  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); showToast(e.message, 'err'); }
 }
 
 async function executeSwap(participantIdx, teamKey) {
@@ -2725,7 +2794,7 @@ async function executeSwap(participantIdx, teamKey) {
   if (state.mode !== 'worldcup') {
     const newPlayerObj = (IPL_TEAMS[teamKey]?.players||[]).find(pl => pl.name === newPlayer);
     if (newPlayerObj?.foreign && countForeignPicks(p, teamKey) >= MAX_FOREIGN_PER_FANTASY) {
-      alert(`Can't swap in ${newPlayer} — ${p.name} already has ${MAX_FOREIGN_PER_FANTASY} foreign players!`);
+      showToast(`Can't swap in ${newPlayer} — ${p.name} already has ${MAX_FOREIGN_PER_FANTASY} foreign players!`, 'err');
       return;
     }
   }
@@ -2779,7 +2848,7 @@ async function executeSwap(participantIdx, teamKey) {
     renderRedraftScreen();
     renderParticipantList();
     renderLeaderboard();
-  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); alert(e.message); }
+  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); showToast(e.message, 'err'); }
 }
 
 function renderSwapHistory() {
@@ -3066,7 +3135,7 @@ async function applyMatch() {
     const newMatchId = matchRow.id;
     setImportStatus('success',`✓ Match applied! ${updates.length} player score(s) updated. <button class="btn-whatsapp" style="margin-left:.6rem" onclick="shareToWhatsApp('${newMatchId}')">📤 Share to WhatsApp</button>`);
     renderMatchLog(); renderLeaderboard();
-  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); alert(e.message); }
+  } catch(e) { setSyncStatus('err','Save failed'); console.error(e); showToast(e.message, 'err'); }
 }
 
 
@@ -4710,7 +4779,7 @@ async function adminUndoPickFor() {
   if (!target) return;
 
   const prevP = state.participants.find(p => p.name.toLowerCase() === target.toLowerCase().trim());
-  if (!prevP) { alert('Participant not found: ' + target); return; }
+  if (!prevP) { showToast('Participant not found: ' + target, 'err'); return; }
 
   // Find their most recent pick
   const pickEntries = Object.entries(prevP.pickOrder || {});
@@ -4798,7 +4867,7 @@ This will also roll back the draft turn.`)) return;
     updateDraftPickState();
   } catch(e) {
     setSyncStatus('err', 'Undo failed');
-    alert('Undo failed: ' + e.message);
+    showToast('Undo failed: ' + e.message, 'err');
     console.error(e);
   }
 }
@@ -5091,11 +5160,15 @@ function renderPickHistoryByRound(el, allPicks, n, myName, effectiveOrder) {
         const isCurrent = state.draftActive && state.draftRound === r &&
           draftCurrentPicker()?.toLowerCase() === name.toLowerCase();
         // Only dim empty slots in future rounds, not the current live round
-        const emptyStyle = r > state.draftRound ? 'opacity:.35;border-style:dashed' : '';
+        const emptyStyle = r > state.draftRound
+          ? 'opacity:.35;border-style:dashed'
+          : isCurrent ? 'border-color:rgba(0,200,83,.5);background:rgba(0,200,83,.06);animation:pickingPulse 1.5s infinite;' : '';
         html += `<div class="ph-pick-card" style="${emptyStyle}">
-          <div class="ph-pick-num">#${globalPickNum}</div>
-          <div class="ph-pick-player" style="color:var(--muted)">${isCurrent ? '⏳ Picking…' : '—'}</div>
-          <div class="ph-pick-owner">${isMe ? '<span style="color:var(--green)">YOU</span>' : name}</div>
+          <div class="ph-pick-num" style="${isCurrent?'color:var(--green)':''}">#${globalPickNum}</div>
+          <div class="ph-pick-player" style="color:${isCurrent?'var(--green)':'var(--muted)'}">
+            ${isCurrent ? '⏳ Picking…' : '—'}
+          </div>
+          <div class="ph-pick-owner">${isMe ? '<span style="color:var(--green);font-weight:600">YOU</span>' : name}</div>
         </div>`;
       }
     });
