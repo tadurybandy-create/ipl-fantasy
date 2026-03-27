@@ -3343,6 +3343,9 @@ async function applyMatch() {
     state.matchHistory.push(newMatch);
     applyMatchResultToTeamWins(newMatch, true);
 
+    // Auto-update match_schedule result for predictions
+    await updatePredictionMatchResult(imp.t1name, imp.t2name, state.pendingResult);
+
     setSyncStatus('ok','Synced');
 
     // Reset
@@ -5617,6 +5620,48 @@ function showScreen(name,btn) {
 // ═══════════════════════════════════════════════════════
 
 // Returns true if a match has started based on its date+time (IST = UTC+5:30)
+// Auto-update match_schedule result when a scorecard is applied
+async function updatePredictionMatchResult(t1name, t2name, result) {
+  if (!state.matchSchedule || !state.matchSchedule.length) return;
+  if (!result) return;
+
+  // Find matching match in schedule by team names (case-insensitive partial match)
+  const normalize = s => (s||'').toLowerCase().trim();
+  const t1n = normalize(t1name);
+  const t2n = normalize(t2name);
+
+  const match = state.matchSchedule.find(m => {
+    if (!m.team1_name || !m.team2_name) return false;
+    const m1 = normalize(m.team1_name);
+    const m2 = normalize(m.team2_name);
+    // Match if both team names appear (in either order)
+    return (m1.includes(t1n.split(' ')[0]) || t1n.includes(m1.split(' ')[0])) &&
+           (m2.includes(t2n.split(' ')[0]) || t2n.includes(m2.split(' ')[0]));
+  });
+
+  if (!match) {
+    console.log('updatePredictionMatchResult: no matching schedule entry for', t1name, 'vs', t2name);
+    return;
+  }
+
+  // Already has this result set — skip
+  if (match.result === result) return;
+
+  // Map pendingResult ('t1'/'t2'/'draw') to match_schedule result ('team1'/'team2'/'draw')
+  const scheduleResult = result === 't1' ? 'team1' : result === 't2' ? 'team2' : 'draw';
+
+  try {
+    await dbPatch('match_schedule', { result: scheduleResult, locked: true }, `?id=eq.${match.id}`);
+    match.result = scheduleResult;
+    match.locked = true;
+    console.log(`✓ Prediction result updated: Match #${match.match_num} → ${scheduleResult}`);
+    showToast(`Prediction result updated: Match #${match.match_num}`, 'ok');
+  } catch(e) {
+    console.error('updatePredictionMatchResult error:', e.message);
+    // Non-critical — don't block the scorecard apply
+  }
+}
+
 function matchHasStarted(m) {
   if (!m.match_date || !m.match_time) return false;
   try {
