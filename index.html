@@ -1241,6 +1241,8 @@ const _supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 let currentUser = null; // { email, name, isAdmin, participantName }
 
 async function initAuth() {
+  let _initialCheckDone = false;
+
   // Register listener FIRST — catches the SIGNED_IN event fired after OAuth redirect
   _supaClient.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN' && session && session.user) {
@@ -1249,13 +1251,12 @@ async function initAuth() {
     } else if (event === 'TOKEN_REFRESHED' && session) {
       if (session.access_token) _sessionToken = session.access_token;
     } else if (event === 'SIGNED_OUT') {
-      // Small delay — sometimes Supabase fires SIGNED_OUT transiently
-      // during tab restore while it's still loading from localStorage.
-      // Re-check the session before fully signing out.
+      // Ignore SIGNED_OUT events that fire before initial session check completes
+      // (Supabase fires these transiently during startup and tab restore)
+      if (!_initialCheckDone) return;
       setTimeout(async () => {
         const { data: { session: recheck } } = await _supaClient.auth.getSession();
         if (recheck && recheck.user) {
-          // Session is actually still valid — was a transient event, ignore
           if (recheck.access_token) _sessionToken = recheck.access_token;
           return;
         }
@@ -1265,14 +1266,15 @@ async function initAuth() {
       }, 1500);
     }
   });
-  // Check for existing session — handles page refresh while logged in
-  // Supabase automatically restores from localStorage if persistSession=true
+
+  // Check for existing session — this is the authoritative check on page load
   const { data: { session } } = await _supaClient.auth.getSession();
+  _initialCheckDone = true;
+
   if (session && session.user) {
     if (session.access_token) _sessionToken = session.access_token;
     await handleAuthUser(session.user);
   } else {
-    // No session in storage — show login
     showLoginOverlay();
   }
 }
@@ -1435,7 +1437,7 @@ async function alRemove(email) {
   await alLoad();
 }
 
-function checkLoginAndBoot() { initAuth(); }
+async function checkLoginAndBoot() { await initAuth(); }
 
 // ═══════════════════════════════════════════════════════
 // MODE (IPL / WORLD CUP)
@@ -1892,11 +1894,27 @@ function renderParticipantListWithLock() {
 }
 
 function renderDraftGridWithLock() {
-  // Save scroll position — full innerHTML rebuild resets it to top
+  // Save ALL scroll positions before rebuild:
+  // 1. Page scroll (user scrolled down to see more teams)
+  // 2. Each team card's player list inner scroll (user scrolled inside a card)
   const scrollY = window.scrollY || window.pageYOffset || 0;
+  const innerScrolls = {};
+  document.querySelectorAll('.player-pick-list').forEach((el, i) => {
+    if (el.scrollTop > 0) innerScrolls[i] = el.scrollTop;
+  });
+
   renderDraftGrid();
-  // Restore after rebuild (use requestAnimationFrame so DOM has painted)
-  if (scrollY > 0) requestAnimationFrame(() => window.scrollTo(0, scrollY));
+
+  // Restore all scroll positions after DOM rebuild
+  requestAnimationFrame(() => {
+    if (scrollY > 0) window.scrollTo(0, scrollY);
+    if (Object.keys(innerScrolls).length > 0) {
+      document.querySelectorAll('.player-pick-list').forEach((el, i) => {
+        if (innerScrolls[i]) el.scrollTop = innerScrolls[i];
+      });
+    }
+  });
+
   const grid = document.getElementById('teamDraftGrid');
   if (!grid) return;
 
