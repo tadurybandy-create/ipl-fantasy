@@ -1205,7 +1205,8 @@ let state = {
   teamWins: {},       // team_key -> {wins, draws}
   draftableTeams: {}, // team_key -> team_name (from squads is_team=true rows)
   matchSchedule:  [],  // array of match objects from match_schedule table
-  myPredictions:  {},  // match_id -> 'team1'|'team2'
+  myPredictions:     {},  // match_id -> 'team1'|'team2' (saved to DB)
+  pendingPredictions:{},  // match_id -> 'team1'|'team2' (unsaved changes)
   allPredictions: {},  // match_id -> {participantId: 'team1'|'team2'}
   predSubTab: 'mypicks', // 'mypicks'|'standings'|'allpicks'
   matchHistory: [],
@@ -1241,35 +1242,10 @@ const _supaClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 let currentUser = null; // { email, name, isAdmin, participantName }
 
 async function initAuth() {
-  let _initialCheckDone = false;
-
-  // Register listener FIRST — catches the SIGNED_IN event fired after OAuth redirect
-  _supaClient.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session && session.user) {
-      if (session.access_token) _sessionToken = session.access_token;
-      if (!currentUser) await handleAuthUser(session.user);
-    } else if (event === 'TOKEN_REFRESHED' && session) {
-      if (session.access_token) _sessionToken = session.access_token;
-    } else if (event === 'SIGNED_OUT') {
-      // Ignore SIGNED_OUT events that fire before initial session check completes
-      // (Supabase fires these transiently during startup and tab restore)
-      if (!_initialCheckDone) return;
-      setTimeout(async () => {
-        const { data: { session: recheck } } = await _supaClient.auth.getSession();
-        if (recheck && recheck.user) {
-          if (recheck.access_token) _sessionToken = recheck.access_token;
-          return;
-        }
-        _sessionToken = null;
-        currentUser = null;
-        showLoginOverlay();
-      }, 1500);
-    }
-  });
-
-  // Check for existing session — this is the authoritative check on page load
+  // STEP 1: getSession() is THE authority on page load.
+  // Do this BEFORE registering onAuthStateChange to avoid race conditions
+  // where SIGNED_OUT fires before the stored session is loaded.
   const { data: { session } } = await _supaClient.auth.getSession();
-  _initialCheckDone = true;
 
   if (session && session.user) {
     if (session.access_token) _sessionToken = session.access_token;
@@ -1277,6 +1253,35 @@ async function initAuth() {
   } else {
     showLoginOverlay();
   }
+
+  // STEP 2: NOW register listener for future auth state changes
+  // (token refresh, sign out, OAuth redirect on other tabs)
+  _supaClient.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session && session.user) {
+      // OAuth redirect completed (on same page or another tab)
+      if (session.access_token) _sessionToken = session.access_token;
+      if (!currentUser) await handleAuthUser(session.user);
+    } else if (event === 'INITIAL_SESSION' && session && session.user) {
+      // Supabase v2 fires INITIAL_SESSION on page load with stored session
+      if (session.access_token) _sessionToken = session.access_token;
+      if (!currentUser) await handleAuthUser(session.user);
+    } else if (event === 'TOKEN_REFRESHED' && session) {
+      if (session.access_token) _sessionToken = session.access_token;
+    } else if (event === 'SIGNED_OUT') {
+      // Verify it's a real sign out (not a transient startup event)
+      setTimeout(async () => {
+        const { data: { session: recheck } } = await _supaClient.auth.getSession();
+        if (recheck && recheck.user) {
+          // Session still valid — ignore this event
+          if (recheck.access_token) _sessionToken = recheck.access_token;
+          return;
+        }
+        _sessionToken = null;
+        currentUser = null;
+        showLoginOverlay();
+      }, 500);
+    }
+  });
 }
 
 async function handleAuthUser(user) {
@@ -5674,25 +5679,34 @@ function renderMyPicks() {
   }
 
   const myId = state.participants.find(p => p.name.toLowerCase() === currentUser?.participantName?.toLowerCase())?.id;
+  const hasPending = Object.keys(state.pendingPredictions||{}).length > 0;
 
-  // Count summary
-  let total=0, picked=0, correct=0, wrong=0, pending=0;
+  // Count summary — use effective picks (pending overrides saved)
+  let total=0, picked=0, correct=0, wrong=0;
   state.matchSchedule.forEach(m => {
-    if (!m.team1 || !m.team2) return; // TBD playoff match
+    if (!m.team1 || !m.team2) return;
     total++;
-    const myPick = state.myPredictions[m.id];
-    if (myPick) {
+    const effectivePick = (state.pendingPredictions||{})[m.id] !== '__deleted__'
+      ? ((state.pendingPredictions||{})[m.id] || state.myPredictions[m.id])
+      : null;
+    if (effectivePick) {
       picked++;
       if (m.result) {
-        if (myPick === m.result) correct++;
+        if (effectivePick === m.result) correct++;
         else wrong++;
-      } else pending++;
+      }
     }
   });
   const pts = correct - wrong;
 
+  // Submit button — shown when there are unsaved changes
+  const submitBar = hasPending ? `<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,214,0,.08);border:1px solid rgba(255,214,0,.3);border-radius:10px;padding:.6rem 1rem;margin-bottom:.8rem;gap:.8rem;flex-wrap:wrap">
+    <span style="font-size:.82rem;color:var(--gold)">⚠ You have unsaved changes — ${Object.keys(state.pendingPredictions).length} pick${Object.keys(state.pendingPredictions).length!==1?'s':''} pending</span>
+    <button id="predSubmitBtn" class="btn btn-sm" style="background:linear-gradient(135deg,var(--gold),var(--accent));color:#000;font-weight:700;padding:.4rem 1.2rem" onclick="submitPredictions()">✅ Submit Picks</button>
+  </div>` : '';
+
   // Summary bar
-  let html = `<div class="pred-summary-bar">
+  let html = submitBar + `<div class="pred-summary-bar">
     <div class="pred-summary-stat"><div class="pred-summary-val" style="color:var(--green)">${correct}</div><div class="pred-summary-label">Correct</div></div>
     <div class="pred-summary-stat"><div class="pred-summary-val" style="color:var(--red)">${wrong}</div><div class="pred-summary-label">Wrong</div></div>
     <div class="pred-summary-stat"><div class="pred-summary-val" style="color:var(--gold)">${pts >= 0 ? '+' : ''}${pts}</div><div class="pred-summary-label">Points</div></div>
@@ -5733,7 +5747,10 @@ function renderMyPicks() {
 }
 
 function buildMatchCard(m, myId) {
-  const myPick = state.myPredictions[m.id];
+  // Effective pick = pending (unsaved) overrides saved
+  const pendingPick = (state.pendingPredictions||{})[m.id];
+  const myPick = pendingPick === '__deleted__' ? null : (pendingPick || state.myPredictions[m.id]);
+  const isPending = pendingPick && pendingPick !== '__deleted__' && pendingPick !== state.myPredictions[m.id];
   const isLocked = m.locked || !!m.result;
   const hasResult = !!m.result;
 
@@ -5767,9 +5784,10 @@ function buildMatchCard(m, myId) {
 
   const t1Sel = myPick === 'team1' ? 'selected-t1' : '';
   const t2Sel = myPick === 'team2' ? 'selected-t2' : '';
+  const pendingStyle = isPending ? 'outline:1px dashed rgba(255,214,0,.5);' : '';
   const disAttr = isLocked ? 'disabled' : '';
 
-  return `<div class="pred-match-card ${cardClass}">
+  return `<div class="pred-match-card ${cardClass}" style="${isPending?'border-color:rgba(255,214,0,.3);':''}" >
     <div class="pred-match-num">${m.match_num}</div>
     <div class="pred-teams">
       <div class="pred-match-title">${m.team1_name||m.team1} vs ${m.team2_name||m.team2}</div>
@@ -5787,42 +5805,63 @@ function buildMatchCard(m, myId) {
   </div>`;
 }
 
-async function savePrediction(matchId, pick, btnEl) {
-  if (!currentUser) return;
-  const myPart = state.participants.find(p => p.name.toLowerCase() === currentUser.participantName?.toLowerCase());
-  if (!myPart) { showToast('Could not find your participant entry.', 'warn'); return; }
+function savePrediction(matchId, pick) {
+  // Only update local pending state — nothing saved to DB until submitPredictions()
   const m = state.matchSchedule.find(x => x.id === matchId);
   if (!m) return;
   if (m.locked || m.result) { showToast('This match is locked — no more changes.', 'warn'); return; }
 
-  const prevPick = state.myPredictions[matchId];
-  const isToggleOff = prevPick === pick; // clicking same = clear pick
-  const newPick = isToggleOff ? null : pick;
+  const currentPick = state.pendingPredictions[matchId] ?? state.myPredictions[matchId] ?? null;
+  const isToggleOff = currentPick === pick;
+  const newPick = isToggleOff ? null : pick; // click same = clear, click other = switch
 
-  // Optimistic UI update
-  if (newPick) state.myPredictions[matchId] = newPick;
-  else delete state.myPredictions[matchId];
+  if (newPick) {
+    // If pending pick matches saved pick — no actual change, clear pending
+    if (newPick === state.myPredictions[matchId]) delete state.pendingPredictions[matchId];
+    else state.pendingPredictions[matchId] = newPick;
+  } else {
+    delete state.pendingPredictions[matchId];
+    // Only mark __deleted__ if a saved pick exists (need to delete it on submit)
+    if (state.myPredictions[matchId]) state.pendingPredictions[matchId] = '__deleted__';
+  }
   renderMyPicks();
+}
+
+async function submitPredictions() {
+  const myPart = state.participants.find(p => p.name.toLowerCase() === currentUser?.participantName?.toLowerCase());
+  if (!myPart) { showToast('Could not find your participant entry.', 'warn'); return; }
+
+  const pending = Object.entries(state.pendingPredictions);
+  if (!pending.length) { showToast('No changes to submit.', 'warn'); return; }
+
+  const btn = document.getElementById('predSubmitBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
 
   try {
-    if (newPick) {
-      // Upsert (insert or update)
-      await sb('POST', 'predictions',
-        { participant_id: myPart.id, match_id: matchId, predicted_winner: newPick, mode: state.mode },
-        '',
-        { 'Prefer': 'return=minimal,resolution=merge-duplicates' }
-      );
-    } else {
-      // Remove prediction
-      await dbDelete('predictions', `?participant_id=eq.${myPart.id}&match_id=eq.${matchId}`);
+    setSyncStatus('loading', 'Saving predictions…');
+    for (const [matchId, pick] of pending) {
+      // Always delete first
+      await dbDelete('predictions', `?participant_id=eq.${myPart.id}&match_id=eq.${matchId}`).catch(()=>{});
+      if (pick && pick !== '__deleted__') {
+        await sb('POST', 'predictions',
+          { participant_id: myPart.id, match_id: parseInt(matchId), predicted_winner: pick, mode: state.mode },
+          '', { 'Prefer': 'return=minimal' }
+        );
+        state.myPredictions[matchId] = pick;
+      } else {
+        delete state.myPredictions[matchId];
+      }
     }
-  } catch(e) {
-    // Revert on failure
-    if (prevPick) state.myPredictions[matchId] = prevPick;
-    else delete state.myPredictions[matchId];
-    showToast('Save failed: ' + e.message, 'err');
+    state.pendingPredictions = {};
+    setSyncStatus('ok', 'Synced');
+    showToast(`${pending.length} prediction${pending.length!==1?'s':''} saved!`, 'ok');
     renderMyPicks();
+  } catch(e) {
+    setSyncStatus('err', 'Save failed');
+    showToast('Save failed: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Submit Picks'; }
   }
+  if (btn) { btn.disabled = false; btn.textContent = '✅ Submit Picks'; }
 }
 
 // ── STANDINGS ─────────────────────────────────────────────
@@ -5842,10 +5881,10 @@ function renderPredStandings() {
     const rows = state.participants.map(p => {
       let correct = 0, wrong = 0, picked = 0;
       state.matchSchedule.forEach(m => {
-        if (!m.result) return;
         const pred = allPreds[m.id]?.[p.id];
         if (!pred) return;
-        picked++;
+        picked++; // count ALL picks made regardless of result
+        if (!m.result) return; // result not known yet — only count for correct/wrong
         if (pred === m.result) correct++;
         else wrong++;
       });
