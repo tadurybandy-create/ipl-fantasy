@@ -3147,8 +3147,9 @@ Tasks:
 2. For EVERY player in the list above who appears ANYWHERE in the scorecard — whether in the batting table, bowling table, or dismissal text — extract their stats:
    - runs: runs scored while batting (0 if did not bat or scorecard shows no batting)
    - wickets: wickets taken while bowling (0 if did not bowl)
-   - catches: count of catches taken — look for "c [their name]" in dismissal descriptions. NOT stumpings.
-     IMPORTANT: The scorecard uses "c †PlayerName" for wicketkeeper catches (the † symbol means wicketkeeper). Strip the † when matching names. e.g. "c †Ishan Kishan b Cummins" = 1 catch for Ishan Kishan.
+   - catches: count of catches taken — look for "c [their name]" or "c †[their name]" in dismissal descriptions. NOT stumpings.
+     IMPORTANT: The † symbol marks the wicketkeeper. "c †Sharma b Duffy" means the wicketkeeper caught it. Look at the batting lineup — the player with † next to their name is the wicketkeeper. Match "†Sharma" to their full name in the player list (e.g. "Jitesh Sharma †" in the lineup = "Jitesh Sharma").
+     When you see "c †Name", strip the † to get the fielder's surname, then find the wicketkeeper's full name from the lineup to confirm.
      Do NOT count run-out text as catches. "run out (Verma/Ansari)" gives runout credit, NOT catch credit.
    - runouts: IMPORTANT — if a dismissal shows "run out (PlayerA/PlayerB)", BOTH PlayerA AND PlayerB each get 1 run-out credit (5 pts each). Count every dismissal where their name appears INSIDE the round brackets after "run out".
      The name inside the brackets is the fielder(s) who effected the run out — NOT the batsman who was dismissed.
@@ -3176,8 +3177,7 @@ IMPORTANT:
   try {
     // Sanitise pasted text
     const cleanedScorecard = scorecardText
-      .replace(/\u2020/g, '')     // dagger †
-      .replace(/\u2192|\u2190|\u2191|\u2193/g, '') // arrows
+      .replace(/\u2192|\u2190|\u2191|\u2193/g, '') // arrows (keep † dagger — it marks the wicketkeeper)
       .replace(/\u00a0/g, ' ')    // non-breaking space
       .replace(/\(c\)/gi, '')     // captain marker
       .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // control chars
@@ -3250,25 +3250,87 @@ function setImportStatus(type,msg) {
   else el.innerHTML=`<span class="status-error">${msg}</span>`;
 }
 
+// Update a single stat field in pendingImport and refresh pts display
+function updateParsedStat(playerName, field, value) {
+  if (!state.pendingImport?.parsed?.players) return;
+  const p = state.pendingImport.parsed.players.find(x => x.name === playerName);
+  if (!p) return;
+  p[field] = Math.max(0, parseInt(value) || 0);
+  // Update points display for this player
+  const pts = (p.runs||0)+(p.wickets||0)*25+(p.catches||0)*5+(p.runouts||0)*5+(p.stumpings||0)*5+(p.motm||0)*MOTM_PTS;
+  const ptsEl = document.getElementById(`pts_${playerName.replace(/\s+/g,'_')}`);
+  if (ptsEl) ptsEl.textContent = `+${pts} pts`;
+}
+
+function toggleMotm(playerName, checked) {
+  if (!state.pendingImport?.parsed?.players) return;
+  const p = state.pendingImport.parsed.players.find(x => x.name === playerName);
+  if (!p) return;
+  p.motm = checked ? 1 : 0;
+  const pts = (p.runs||0)+(p.wickets||0)*25+(p.catches||0)*5+(p.runouts||0)*5+(p.stumpings||0)*5+(p.motm||0)*MOTM_PTS;
+  const ptsEl = document.getElementById(`pts_${playerName.replace(/\s+/g,'_')}`);
+  if (ptsEl) ptsEl.textContent = `+${pts} pts`;
+}
+
 function renderImportPreview(parsed, allDrafted) {
-  const inMatch = parsed.players.filter(p=>!p.not_in_match); // not_in_match may be absent — all returned players are in match
+  const inMatch = parsed.players.filter(p=>!p.not_in_match);
   let hitCount=0;
+
+  const inputStyle = `width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:.15rem .3rem;font-size:.8rem;text-align:center;font-family:'DM Sans',sans-serif`;
+
   const rows = inMatch.map(p => {
     const drafted = allDrafted.find(d=>d.player.toLowerCase()===p.name.toLowerCase());
     if (!drafted) return '';
     hitCount++;
     const pts=(p.runs||0)+(p.wickets||0)*25+(p.catches||0)*5+(p.runouts||0)*5+(p.stumpings||0)*5+(p.motm||0)*MOTM_PTS;
+    const pid = p.name.replace(/\s+/g,'_');
     return `<div class="preview-player-row hit">
-      <div><strong>${p.name}</strong> <span style="color:var(--muted);font-size:.72rem">${p.team}</span></div>
-      <div class="preview-stats"><div>${p.runs||0} <span>runs</span></div><div>${p.wickets||0} <span>wkts</span></div><div>${p.catches||0} <span>ctch</span></div><div>${p.runouts||0} <span>r/o</span></div><div>${p.stumpings||0} <span>st</span></div>${p.motm?'<div style="color:#e91e63;font-weight:600">⭐ MOTM</div>':''}<div style="color:var(--gold);font-weight:600">+${pts} pts</div></div>
+      <div style="min-width:150px"><strong>${p.name}</strong> <span style="color:var(--muted);font-size:.72rem">${drafted.teamKey}</span></div>
+      <div class="preview-stats" style="flex-wrap:wrap;gap:.5rem">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
+          <input type="number" min="0" style="${inputStyle}" value="${p.runs||0}"
+            onchange="updateParsedStat('${p.name}','runs',this.value)">
+          <span style="font-size:.6rem;color:var(--muted)">runs</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
+          <input type="number" min="0" style="${inputStyle}" value="${p.wickets||0}"
+            onchange="updateParsedStat('${p.name}','wickets',this.value)">
+          <span style="font-size:.6rem;color:var(--muted)">wkts</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
+          <input type="number" min="0" style="${inputStyle}" value="${p.catches||0}"
+            onchange="updateParsedStat('${p.name}','catches',this.value)">
+          <span style="font-size:.6rem;color:var(--muted)">ctch</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
+          <input type="number" min="0" style="${inputStyle}" value="${p.runouts||0}"
+            onchange="updateParsedStat('${p.name}','runouts',this.value)">
+          <span style="font-size:.6rem;color:var(--muted)">r/o</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
+          <input type="number" min="0" style="${inputStyle}" value="${p.stumpings||0}"
+            onchange="updateParsedStat('${p.name}','stumpings',this.value)">
+          <span style="font-size:.6rem;color:var(--muted)">st</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
+          <input type="checkbox" ${p.motm?'checked':''} onchange="toggleMotm('${p.name}',this.checked)"
+            style="width:16px;height:16px;cursor:pointer">
+          <span style="font-size:.6rem;color:var(--muted)">motm</span>
+        </div>
+        <div style="display:flex;align-items:center">
+          <span id="pts_${pid}" style="color:var(--gold);font-weight:600;font-size:.85rem">+${pts} pts</span>
+        </div>
+      </div>
       <span class="badge-found">DRAFTED</span>
     </div>`;
   }).filter(Boolean).join('');
+
   const missRows = allDrafted.filter(d=>{
     const f=parsed.players.find(p=>p.name.toLowerCase()===d.player.toLowerCase());
     return !f||f.not_in_match;
   }).map(d=>`<div class="preview-player-row miss"><span>${d.player} <span style="font-size:.72rem">${d.teamKey}</span></span><span style="font-size:.72rem">Not in today's match</span><span class="badge-miss">SKIP</span></div>`).join('');
-  document.getElementById('previewCount').textContent=`${hitCount} drafted players found in this match`;
+
+  document.getElementById('previewCount').textContent=`${hitCount} drafted players found · Edit any stats before applying`;
 
   // Team win preview — show which participants benefit from the result
   const result = state.pendingResult; // 't1', 't2', or 'draw'
@@ -3362,7 +3424,9 @@ async function applyMatch() {
 
   for (const p of parsed.players) {
     if (p.not_in_match) continue; // skip if present
-    const nameLower = p.name.toLowerCase().trim();
+    // Strip any † or (c) markers Claude may have included in the name
+    const cleanName = p.name.replace(/[†✝]/g,'').replace(/\(c\)/gi,'').trim();
+    const nameLower = cleanName.toLowerCase().trim();
     let draftedAs = null;
 
     // Build full list of all drafted player names
