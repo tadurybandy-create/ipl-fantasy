@@ -3139,13 +3139,15 @@ Tasks:
      IMPORTANT: The scorecard uses "c †PlayerName" for wicketkeeper catches (the † symbol means wicketkeeper). Strip the † when matching names. e.g. "c †Ishan Kishan b Cummins" = 1 catch for Ishan Kishan.
      Do NOT count run-out text as catches. "run out (Verma/Ansari)" gives runout credit, NOT catch credit.
    - runouts: IMPORTANT — if a dismissal shows "run out (PlayerA/PlayerB)", BOTH PlayerA AND PlayerB each get 1 run-out credit (5 pts each). Count every dismissal where their name appears INSIDE the round brackets after "run out".
-     Example: "Vipraj Nigam run out (Verma/Zeeshan Ansari)" → Verma gets 1 runout, Zeeshan Ansari gets 1 runout. Neither gets a catch.
-     Example: "Player run out (Smith)" → Smith gets 1 runout.
      The name inside the brackets is the fielder(s) who effected the run out — NOT the batsman who was dismissed.
+     CRITICAL — NAME RESOLUTION: Runout brackets often use SHORT names (e.g. "Verma" instead of "Aniket Verma"). You MUST look up the short name in the player list and use the FULL name in your response. e.g. if the bracket says "Verma" and the player list has "Aniket Verma", output "Aniket Verma" with runouts:1.
+     Example: "Vipraj Nigam run out (Verma/Zeeshan Ansari)" and player list has "Aniket Verma" → output Aniket Verma with runouts:1. Neither Verma nor Ansari gets a catch.
    - stumpings: count of stumpings — look for "st [their name]" in dismissals (always the wicketkeeper)
    - motm: 1 if named Man of the Match, 0 otherwise
-3. A player "appeared" if they show up in ANY section: batted, bowled, fielded (catch/runout/stumping), or are listed as "did not bat". A pure bowler who never batted still gets included with runs=0.
-   SUPER SUB RULE: IPL uses impact player/super sub substitutions. A player may appear in ONLY the bowling table (bowled in innings 1, substituted out before innings 2) OR only the batting table (came in as substitute). Both count as having played — include their stats from whichever section they appear in.
+3. A player "appeared" if they show up in ANY section: batted, bowled, OR appear in ANY dismissal text (catch, runout bracket, stumping). 
+   CRITICAL: A player who ONLY appears inside a "run out (...)" bracket and never batted or bowled STILL counts as having played — include them with runs=0, wickets=0, catches=0, runouts=1, stumpings=0.
+   A pure bowler who never batted still gets included with runs=0.
+   SUPER SUB RULE: IPL uses impact player/super sub substitutions. A player may appear in ONLY the bowling table (bowled in innings 1, substituted out before innings 2) OR only the batting table (came in as substitute). Both count as having played.
 4. Do NOT include players from the list who genuinely did not feature in this match at all (not in either team playing today).
 5. Players who appeared but contributed 0 to every stat: include them with all zeros.
 6. Detect the match winner. Set "winner" to the winning team's full name.
@@ -3350,27 +3352,39 @@ async function applyMatch() {
     if (p.not_in_match) continue; // skip if present
     const nameLower = p.name.toLowerCase().trim();
     let draftedAs = null;
-    // Match: exact first, then fuzzy (handles scorecard abbreviations)
-    TEAM_KEYS.forEach(k => {
-      state.participants.forEach(part => {
-        if (!part.picks[k]) return;
-        const pickLower = part.picks[k].toLowerCase().trim();
-        // Exact match
-        if (pickLower === nameLower) { draftedAs = part.picks[k]; return; }
-        // Fuzzy: scorecard name is contained in pick name or vice versa
-        // e.g. "Shahrukh Khan" matches "M Shahrukh Khan"
-        if (!draftedAs && (pickLower.includes(nameLower) || nameLower.includes(pickLower))) {
-          const nameWords = nameLower.split(' ').filter(Boolean);
-          const pickWords = pickLower.split(' ').filter(Boolean);
-          // Guard: must have at least 2 words to fuzzy match (avoid single surname matching)
-          if (nameWords.length >= 2 || pickWords.length >= 2) {
-            const lastName = nameWords[nameWords.length - 1];
-            const pickLastName = pickWords[pickWords.length - 1];
-            if (lastName === pickLastName) draftedAs = part.picks[k];
-          }
-        }
-      });
-    });
+
+    // Build full list of all drafted player names
+    const allDraftedNames = [];
+    TEAM_KEYS.forEach(k => state.participants.forEach(pt => { if(pt.picks[k]) allDraftedNames.push(pt.picks[k]); }));
+
+    // Step 1: Exact match
+    draftedAs = allDraftedNames.find(n => n.toLowerCase() === nameLower) || null;
+
+    // Step 2: Multi-word fuzzy (e.g. "Shahrukh Khan" → "M Shahrukh Khan")
+    if (!draftedAs) {
+      const nameWords = nameLower.split(' ').filter(Boolean);
+      if (nameWords.length >= 2) {
+        const lastName = nameWords[nameWords.length - 1];
+        const candidates = allDraftedNames.filter(n => {
+          const nl = n.toLowerCase();
+          return (nl.includes(nameLower) || nameLower.includes(nl)) && nl.split(' ').pop() === lastName;
+        });
+        if (candidates.length === 1) draftedAs = candidates[0];
+      }
+    }
+
+    // Step 3: Single-word surname — only if UNIQUE across all drafted players
+    // Handles runout brackets like "run out (Verma/Ansari)" where only surname is given
+    if (!draftedAs) {
+      const nameWords = nameLower.split(' ').filter(Boolean);
+      if (nameWords.length === 1) {
+        const surname = nameWords[0];
+        const candidates = allDraftedNames.filter(n => n.toLowerCase().split(' ').pop() === surname);
+        if (candidates.length === 1) draftedAs = candidates[0]; // unique surname — safe
+        // If multiple players share surname, skip (too ambiguous)
+      }
+    }
+
     if (!draftedAs) continue;
     const runs=parseInt(p.runs)||0, wkts=parseInt(p.wickets)||0, ctch=parseInt(p.catches)||0, rnout=parseInt(p.runouts)||0, stmp=parseInt(p.stumpings)||0;
     const motm=parseInt(p.motm)||0;
