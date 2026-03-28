@@ -5744,7 +5744,7 @@ function renderMyPicks() {
   const hasPending = Object.keys(state.pendingPredictions||{}).length > 0;
 
   // Count summary — use effective picks (pending overrides saved)
-  let total=0, picked=0, correct=0, wrong=0;
+  let total=0, picked=0, correct=0, wrong=0, noPick=0;
   state.matchSchedule.forEach(m => {
     if (!m.team1 || !m.team2) return;
     total++;
@@ -5757,9 +5757,12 @@ function renderMyPicks() {
         if (effectivePick === m.result) correct++;
         else wrong++;
       }
+    } else if (m.result) {
+      // Completed match with no pick = -1
+      noPick++;
     }
   });
-  const pts = correct - wrong;
+  const pts = correct - wrong - noPick;
 
   // Submit button — shown when there are unsaved changes
   const submitBar = hasPending ? `<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,214,0,.08);border:1px solid rgba(255,214,0,.3);border-radius:10px;padding:.6rem 1rem;margin-bottom:.8rem;gap:.8rem;flex-wrap:wrap">
@@ -5770,7 +5773,7 @@ function renderMyPicks() {
   // Summary bar
   let html = submitBar + `<div class="pred-summary-bar">
     <div class="pred-summary-stat"><div class="pred-summary-val" style="color:var(--green)">${correct}</div><div class="pred-summary-label">Correct</div></div>
-    <div class="pred-summary-stat"><div class="pred-summary-val" style="color:var(--red)">${wrong}</div><div class="pred-summary-label">Wrong</div></div>
+    <div class="pred-summary-stat"><div class="pred-summary-val" style="color:var(--red)">${wrong + noPick}</div><div class="pred-summary-label">Wrong/Skip</div></div>
     <div class="pred-summary-stat"><div class="pred-summary-val" style="color:var(--gold)">${pts >= 0 ? '+' : ''}${pts}</div><div class="pred-summary-label">Points</div></div>
     <div class="pred-summary-stat"><div class="pred-summary-val">${picked}/${total}</div><div class="pred-summary-label">Picked</div></div>
   </div>`;
@@ -5941,29 +5944,32 @@ function renderPredStandings() {
   loadAllPredictionsForStandings().then(allPreds => {
     const myName = currentUser?.participantName?.toLowerCase();
     const rows = state.participants.map(p => {
-      let correct = 0, wrong = 0, picked = 0;
+      let correct = 0, wrong = 0, picked = 0, noPick = 0;
       state.matchSchedule.forEach(m => {
         const pred = allPreds[m.id]?.[p.id];
-        if (!pred) return;
-        picked++; // count ALL picks made regardless of result
-        if (!m.result) return; // result not known yet — only count for correct/wrong
-        if (pred === m.result) correct++;
-        else wrong++;
+        if (pred) {
+          picked++; // count ALL picks made regardless of result
+          if (!m.result) return; // result not known yet
+          if (pred === m.result) correct++;
+          else wrong++;
+        } else if (m.result) {
+          noPick++; // completed match with no pick = -1
+        }
       });
-      return { name: p.name, id: p.id, correct, wrong, picked, pts: correct - wrong };
+      return { name: p.name, id: p.id, correct, wrong, noPick, picked, pts: correct - wrong - noPick };
     }).sort((a,b) => b.pts - a.pts || b.correct - a.correct);
 
     const myRank = rows.findIndex(r => r.name.toLowerCase() === myName) + 1;
     const completedMatches = state.matchSchedule.filter(m => !!m.result).length;
 
     let html = `<div style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem">
-      ${completedMatches} matches completed · Correct picks +1 · Wrong picks −1
+      ${completedMatches} matches completed · Correct +1 · Wrong −1 · No pick −1
     </div>
     <table class="pred-standings-table">
       <thead><tr>
         <th>#</th><th>Player</th><th style="text-align:right">✓</th>
-        <th style="text-align:right">✗</th><th style="text-align:right">Pts</th>
-        <th style="text-align:right">Picked</th>
+        <th style="text-align:right">✗</th><th style="text-align:right">Skip</th>
+        <th style="text-align:right">Pts</th><th style="text-align:right">Picked</th>
       </tr></thead><tbody>`;
 
     rows.forEach((r, i) => {
@@ -5974,6 +5980,7 @@ function renderPredStandings() {
         <td><strong>${r.name}</strong>${isMe?' <span style="font-size:.65rem;color:var(--green)">(YOU)</span>':''}</td>
         <td style="text-align:right;color:var(--green)">${r.correct}</td>
         <td style="text-align:right;color:var(--red)">${r.wrong}</td>
+        <td style="text-align:right;color:var(--red)">${r.noPick||0}</td>
         <td style="text-align:right;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:${r.pts>=0?'var(--gold)':'var(--red)'}">${r.pts>=0?'+':''}${r.pts}</td>
         <td style="text-align:right;color:var(--muted)">${r.picked}</td>
       </tr>`;
@@ -6139,23 +6146,27 @@ async function renderPredictionsScoring() {
     return;
   }
   const rows = state.participants.map(p => {
-    let correct=0, wrong=0;
+    let correct=0, wrong=0, noPick=0;
     completedMatches.forEach(m => {
       const pred = allPreds[m.id]?.[p.id];
-      if (!pred) return;
-      if (pred === m.result) correct++;
-      else wrong++;
+      if (pred) {
+        if (pred === m.result) correct++;
+        else wrong++;
+      } else {
+        noPick++; // no pick on completed match = -1
+      }
     });
-    return { name:p.name, correct, wrong, pts:correct-wrong };
+    return { name:p.name, correct, wrong, noPick, pts:correct-wrong-noPick };
   }).sort((a,b) => b.pts-a.pts);
 
   let html = `<table class="pred-standings-table">
-    <thead><tr><th>#</th><th>Player</th><th style="text-align:right">Correct</th><th style="text-align:right">Wrong</th><th style="text-align:right">Pts</th></tr></thead><tbody>`;
+    <thead><tr><th>#</th><th>Player</th><th style="text-align:right">Correct</th><th style="text-align:right">Wrong</th><th style="text-align:right">Skip</th><th style="text-align:right">Pts</th></tr></thead><tbody>`;
   rows.forEach((r,i) => {
     const medal = ['🥇','🥈','🥉'][i]||(i+1);
     html += `<tr><td>${medal}</td><td>${r.name}</td>
       <td style="text-align:right;color:var(--green)">${r.correct}</td>
       <td style="text-align:right;color:var(--red)">${r.wrong}</td>
+      <td style="text-align:right;color:var(--red)">${r.noPick||0}</td>
       <td style="text-align:right;color:${r.pts>=0?'var(--gold)':'var(--red)'};font-family:'Bebas Neue',sans-serif;font-size:1.1rem">${r.pts>=0?'+':''}${r.pts}</td>
     </tr>`;
   });
