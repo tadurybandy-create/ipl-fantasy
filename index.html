@@ -3132,16 +3132,18 @@ ${playerList}
 
 Tasks:
 1. Identify which two IPL teams are playing.
-2. For each player listed who played today, extract:
-   - runs: runs scored while batting
-   - wickets: wickets taken while bowling
-   - catches: count of catches taken (look for "c [their name]" in dismissal descriptions, NOT stumpings)
-   - runouts: count of run-outs they were involved in. IMPORTANT — if a dismissal shows "run out (PlayerA/PlayerB)", BOTH PlayerA AND PlayerB each get 1 run-out credit (full 5 pts each). Count every run-out dismissal where their name appears anywhere in the brackets.
-   - stumpings: count of stumpings made (look for "st [their name]" in dismissal descriptions — this is always the wicketkeeper)
-   - motm: 1 if this player was named Man of the Match, 0 otherwise. Look for "Player Of The Match" near the top of the scorecard.
-3. ONLY include players who actually played in this match — do NOT include players with not_in_match:true. Skip them entirely.
-4. Players who played but scored 0 everywhere: all fields 0.
-5. Detect the match winner.
+2. For EVERY player in the list above who appears ANYWHERE in the scorecard — whether in the batting table, bowling table, or dismissal text — extract their stats:
+   - runs: runs scored while batting (0 if did not bat or scorecard shows no batting)
+   - wickets: wickets taken while bowling (0 if did not bowl)
+   - catches: count of catches taken — look for "c [their name]" in dismissal descriptions. NOT stumpings.
+   - runouts: IMPORTANT — if a dismissal shows "run out (PlayerA/PlayerB)", BOTH PlayerA AND PlayerB each get 1 run-out credit. Count every dismissal where their name appears in the run-out brackets.
+   - stumpings: count of stumpings — look for "st [their name]" in dismissals (always the wicketkeeper)
+   - motm: 1 if named Man of the Match, 0 otherwise
+3. A player "appeared" if they show up in ANY section: batted, bowled, fielded (catch/runout/stumping), or are listed as "did not bat". A pure bowler who never batted still gets included with runs=0.
+   SUPER SUB RULE: IPL uses impact player/super sub substitutions. A player may appear in ONLY the bowling table (bowled in innings 1, substituted out before innings 2) OR only the batting table (came in as substitute). Both count as having played — include their stats from whichever section they appear in.
+4. Do NOT include players from the list who genuinely did not feature in this match at all (not in either team playing today).
+5. Players who appeared but contributed 0 to every stat: include them with all zeros.
+6. Detect the match winner.
 
 Scoring reminder: runs×1 + wickets×25 + catches×5 + runouts×5 + stumpings×5 + motm×5
 
