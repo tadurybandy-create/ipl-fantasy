@@ -3121,7 +3121,7 @@ async function importScorecard() {
     });
   });
 
-  const playerList = allDrafted.map(d => `- ${d.player} (${d.team})`).join('\n');
+  const playerList = allDrafted.map(d => `- ${d.player} (${d.team}, slot: ${d.teamKey})`).join('\n');
 
   const prompt = `You are a cricket scorecard parser for an IPL fantasy league.
 
@@ -3145,7 +3145,10 @@ Tasks:
 
 Scoring reminder: runs×1 + wickets×25 + catches×5 + runouts×5 + stumpings×5 + motm×5
 
-IMPORTANT: Respond ONLY with valid JSON, no markdown, no explanation, no backticks. Use plain ASCII only — no special symbols. Player names must be plain text only.
+IMPORTANT: 
+- Use the EXACT player name spelling from the list above (e.g. if list says "Rashid Khan" use "Rashid Khan" not "R Khan")
+- A player may appear in multiple scorecard sections (batting AND bowling) — combine all their stats
+- Respond ONLY with valid JSON, no markdown, no explanation, no backticks. Use plain ASCII only — no special symbols. Player names must be plain text only.
 {"match_title":"CSK vs MI","t1_name":"Chennai Super Kings","t2_name":"Mumbai Indians","winner":"Chennai Super Kings","players":[{"name":"Player","team":"Team","runs":0,"wickets":0,"catches":0,"runouts":0,"stumpings":0,"motm":0}]}`;
 
   try {
@@ -3299,11 +3302,27 @@ async function applyMatch() {
 
   for (const p of parsed.players) {
     if (p.not_in_match) continue; // skip if present
-    const nameLower = p.name.toLowerCase();
+    const nameLower = p.name.toLowerCase().trim();
     let draftedAs = null;
+    // Match: exact first, then fuzzy (handles scorecard abbreviations)
     TEAM_KEYS.forEach(k => {
       state.participants.forEach(part => {
-        if (part.picks[k]&&part.picks[k].toLowerCase()===nameLower) draftedAs=part.picks[k];
+        if (!part.picks[k]) return;
+        const pickLower = part.picks[k].toLowerCase().trim();
+        // Exact match
+        if (pickLower === nameLower) { draftedAs = part.picks[k]; return; }
+        // Fuzzy: scorecard name is contained in pick name or vice versa
+        // e.g. "Shahrukh Khan" matches "M Shahrukh Khan"
+        if (!draftedAs && (pickLower.includes(nameLower) || nameLower.includes(pickLower))) {
+          const nameWords = nameLower.split(' ').filter(Boolean);
+          const pickWords = pickLower.split(' ').filter(Boolean);
+          // Guard: must have at least 2 words to fuzzy match (avoid single surname matching)
+          if (nameWords.length >= 2 || pickWords.length >= 2) {
+            const lastName = nameWords[nameWords.length - 1];
+            const pickLastName = pickWords[pickWords.length - 1];
+            if (lastName === pickLastName) draftedAs = part.picks[k];
+          }
+        }
       });
     });
     if (!draftedAs) continue;
