@@ -228,6 +228,8 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 
 /* ── DRAFT GRID OVERLAY ──────────────────────────────── */
 .draft-grid-blocked{position:relative;pointer-events:none;}
+.draft-grid-complete{position:relative;pointer-events:none;opacity:.85;}
+.draft-grid-complete::after{content:"✓ Draft Complete — View Only";position:absolute;inset:0;background:rgba(13,26,13,.7);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;color:var(--green);border-radius:12px;pointer-events:none;}
 .draft-grid-blocked::after{content:var(--blocked-msg,"Wait for your turn…");position:absolute;inset:0;background:rgba(13,26,13,.75);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:3px;color:var(--muted);border-radius:12px;z-index:10;}
 
 /* ── ADMIN-ONLY VISIBILITY ───────────────────────────── */
@@ -5846,7 +5848,10 @@ function renderMyPicks() {
   // Submit button — shown when there are unsaved changes
   const submitBar = hasPending ? `<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,214,0,.08);border:1px solid rgba(255,214,0,.3);border-radius:10px;padding:.6rem 1rem;margin-bottom:.8rem;gap:.8rem;flex-wrap:wrap">
     <span style="font-size:.82rem;color:var(--gold)">⚠ You have unsaved changes — ${Object.keys(state.pendingPredictions).length} pick${Object.keys(state.pendingPredictions).length!==1?'s':''} pending</span>
-    <button id="predSubmitBtn" class="btn btn-sm" style="background:linear-gradient(135deg,var(--gold),var(--accent));color:#000;font-weight:700;padding:.4rem 1.2rem" onclick="submitPredictions()">✅ Submit Picks</button>
+    <button id="predSubmitBtn" onclick="submitPredictions()" style="width:100%;padding:1rem;font-size:1.1rem;font-family:'Bebas Neue',sans-serif;letter-spacing:2px;background:linear-gradient(135deg,var(--gold),#f9a825);color:#000;border:none;border-radius:12px;cursor:pointer;font-weight:700;box-shadow:0 4px 20px rgba(255,214,0,.3)">
+      ✅ SUBMIT PICKS — SAVE MY PREDICTIONS
+    </button>
+    <div style="text-align:center;font-size:.72rem;color:var(--muted);margin-top:.4rem">⚠ Your picks are not saved until you hit Submit</div>
   </div>` : '';
 
   // Summary bar
