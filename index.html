@@ -3136,14 +3136,20 @@ Tasks:
    - runs: runs scored while batting (0 if did not bat or scorecard shows no batting)
    - wickets: wickets taken while bowling (0 if did not bowl)
    - catches: count of catches taken — look for "c [their name]" in dismissal descriptions. NOT stumpings.
-   - runouts: IMPORTANT — if a dismissal shows "run out (PlayerA/PlayerB)", BOTH PlayerA AND PlayerB each get 1 run-out credit. Count every dismissal where their name appears in the run-out brackets.
+     IMPORTANT: The scorecard uses "c †PlayerName" for wicketkeeper catches (the † symbol means wicketkeeper). Strip the † when matching names. e.g. "c †Ishan Kishan b Cummins" = 1 catch for Ishan Kishan.
+     Do NOT count run-out text as catches. "run out (Verma/Ansari)" gives runout credit, NOT catch credit.
+   - runouts: IMPORTANT — if a dismissal shows "run out (PlayerA/PlayerB)", BOTH PlayerA AND PlayerB each get 1 run-out credit (5 pts each). Count every dismissal where their name appears INSIDE the round brackets after "run out".
+     Example: "Vipraj Nigam run out (Verma/Zeeshan Ansari)" → Verma gets 1 runout, Zeeshan Ansari gets 1 runout. Neither gets a catch.
+     Example: "Player run out (Smith)" → Smith gets 1 runout.
+     The name inside the brackets is the fielder(s) who effected the run out — NOT the batsman who was dismissed.
    - stumpings: count of stumpings — look for "st [their name]" in dismissals (always the wicketkeeper)
    - motm: 1 if named Man of the Match, 0 otherwise
 3. A player "appeared" if they show up in ANY section: batted, bowled, fielded (catch/runout/stumping), or are listed as "did not bat". A pure bowler who never batted still gets included with runs=0.
    SUPER SUB RULE: IPL uses impact player/super sub substitutions. A player may appear in ONLY the bowling table (bowled in innings 1, substituted out before innings 2) OR only the batting table (came in as substitute). Both count as having played — include their stats from whichever section they appear in.
 4. Do NOT include players from the list who genuinely did not feature in this match at all (not in either team playing today).
 5. Players who appeared but contributed 0 to every stat: include them with all zeros.
-6. Detect the match winner.
+6. Detect the match winner. Set "winner" to the winning team's full name.
+   IMPORTANT: If the match has NO RESULT (rain, DLS, abandoned, etc.) — look for phrases like "No result", "Match abandoned", "No result due to rain" — set "winner" to null. Do NOT guess a winner for No Result matches.
 
 Scoring reminder: runs×1 + wickets×25 + catches×5 + runouts×5 + stumpings×5 + motm×5
 
@@ -3202,11 +3208,15 @@ IMPORTANT:
       const wl = parsed.winner.toLowerCase();
       const t1l = (parsed.t1_name||'').toLowerCase();
       const t2l = (parsed.t2_name||'').toLowerCase();
-      // Match on full name, first word, or abbreviation
-      const matchT1 = wl.includes(t1l) || wl.includes(t1l.split(' ')[0]) ||
-        TEAM_KEYS.find(k => IPL_TEAMS[k]?.name?.toLowerCase()===t1l && wl.includes(k.toLowerCase()));
-      if (matchT1) setPendingResult('t1');
-      else setPendingResult('t2');
+      // Match on full name or first word
+      const matchT1 = t1l && (wl.includes(t1l.split(' ')[0]) || t1l.split(' ')[0] && wl.includes(t1l.split(' ')[0]));
+      const matchT2 = t2l && (wl.includes(t2l.split(' ')[0]) || t2l.split(' ')[0] && wl.includes(t2l.split(' ')[0]));
+      if (matchT1 && !matchT2) setPendingResult('t1');
+      else if (matchT2 && !matchT1) setPendingResult('t2');
+      // If ambiguous or neither matched — don't auto-set, let admin choose
+    } else if (parsed.winner === null) {
+      // Explicit null = No Result — auto-set draw
+      setPendingResult('draw');
     }
     if (parsed.t1_name) document.getElementById('res-t1').textContent=`🔵 ${parsed.t1_name} Won`;
     if (parsed.t2_name) document.getElementById('res-t2').textContent=`🟠 ${parsed.t2_name} Won`;
@@ -3245,8 +3255,42 @@ function renderImportPreview(parsed, allDrafted) {
     return !f||f.not_in_match;
   }).map(d=>`<div class="preview-player-row miss"><span>${d.player} <span style="font-size:.72rem">${d.teamKey}</span></span><span style="font-size:.72rem">Not in today's match</span><span class="badge-miss">SKIP</span></div>`).join('');
   document.getElementById('previewCount').textContent=`${hitCount} drafted players found in this match`;
-  document.getElementById('previewList').innerHTML=rows+missRows;
-  document.getElementById('applyNote').textContent=`${hitCount} player(s) will be updated`;
+
+  // Team win preview — show which participants benefit from the result
+  const result = state.pendingResult; // 't1', 't2', or 'draw'
+  const t1name = parsed.t1_name || '';
+  const t2name = parsed.t2_name || '';
+  const winnerName = result === 't1' ? t1name : result === 't2' ? t2name : null;
+  const winnerKey = winnerName
+    ? TEAM_KEYS.find(k => IPL_TEAMS[k]?.name?.toLowerCase() === winnerName.toLowerCase())
+    : null;
+
+  let teamWinHtml = '';
+  if (result && result !== 'draw' && winnerKey) {
+    const beneficiaries = state.participants.filter(p => p.teamPick === winnerKey).map(p => p.name);
+    const pts = TEAM_WIN_PTS; // 30
+    teamWinHtml = `<div class="preview-player-row hit" style="margin-top:.5rem;border-color:rgba(255,214,0,.3);background:rgba(255,214,0,.04)">
+      <div><strong>🏆 ${winnerName} Win</strong> <span style="color:var(--muted);font-size:.72rem">Team pick result</span></div>
+      <div class="preview-stats">
+        <div style="color:var(--gold);font-weight:600">+${pts} pts</div>
+      </div>
+      <span class="badge-found" style="background:rgba(255,214,0,.15);color:var(--gold)">
+        ${beneficiaries.length ? beneficiaries.join(', ') : 'Nobody drafted this team'}
+      </span>
+    </div>`;
+  } else if (result === 'draw') {
+    const t1key = TEAM_KEYS.find(k => IPL_TEAMS[k]?.name?.toLowerCase() === t1name.toLowerCase());
+    const t2key = TEAM_KEYS.find(k => IPL_TEAMS[k]?.name?.toLowerCase() === t2name.toLowerCase());
+    const affected = state.participants.filter(p => p.teamPick === t1key || p.teamPick === t2key).map(p => p.name);
+    teamWinHtml = `<div class="preview-player-row hit" style="margin-top:.5rem;border-color:rgba(255,214,0,.3);background:rgba(255,214,0,.04)">
+      <div><strong>🤝 Draw / No Result</strong></div>
+      <div class="preview-stats"><div style="color:var(--gold);font-weight:600">+${TEAM_DRAW_PTS} pts each</div></div>
+      <span class="badge-found" style="background:rgba(255,214,0,.15);color:var(--gold)">${affected.length ? affected.join(', ') : 'Nobody'}</span>
+    </div>`;
+  }
+
+  document.getElementById('previewList').innerHTML = rows + missRows + teamWinHtml;
+  document.getElementById('applyNote').textContent=`${hitCount} player(s) + team result will be updated`;
   document.getElementById('importPreview').classList.add('show');
 }
 
