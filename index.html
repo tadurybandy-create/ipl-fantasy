@@ -2762,13 +2762,17 @@ function applyMatchResultToTeamWins(m, add=true) {
   const findKey = name => {
     if (!name) return null;
     const nl = name.toLowerCase().trim();
-    // Exact match first
+    // Direct key match (e.g. 'MI', 'RCB')
+    const directKey = TEAM_KEYS.find(k => k.toLowerCase() === nl);
+    if (directKey) return directKey;
+    // Exact full name match
     let key = TEAM_KEYS.find(k => IPL_TEAMS[k]?.name?.toLowerCase() === nl);
     if (key) return key;
     // Fuzzy: first word match (e.g. 'Royal' matches 'Royal Challengers Bengaluru')
     key = TEAM_KEYS.find(k => {
       const tn = IPL_TEAMS[k]?.name?.toLowerCase()||'';
-      return tn.includes(nl.split(' ')[0]) || nl.includes(tn.split(' ')[0]);
+      const firstWord = nl.split(' ')[0];
+      return tn.startsWith(firstWord) || nl.startsWith((IPL_TEAMS[k]?.name||'').split(' ')[0].toLowerCase());
     });
     return key || null;
   };
@@ -2783,9 +2787,9 @@ function applyMatchResultToTeamWins(m, add=true) {
   if (m.result === 'draw') {
     if (t1key) state.teamWins[t1key].draws = Math.max(0, (state.teamWins[t1key]?.draws||0)+delta);
     if (t2key) state.teamWins[t2key].draws = Math.max(0, (state.teamWins[t2key]?.draws||0)+delta);
-  } else if (m.result === 't1' && t1key) {
+  } else if ((m.result === 't1' || m.result === 'team1') && t1key) {
     state.teamWins[t1key].wins = Math.max(0, (state.teamWins[t1key]?.wins||0)+delta);
-  } else if (m.result === 't2' && t2key) {
+  } else if ((m.result === 't2' || m.result === 'team2') && t2key) {
     state.teamWins[t2key].wins = Math.max(0, (state.teamWins[t2key]?.wins||0)+delta);
   }
 }
@@ -4059,8 +4063,9 @@ function calcSeasonPoints(participant) {
       const t2 = (match.t2name||'').toLowerCase();
       const myTeamName = (IPL_TEAMS[participant.teamPick]?.name||'').toLowerCase();
       if (!t1.includes(myTeamName.split(' ')[0]) && !t2.includes(myTeamName.split(' ')[0])) return;
-      if (result === 'team1' && t1.includes(myTeamName.split(' ')[0])) wins++;
-      else if (result === 'team2' && t2.includes(myTeamName.split(' ')[0])) wins++;
+      // match_history stores result as 't1'/'t2'/'draw' (state.pendingResult format)
+      if ((result === 't1' || result === 'team1') && t1.includes(myTeamName.split(' ')[0])) wins++;
+      else if ((result === 't2' || result === 'team2') && t2.includes(myTeamName.split(' ')[0])) wins++;
       else if (result === 'draw') draws++;
     });
     teamPts = wins * TEAM_WIN_PTS + draws * TEAM_DRAW_PTS;
@@ -5881,11 +5886,8 @@ function showPredSubTab(name, btn) {
     const el = document.getElementById(`pred-${t}`);
     if (el) el.style.display = t === name ? 'block' : 'none';
   });
-  // Always reload fresh match_schedule so results set via setPredResult show immediately after refresh
-  dbGet('match_schedule', `?mode=eq.${state.mode}&order=match_num.asc`).then(schedule => {
-    if (schedule && schedule.length) state.matchSchedule = schedule;
-    renderPredSubTab();
-  }).catch(() => renderPredSubTab()); // fallback: render with cached data
+  // Render from current state (match_schedule is kept up-to-date by setPredResult + loadPredictions)
+  renderPredSubTab();
 }
 
 function renderPredSubTab() {
