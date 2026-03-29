@@ -1138,7 +1138,13 @@ async function sb(method, table, body=null, params='', extraHeaders={}) {
     throw new Error(`${method} ${table}: ${err}`);
   }
   const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  const data = text ? JSON.parse(text) : null;
+  // PATCH/DELETE with no rows affected = RLS blocked or wrong filter
+  // Return the data but log a warning so it's visible in console
+  if ((method === 'PATCH' || method === 'DELETE') && Array.isArray(data) && data.length === 0) {
+    console.warn(`${method} ${table}${params}: 0 rows affected — check RLS policies`);
+  }
+  return data;
 }
 
 // Convenience wrappers
@@ -6264,7 +6270,11 @@ async function setPredResult(matchId, result) {
   const m = state.matchSchedule.find(x => x.id === matchId);
   if (!m) return;
   try {
-    await dbPatch('match_schedule', { result: result || null, locked: !!result }, `?id=eq.${matchId}`);
+    const patched = await dbPatch('match_schedule', { result: result || null, locked: !!result }, `?id=eq.${matchId}`);
+    if (!patched || (Array.isArray(patched) && patched.length === 0)) {
+      showToast('⚠ Result not saved — check Supabase RLS: match_schedule needs UPDATE policy for authenticated role.', 'err', 8000);
+      return;
+    }
     m.result = result || null;
     m.locked = !!result;
     showToast(`Match #${m.match_num} result set: ${result ? (result==='team1'?m.team1:m.team2)+' won' : 'cleared'}`, 'ok');
