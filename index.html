@@ -1609,6 +1609,12 @@ async function loadAll() {
       newTeam:s.new_team||null
     }));
 
+    // Load match schedule for predictions (needed for lockout + scorecard auto-update)
+    if (!state.matchSchedule.length) {
+      dbGet('match_schedule', `?mode=eq.${m}&order=match_num.asc`).then(schedule => {
+        if (schedule && schedule.length) state.matchSchedule = schedule;
+      }).catch(()=>{});
+    }
     setSyncStatus('ok', 'Synced');
     renderAll();
     autoSelectMyParticipant();
@@ -2752,11 +2758,26 @@ async function toggleTeamPick(teamKey) {
 function applyMatchResultToTeamWins(m, add=true) {
   const delta = add ? 1 : -1;
   if (!m.t1name || !m.t2name) return;
-  // Find team keys from names
-  const findKey = name => TEAM_KEYS.find(k => IPL_TEAMS[k]?.name?.toLowerCase() === name?.toLowerCase());
+  // Find team keys from names — fuzzy match to handle minor name variations
+  const findKey = name => {
+    if (!name) return null;
+    const nl = name.toLowerCase().trim();
+    // Exact match first
+    let key = TEAM_KEYS.find(k => IPL_TEAMS[k]?.name?.toLowerCase() === nl);
+    if (key) return key;
+    // Fuzzy: first word match (e.g. 'Royal' matches 'Royal Challengers Bengaluru')
+    key = TEAM_KEYS.find(k => {
+      const tn = IPL_TEAMS[k]?.name?.toLowerCase()||'';
+      return tn.includes(nl.split(' ')[0]) || nl.includes(tn.split(' ')[0]);
+    });
+    return key || null;
+  };
   const t1key = findKey(m.t1name);
   const t2key = findKey(m.t2name);
-  if (!t1key || !t2key) return; // team name not found in TEAM_KEYS — skip silently
+  if (!t1key || !t2key) {
+    console.log('applyMatchResultToTeamWins: could not find team keys for', m.t1name, m.t2name, '— available:', TEAM_KEYS.map(k=>IPL_TEAMS[k]?.name));
+    return;
+  }
   if (!state.teamWins[t1key]) state.teamWins[t1key] = {wins:0,draws:0};
   if (!state.teamWins[t2key]) state.teamWins[t2key] = {wins:0,draws:0};
   if (m.result === 'draw') {
@@ -5737,7 +5758,7 @@ async function recoverDraftTurn() {
 // ═══════════════════════════════════════════════════════
 function showScreen(name,btn) {
   // Force-hide all sub-panes with inline style to override any inline display:block
-  ['sub-draft-active','sub-draft-board','sub-draft-order','sub-draft-swap'].forEach(id => {
+  ['sub-draft-active','sub-draft-board','sub-draft-order','sub-draft-swap','sub-draft-undrafted'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -5763,6 +5784,11 @@ function showScreen(name,btn) {
 
   // When returning to Draft tab, show only sub-draft-active
   if (name === 'draft') {
+    // Reset ALL draft sub-panes before showing active — prevents leaking
+    ['sub-draft-board','sub-draft-order','sub-draft-swap','sub-draft-undrafted'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
     const activePane = document.getElementById('sub-draft-active');
     if (activePane) activePane.style.display = 'block';
     document.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
@@ -5818,7 +5844,7 @@ async function loadPredictions() {
   try {
     setSyncStatus('loading', 'Loading predictions…');
     const [schedule, myPreds, allPreds] = await Promise.all([
-      dbGet('match_schedule', `?mode=eq.${state.mode}&order=match_num.asc`),
+      dbGet('match_schedule', `?mode=eq.${state.mode}&order=match_num.asc`), // always fresh
       dbGet('predictions', `?mode=eq.${state.mode}`),
       currentUser.isAdmin
         ? dbGet('predictions', `?mode=eq.${state.mode}`)
@@ -6237,7 +6263,43 @@ async function setPredResult(matchId, result) {
     m.locked = !!result;
     showToast(`Match #${m.match_num} result set: ${result ? (result==='team1'?m.team1:m.team2)+' won' : 'cleared'}`, 'ok');
     renderPredManage();
+    // Refresh My Picks and Standings so correct/wrong updates immediately
+    renderMyPicks();
+    renderPredStandings();
   } catch(e) { showToast('Save failed: ' + e.message, 'err'); }
+}
+
+// Auto-update match_schedule result when a scorecard is applied
+async function updatePredictionMatchResult(t1name, t2name, result) {
+  if (!state.matchSchedule || !state.matchSchedule.length) return;
+  if (!result) return;
+  const normalize = s => (s||'').toLowerCase().trim();
+  const t1n = normalize(t1name);
+  const t2n = normalize(t2name);
+  const match = state.matchSchedule.find(m => {
+    if (!m.team1_name || !m.team2_name) return false;
+    const m1 = normalize(m.team1_name);
+    const m2 = normalize(m.team2_name);
+    return (m1.includes(t1n.split(' ')[0]) || t1n.includes(m1.split(' ')[0])) &&
+           (m2.includes(t2n.split(' ')[0]) || t2n.includes(m2.split(' ')[0]));
+  });
+  if (!match) {
+    console.log('updatePredictionMatchResult: no match found for', t1name, 'vs', t2name);
+    return;
+  }
+  if (match.result === result) return;
+  const scheduleResult = result === 't1' ? 'team1' : result === 't2' ? 'team2' : 'draw';
+  try {
+    await dbPatch('match_schedule', { result: scheduleResult, locked: true }, `?id=eq.${match.id}`);
+    match.result = scheduleResult;
+    match.locked = true;
+    showToast(`Predictions updated: Match #${match.match_num} — ${scheduleResult==='team1'?match.team1:match.team2} won`, 'ok');
+    // Refresh predictions UI
+    renderMyPicks();
+    renderPredStandings();
+  } catch(e) {
+    console.error('updatePredictionMatchResult error:', e.message);
+  }
 }
 
 async function togglePredLock(matchId) {
