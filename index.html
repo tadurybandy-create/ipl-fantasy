@@ -4175,6 +4175,7 @@ function renderMatchLog() {
         <div style="display:flex;align-items:center;gap:.6rem">
           <span class="match-result-chip ${chipClass}">${resultText}</span>
           <button class="btn-whatsapp" onclick="shareToWhatsApp('${m.id}')">📤 WhatsApp</button>
+          <button class="btn-ghost" style="color:var(--gold);border-color:rgba(247,183,49,.3)" onclick="openEditMatch('${m.id}')">✏ Edit</button>
           <button class="btn-ghost" onclick="removeMatch('${m.id}')">✕ Remove</button>
         </div>
       </div>
@@ -6948,6 +6949,166 @@ function doCopyOrder() {
   });
 }
 
+
+// ═══════════════════════════════════════════════════════
+// MATCH HISTORY EDITING
+// ═══════════════════════════════════════════════════════
+let _editingMatchId = null;
+
+function openEditMatch(id) {
+  const m = state.matchHistory.find(x => x.id === id);
+  if (!m) { showToast('Match not found', 'err'); return; }
+  _editingMatchId = id;
+  const resultText = m.result==='draw'?'Draw':m.result==='t1'||m.result==='team1'?`${m.t1name} Won`:`${m.t2name} Won`;
+  document.getElementById('editModalTitle').textContent = m.title || 'Edit Match';
+  document.getElementById('editModalSubtitle').textContent = `${m.date||''} · ${resultText} · ${(m.updates||[]).length} players`;
+  const inputStyle = `width:50px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.2rem .3rem;font-size:.82rem;text-align:center`;
+  const labelStyle = `font-size:.6rem;color:var(--muted);text-align:center;margin-top:.1rem`;
+  const rows = (m.updates||[]).map(u => {
+    const pts=(u.runs||0)+(u.wkts||0)*25+(u.catches||0)*5+(u.runouts||0)*5+(u.stumpings||0)*5+(u.motm||0)*MOTM_PTS;
+    const pid = u.player.replace(/[^a-zA-Z0-9]/g,'_');
+    return `<div style="display:flex;align-items:center;gap:.5rem;padding:.6rem .8rem;background:var(--card);border:1px solid var(--border2);border-radius:10px;flex-wrap:wrap">
+      <div style="min-width:130px;font-size:.85rem;font-weight:600">${u.player} <span style="font-size:.65rem;color:var(--muted)">${u.teamKey||''}</span></div>
+      <div style="display:flex;gap:.35rem;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;align-items:center">
+          <input type="number" min="0" style="${inputStyle}" value="${u.runs||0}" id="edit_runs_${pid}" oninput="updateEditPts('${u.player}')">
+          <div style="${labelStyle}">runs</div></div>
+        <div style="display:flex;flex-direction:column;align-items:center">
+          <input type="number" min="0" style="${inputStyle}" value="${u.wkts||0}" id="edit_wkts_${pid}" oninput="updateEditPts('${u.player}')">
+          <div style="${labelStyle}">wkts</div></div>
+        <div style="display:flex;flex-direction:column;align-items:center">
+          <input type="number" min="0" style="${inputStyle}" value="${u.catches||0}" id="edit_catches_${pid}" oninput="updateEditPts('${u.player}')">
+          <div style="${labelStyle}">ctch</div></div>
+        <div style="display:flex;flex-direction:column;align-items:center">
+          <input type="number" min="0" style="${inputStyle}" value="${u.runouts||0}" id="edit_runouts_${pid}" oninput="updateEditPts('${u.player}')">
+          <div style="${labelStyle}">r/o</div></div>
+        <div style="display:flex;flex-direction:column;align-items:center">
+          <input type="number" min="0" style="${inputStyle}" value="${u.stumpings||0}" id="edit_stumpings_${pid}" oninput="updateEditPts('${u.player}')">
+          <div style="${labelStyle}">st</div></div>
+        <div style="display:flex;flex-direction:column;align-items:center;padding-top:.15rem">
+          <input type="checkbox" ${u.motm?'checked':''} id="edit_motm_${pid}" onchange="updateEditPts('${u.player}')" style="width:16px;height:16px;cursor:pointer">
+          <div style="${labelStyle}">motm</div></div>
+      </div>
+      <div id="editPts_${pid}" style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--gold);min-width:55px;text-align:right">+${pts} pts</div>
+    </div>`;
+  }).join('');
+  document.getElementById('editMatchRows').innerHTML = rows || '<div style="color:var(--muted);font-size:.85rem;padding:.5rem">No player stats recorded.</div>';
+  document.getElementById('matchEditModal').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function updateEditPts(playerName) {
+  const pid = playerName.replace(/[^a-zA-Z0-9]/g,'_');
+  const g = (f) => {
+    const el = document.getElementById('edit_' + f + '_' + pid);
+    if (!el) return 0;
+    if (el.type==='checkbox') return el.checked?1:0;
+    return Math.max(0, parseInt(el.value)||0);
+  };
+  const pts = g('runs') + g('wkts')*25 + g('catches')*5 + g('runouts')*5 + g('stumpings')*5 + g('motm')*MOTM_PTS;
+  const el = document.getElementById('editPts_'+pid);
+  if (el) el.textContent = '+' + pts + ' pts';
+}
+
+function closeEditMatch() {
+  _editingMatchId = null;
+  document.getElementById('matchEditModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+async function saveEditMatch() {
+  const id = _editingMatchId;
+  if (!id) return;
+  const m = state.matchHistory.find(x => x.id === id);
+  if (!m) { showToast('Match not found', 'err'); return; }
+
+  const newUpdates = (m.updates||[]).map(u => {
+    const pid = u.player.replace(/[^a-zA-Z0-9]/g,'_');
+    const g = (f) => {
+      const el = document.getElementById('edit_'+f+'_'+pid);
+      if (!el) return f==='motm'?(u.motm||0):(u[f]||0);
+      if (el.type==='checkbox') return el.checked?1:0;
+      return Math.max(0, parseInt(el.value)||0);
+    };
+    const runs=g('runs'), wkts=g('wkts'), catches=g('catches');
+    const runouts=g('runouts'), stumpings=g('stumpings'), motm=g('motm');
+    const pts=runs+wkts*25+catches*5+runouts*5+stumpings*5+motm*MOTM_PTS;
+    return {...u, runs, wkts, catches, runouts, stumpings, motm, pts};
+  });
+
+  try {
+    setSyncStatus('loading','Saving edits…');
+
+    for (let i=0; i<(m.updates||[]).length; i++) {
+      const oldU = m.updates[i];
+      const newU = newUpdates[i];
+      const sc = state.seasonScores[oldU.player];
+      if (!sc) continue;
+      const changed = ['runs','wkts','catches','runouts','stumpings','motm'].some(f =>
+        (newU[f]||0) !== (f==='wkts'?oldU.wkts:oldU[f]||0)
+      );
+      if (!changed) continue;
+
+      // Delta: add new, subtract old
+      const newSc = {
+        runs:      (sc.runs||0)      + (newU.runs      - (oldU.runs||0)),
+        wickets:   (sc.wickets||0)   + (newU.wkts      - (oldU.wkts||0)),
+        catches:   (sc.catches||0)   + (newU.catches   - (oldU.catches||0)),
+        runouts:   (sc.runouts||0)   + (newU.runouts   - (oldU.runouts||0)),
+        stumpings: (sc.stumpings||0) + (newU.stumpings - (oldU.stumpings||0)),
+        motm:      (sc.motm||0)      + (newU.motm      - (oldU.motm||0)),
+      };
+
+      const patched = await dbPatch('season_scores', newSc,
+        `?player_name=eq.${encodeURIComponent(oldU.player)}&mode=eq.${state.mode}`);
+      if (!patched || (Array.isArray(patched) && patched.length===0)) {
+        showToast(`⚠ Could not update ${oldU.player} — check RLS`, 'err');
+        continue;
+      }
+      state.seasonScores[oldU.player] = newSc;
+    }
+
+    // Update match_history updates JSON in DB
+    const patchedHist = await dbPatch('match_history', {updates: newUpdates}, `?id=eq.${id}`);
+    if (!patchedHist || (Array.isArray(patchedHist) && patchedHist.length===0)) {
+      showToast('⚠ match_history not saved — check RLS', 'err');
+    } else {
+      m.updates = newUpdates;
+      showToast('✓ Stats updated — leaderboard recalculated', 'ok');
+    }
+
+    setSyncStatus('ok','Synced');
+    closeEditMatch();
+    renderMatchLog();
+    renderLeaderboard();
+  } catch(e) {
+    setSyncStatus('err','Failed');
+    showToast('Save failed: ' + e.message, 'err');
+    console.error('saveEditMatch error:', e);
+  }
+}
+
 </script>
+
+<!-- MATCH EDIT MODAL -->
+<div id="matchEditModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);overflow-y:auto;padding:2rem 1rem">
+  <div style="max-width:700px;margin:0 auto;background:var(--card2);border:1px solid var(--border);border-radius:16px;padding:1.5rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
+      <div>
+        <div id="editModalTitle" style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;color:var(--gold)"></div>
+        <div id="editModalSubtitle" style="font-size:.75rem;color:var(--muted);margin-top:.2rem"></div>
+      </div>
+      <button onclick="closeEditMatch()" style="background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer;padding:.3rem .6rem">✕</button>
+    </div>
+    <div style="font-size:.75rem;color:var(--muted);margin-bottom:1rem;padding:.6rem .8rem;background:rgba(247,183,49,.05);border:1px solid rgba(247,183,49,.15);border-radius:8px">
+      ✏ Edit any player's stats below. Changes will update season scores and leaderboard immediately.
+    </div>
+    <div id="editMatchRows" style="display:flex;flex-direction:column;gap:.5rem"></div>
+    <div style="display:flex;gap:.8rem;margin-top:1.2rem;justify-content:flex-end">
+      <button onclick="closeEditMatch()" class="btn-ghost">Cancel</button>
+      <button onclick="saveEditMatch()" style="background:linear-gradient(135deg,var(--gold),var(--orange));color:#000;border:none;padding:.6rem 1.6rem;border-radius:8px;font-weight:700;cursor:pointer;font-size:.9rem">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
