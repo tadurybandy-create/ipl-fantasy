@@ -1352,6 +1352,7 @@ async function handleAuthUser(user) {
   await loadAll();
   startDraftPolling();
   startHeartbeat();
+  startPredictionLockChecker();
   if (currentUser.isAdmin) alLoad();
 }
 
@@ -1618,8 +1619,13 @@ async function loadAll() {
     // Load match schedule for predictions (needed for lockout + scorecard auto-update)
     if (!state.matchSchedule.length) {
       dbGet('match_schedule', `?mode=eq.${m}&order=match_num.asc`).then(schedule => {
-        if (schedule && schedule.length) state.matchSchedule = schedule;
+        if (schedule && schedule.length) {
+          state.matchSchedule = schedule;
+          autoLockStartedMatches();
+        }
       }).catch(()=>{});
+    } else {
+      autoLockStartedMatches();
     }
     setSyncStatus('ok', 'Synced');
     renderAll();
@@ -2150,6 +2156,33 @@ function startHeartbeat() {
     if (!currentUser) return;
     dbPatch('allowlist', { last_seen: new Date().toISOString() }, '?email=eq.' + encodeURIComponent(currentUser.email)).catch(() => {});
   }, 5 * 60 * 1000); // every 5 minutes
+}
+
+// Check every 60s if any match has newly started → lock it client-side + re-render predictions
+let _predLockInterval = null;
+function startPredictionLockChecker() {
+  if (_predLockInterval) return;
+  _predLockInterval = setInterval(() => {
+    if (!currentUser || !state.matchSchedule?.length) return;
+    let anyNewlyLocked = false;
+    state.matchSchedule.forEach(m => {
+      if (!m.locked && !m.result && m.team1 && m.team2 && matchHasStarted(m)) {
+        m.locked = true; // lock client-side immediately
+        anyNewlyLocked = true;
+        // Admin also writes to DB so other users get it on next load
+        if (currentUser.isAdmin) {
+          dbPatch('match_schedule', { locked: true }, `?id=eq.${m.id}`).catch(() => {});
+        }
+      }
+    });
+    // If on predictions tab and something changed → re-render so buttons grey out live
+    if (anyNewlyLocked) {
+      const predScreen = document.getElementById('screen-predictions');
+      if (predScreen?.classList.contains('active')) {
+        renderMyPicks();
+      }
+    }
+  }, 60 * 1000); // every 60 seconds
 }
 
 function startDraftPolling() {
@@ -5816,6 +5849,26 @@ function showScreen(name,btn) {
 // ═══════════════════════════════════════════════════════
 // PREDICTIONS
 // ═══════════════════════════════════════════════════════
+
+// Auto-lock matches that have started — writes locked=true to DB so all users see it
+function autoLockStartedMatches() {
+  if (!currentUser?.isAdmin) return; // only admin writes locks
+  const toLock = (state.matchSchedule || []).filter(m =>
+    !m.locked && !m.result && m.team1 && m.team2 && matchHasStarted(m)
+  );
+  if (!toLock.length) return;
+  console.log(`autoLockStartedMatches: locking ${toLock.length} matches`, toLock.map(m=>`#${m.match_num}`));
+  toLock.forEach(m => {
+    dbPatch('match_schedule', { locked: true }, `?id=eq.${m.id}`)
+      .then(patched => {
+        if (patched && (!Array.isArray(patched) || patched.length > 0)) {
+          m.locked = true;
+          console.log(`✓ Auto-locked match #${m.match_num}`);
+        }
+      })
+      .catch(e => console.warn(`Failed to lock match #${m.match_num}:`, e.message));
+  });
+}
 
 // Returns true if a match has started based on its date+time
 // Handles both IST (UTC+5:30) and EST (UTC-5) / EDT (UTC-4) timezone suffixes
