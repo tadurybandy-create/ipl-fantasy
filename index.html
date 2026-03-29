@@ -5881,7 +5881,11 @@ function showPredSubTab(name, btn) {
     const el = document.getElementById(`pred-${t}`);
     if (el) el.style.display = t === name ? 'block' : 'none';
   });
-  renderPredSubTab();
+  // Always reload fresh match_schedule so results set via setPredResult show immediately after refresh
+  dbGet('match_schedule', `?mode=eq.${state.mode}&order=match_num.asc`).then(schedule => {
+    if (schedule && schedule.length) state.matchSchedule = schedule;
+    renderPredSubTab();
+  }).catch(() => renderPredSubTab()); // fallback: render with cached data
 }
 
 function renderPredSubTab() {
@@ -6205,8 +6209,8 @@ function renderPredManage() {
   if (!el || !currentUser?.isAdmin) return;
 
   let html = `<div style="font-size:.82rem;color:var(--muted);margin-bottom:.8rem">
-    Set match results and lock/unlock matches.
-    Locking prevents participants from changing predictions.
+    Set match results and lock/unlock predictions. Setting a result here updates prediction standings only.
+    <strong style="color:var(--gold)">Fantasy team win points (30pts) are added separately via Import Scorecard in the Scoring tab.</strong>
   </div>`;
 
   state.matchSchedule.filter(m => m.team1 && m.team2).forEach(m => {
