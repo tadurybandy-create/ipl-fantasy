@@ -6303,14 +6303,18 @@ async function updatePredictionMatchResult(t1name, t2name, result) {
     console.log('updatePredictionMatchResult: no match found for', t1name, 'vs', t2name);
     return;
   }
-  if (match.result === result) return;
   const scheduleResult = result === 't1' ? 'team1' : result === 't2' ? 'team2' : 'draw';
+  if (match.result === scheduleResult) return; // already set correctly — skip
   try {
-    await dbPatch('match_schedule', { result: scheduleResult, locked: true }, `?id=eq.${match.id}`);
+    const patched = await dbPatch('match_schedule', { result: scheduleResult, locked: true }, `?id=eq.${match.id}`);
+    if (!patched || (Array.isArray(patched) && patched.length === 0)) {
+      console.error('updatePredictionMatchResult: PATCH affected 0 rows — check RLS UPDATE policy on match_schedule');
+      showToast('⚠ Prediction result not saved — add UPDATE policy on match_schedule in Supabase RLS', 'err', 6000);
+      return;
+    }
     match.result = scheduleResult;
     match.locked = true;
     showToast(`Predictions updated: Match #${match.match_num} — ${scheduleResult==='team1'?match.team1:match.team2} won`, 'ok');
-    // Refresh predictions UI
     renderMyPicks();
     renderPredStandings();
   } catch(e) {
