@@ -980,7 +980,12 @@ body.admin-visible .admin-only{display:block;}
 
 <!-- MATCH SCORING -->
 <div id="screen-scoring" class="screen">
-  <div class="section-title">Match Scoring</div>
+  <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+    <span>Match Scoring</span>
+    <button onclick="shareToWhatsApp(null)" class="btn-whatsapp" style="font-size:.8rem;padding:.4rem .9rem">
+      📤 Share Standings
+    </button>
+  </div>
   <div class="info-box">Paste the full scorecard text from ESPNcricinfo. Claude will read it and update all drafted players' season totals automatically.</div>
   <div class="import-box">
     <div class="import-header">
@@ -4138,8 +4143,8 @@ function generateWhatsAppMsg(match) {
 
 
 function shareToWhatsApp(matchId) {
-  const match = state.matchHistory.find(m => m.id === matchId);
-  if (!match) return;
+  const match = matchId ? state.matchHistory.find(m => m.id === matchId) : null;
+  // Works with or without a specific match — always shows current standings
   const msg = generateWhatsAppMsg(match);
   // Show preview modal
   const modal = document.getElementById('waPreviewModal');
