@@ -4390,11 +4390,24 @@ function renderLeaderboard() {
   ).join('');
 
   el.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+      <span style="font-size:.8rem;color:var(--muted)">Season standings</span>
+      <button onclick="copyLeaderboard()" id="copyLbBtn"
+        style="display:flex;align-items:center;gap:.35rem;background:var(--card2);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:.35rem .8rem;font-size:.78rem;cursor:pointer;transition:all .2s">
+        📋 Copy
+      </button>
+    </div>
     <table class="lb-table" style="margin-bottom:2rem">
       <thead><tr><th>#</th><th>Fantasy Team</th><th>Season Pts</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <div class="subsection" style="margin-top:1.5rem">🧤 Top Catches — Drafted Players</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:1.5rem;margin-bottom:.5rem">
+      <div class="subsection" style="margin:0">🧤 Top Catches — Drafted Players</div>
+      <button onclick="copyCatches()" id="copyCatchBtn"
+        style="display:flex;align-items:center;gap:.35rem;background:var(--card2);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:.35rem .8rem;font-size:.78rem;cursor:pointer;transition:all .2s">
+        📋 Copy
+      </button>
+    </div>
     ${catchRows
       ? `<table class="lb-table"><thead><tr><th>#</th><th>Player</th><th>Catches</th></tr></thead><tbody>${catchRows}</tbody></table>`
       : '<div class="empty-state">No catches recorded yet.</div>'}
@@ -7116,6 +7129,50 @@ async function saveEditMatch() {
     setSyncStatus('err','Failed');
     showToast('Save failed: ' + e.message, 'err');
     console.error('saveEditMatch error:', e);
+  }
+}
+
+
+function copyLeaderboard() {
+  const medals = ['🥇','🥈','🥉'];
+  const lb = state.participants
+    .map(p => ({ name:p.name, ...calcSeasonPoints(p) }))
+    .sort((a,b) => b.total - a.total);
+  const text = '🏏 *Fantasy Standings*\n' +
+    lb.map((p,i) => `${medals[i]||`${i+1}.`} ${p.name} — ${p.total}pts`).join('\n');
+  _copyText(text, 'copyLbBtn');
+}
+
+function copyCatches() {
+  const catchData = [];
+  const seen = new Set();
+  state.participants.forEach(p => {
+    TEAM_KEYS.forEach(k => {
+      const name = p.picks?.[k]; if (!name||seen.has(name)) return;
+      seen.add(name);
+      const sc = state.seasonScores[name]||{};
+      if ((sc.catches||0) > 0) catchData.push({ player:name, catches:sc.catches });
+    });
+  });
+  catchData.sort((a,b) => b.catches - a.catches);
+  if (!catchData.length) { showToast('No catches recorded yet','warn'); return; }
+  const medals = ['🥇','🥈','🥉'];
+  const text = '🧤 *Top Catches*\n' +
+    catchData.map((d,i) => `${medals[i]||`${i+1}.`} ${d.player} — ${d.catches}c`).join('\n');
+  _copyText(text, 'copyCatchBtn');
+}
+
+function _copyText(text, btnId) {
+  const done = () => {
+    const btn = document.getElementById(btnId);
+    if (btn) { const orig=btn.innerHTML; btn.innerHTML='✓ Copied!'; btn.style.color='var(--green)'; setTimeout(()=>{btn.innerHTML=orig;btn.style.color='';},2000); }
+  };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(done).catch(()=>{
+      const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done();
+    });
+  } else {
+    const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done();
   }
 }
 
