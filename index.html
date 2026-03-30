@@ -3420,6 +3420,7 @@ Tasks:
    - catches: count of catches taken — look for "c [their name]" or "c †[their name]" in dismissal descriptions. NOT stumpings.
      IMPORTANT: The † symbol marks the wicketkeeper. "c †Sharma b Duffy" means the wicketkeeper caught it. Look at the batting lineup — the player with † next to their name is the wicketkeeper. Match "†Sharma" to their full name in the player list (e.g. "Jitesh Sharma †" in the lineup = "Jitesh Sharma").
      When you see "c †Name", strip the † to get the fielder's surname, then find the wicketkeeper's full name from the lineup to confirm.
+     FIELDING-ONLY PLAYERS: A player may take catches in innings 1 (fielding team) but NOT bat in innings 2 (they are on the batting side, so they field but don't appear as bowlers or batters in that innings). They will ONLY appear as "c PlayerName" in dismissal text. You MUST still include them with their catch count even if they have 0 runs and 0 wickets. Example: "c Padikkal b Shepherd" appears 3 times → Padikkal gets catches:3 even if Padikkal never batted or bowled.
      Do NOT count run-out text as catches. "run out (Verma/Ansari)" gives runout credit, NOT catch credit.
    - runouts: IMPORTANT — if a dismissal shows "run out (PlayerA/PlayerB)", BOTH PlayerA AND PlayerB each get 1 run-out credit (5 pts each). Count every dismissal where their name appears INSIDE the round brackets after "run out".
      The name inside the brackets is the fielder(s) who effected the run out — NOT the batsman who was dismissed.
@@ -3548,42 +3549,56 @@ function renderImportPreview(parsed, allDrafted) {
 
   const inputStyle = `width:44px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:.15rem .3rem;font-size:.8rem;text-align:center;font-family:'DM Sans',sans-serif`;
 
-  const rows = inMatch.map(p => {
-    const drafted = allDrafted.find(d=>d.player.toLowerCase()===p.name.toLowerCase());
-    if (!drafted) return '';
-    hitCount++;
+  // Find which team keys are playing today
+  const t1key = TEAM_KEYS.find(k => IPL_TEAMS[k]?.name?.toLowerCase().startsWith((parsed.t1_name||'').split(' ')[0].toLowerCase()));
+  const t2key = TEAM_KEYS.find(k => IPL_TEAMS[k]?.name?.toLowerCase().startsWith((parsed.t2_name||'').split(' ')[0].toLowerCase()));
+  const matchTeamKeys = [t1key, t2key].filter(Boolean);
+
+  // Helper: build an editable player row
+  function buildEditRow(playerName, teamKey, stats, isFoundByClaude) {
+    const p = stats;
     const pts=(p.runs||0)+(p.wickets||0)*25+(p.catches||0)*5+(p.runouts||0)*5+(p.stumpings||0)*5+(p.motm||0)*MOTM_PTS;
-    const pid = p.name.replace(/\s+/g,'_');
-    return `<div class="preview-player-row hit">
-      <div style="min-width:150px"><strong>${p.name}</strong> <span style="color:var(--muted);font-size:.72rem">${drafted.teamKey}</span></div>
+    const pid = playerName.replace(/[^a-zA-Z0-9]/g,'_');
+    const rowStyle = isFoundByClaude
+      ? `background:rgba(247,183,49,.04);border:1px solid rgba(247,183,49,.15);`
+      : `background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.04);opacity:.75;`;
+    const badge = isFoundByClaude
+      ? `<span class="badge-found">DRAFTED</span>`
+      : `<span style="font-size:.62rem;color:var(--muted);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:4px;padding:.1rem .4rem;letter-spacing:.5px">IN MATCH</span>`;
+    // Ensure this player is in parsed.players so updateParsedStat works
+    if (!parsed.players.find(x=>x.name===playerName)) {
+      parsed.players.push({name:playerName, team:IPL_TEAMS[teamKey]?.name||teamKey, runs:0, wickets:0, catches:0, runouts:0, stumpings:0, motm:0});
+    }
+    return `<div class="preview-player-row" style="${rowStyle}border-radius:10px;padding:.5rem .8rem;margin-bottom:.35rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+      <div style="min-width:150px"><strong>${playerName}</strong> <span style="color:var(--muted);font-size:.72rem">${teamKey}</span></div>
       <div class="preview-stats" style="flex-wrap:wrap;gap:.5rem">
         <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
           <input type="number" min="0" style="${inputStyle}" value="${p.runs||0}"
-            onchange="updateParsedStat('${p.name}','runs',this.value)">
+            onchange="updateParsedStat('${playerName}','runs',this.value)">
           <span style="font-size:.6rem;color:var(--muted)">runs</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
           <input type="number" min="0" style="${inputStyle}" value="${p.wickets||0}"
-            onchange="updateParsedStat('${p.name}','wickets',this.value)">
+            onchange="updateParsedStat('${playerName}','wickets',this.value)">
           <span style="font-size:.6rem;color:var(--muted)">wkts</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
           <input type="number" min="0" style="${inputStyle}" value="${p.catches||0}"
-            onchange="updateParsedStat('${p.name}','catches',this.value)">
+            onchange="updateParsedStat('${playerName}','catches',this.value)">
           <span style="font-size:.6rem;color:var(--muted)">ctch</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
           <input type="number" min="0" style="${inputStyle}" value="${p.runouts||0}"
-            onchange="updateParsedStat('${p.name}','runouts',this.value)">
+            onchange="updateParsedStat('${playerName}','runouts',this.value)">
           <span style="font-size:.6rem;color:var(--muted)">r/o</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
           <input type="number" min="0" style="${inputStyle}" value="${p.stumpings||0}"
-            onchange="updateParsedStat('${p.name}','stumpings',this.value)">
+            onchange="updateParsedStat('${playerName}','stumpings',this.value)">
           <span style="font-size:.6rem;color:var(--muted)">st</span>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
-          <input type="checkbox" ${p.motm?'checked':''} onchange="toggleMotm('${p.name}',this.checked)"
+          <input type="checkbox" ${p.motm?'checked':''} onchange="toggleMotm('${playerName}',this.checked)"
             style="width:16px;height:16px;cursor:pointer">
           <span style="font-size:.6rem;color:var(--muted)">motm</span>
         </div>
@@ -3591,16 +3606,58 @@ function renderImportPreview(parsed, allDrafted) {
           <span id="pts_${pid}" style="color:var(--gold);font-weight:600;font-size:.85rem">+${pts} pts</span>
         </div>
       </div>
-      <span class="badge-found">DRAFTED</span>
+      ${badge}
     </div>`;
-  }).filter(Boolean).join('');
+  }
 
-  const missRows = allDrafted.filter(d=>{
-    const f=parsed.players.find(p=>p.name.toLowerCase()===d.player.toLowerCase());
-    return !f||f.not_in_match;
-  }).map(d=>`<div class="preview-player-row miss"><span>${d.player} <span style="font-size:.72rem">${d.teamKey}</span></span><span style="font-size:.72rem">Not in today's match</span><span class="badge-miss">SKIP</span></div>`).join('');
+  // ── Section 1: Players Claude found (from both teams) ──
+  let foundRows = '';
+  inMatch.forEach(p => {
+    const drafted = allDrafted.find(d=>d.player.toLowerCase()===p.name.toLowerCase());
+    if (!drafted) return;
+    hitCount++;
+    foundRows += buildEditRow(p.name, drafted.teamKey, p, true);
+  });
 
-  document.getElementById('previewCount').textContent=`${hitCount} drafted players found · Edit any stats before applying`;
+  // ── Section 2: Drafted players from MATCH TEAMS that Claude missed ──
+  // These players were in today's match but Claude didn't return stats for them
+  // Show them with editable 0s — they may have fielding stats Claude missed
+  let missedRows = '';
+  let missedCount = 0;
+  if (matchTeamKeys.length > 0) {
+    allDrafted.filter(d => {
+      if (!matchTeamKeys.includes(d.teamKey)) return false; // not in today's match
+      const found = inMatch.find(p => p.name.toLowerCase() === d.player.toLowerCase());
+      return !found; // Claude didn't return them
+    }).forEach(d => {
+      missedCount++;
+      missedRows += buildEditRow(d.player, d.teamKey, {runs:0,wickets:0,catches:0,runouts:0,stumpings:0,motm:0}, false);
+    });
+  }
+
+  // ── Section 3: Players from OTHER teams (not in today's match) ──
+  const skipRows = allDrafted.filter(d => {
+    if (matchTeamKeys.length === 0) return false;
+    if (!matchTeamKeys.includes(d.teamKey)) return true; // different team
+    return false;
+  }).map(d=>`<div class="preview-player-row miss" style="margin-bottom:.25rem"><span>${d.player} <span style="font-size:.72rem">${d.teamKey}</span></span><span style="font-size:.72rem;color:var(--muted)">Not in today's match</span><span class="badge-miss">SKIP</span></div>`).join('');
+
+  document.getElementById('previewCount').textContent =
+    `${hitCount} found by AI · ${missedCount} match players with 0s (edit if needed) · Edit before applying`;
+
+
+  // Add divider before missed players if any
+  let html = foundRows;
+  if (missedCount > 0) {
+    html += `<div style="font-size:.72rem;color:var(--muted);padding:.4rem .2rem;margin:.3rem 0;border-top:1px solid var(--border2)">
+      ⚠ Below players are from today's match but not found by AI — verify fielding stats (catches/runouts)
+    </div>`;
+    html += missedRows;
+  }
+  if (skipRows) {
+    html += `<div style="font-size:.72rem;color:var(--muted);padding:.4rem .2rem;margin:.3rem 0;border-top:1px solid var(--border2)">Not in today's match</div>`;
+    html += skipRows;
+  }
 
   // Team win preview — show which participants benefit from the result
   const result = state.pendingResult; // 't1', 't2', or 'draw'
@@ -3653,11 +3710,12 @@ async function applyMatch() {
   const today = new Date().toLocaleDateString();
   const t1 = (imp.t1name||'').toLowerCase().trim();
   const t2 = (imp.t2name||'').toLowerCase().trim();
-  const duplicate = state.matchHistory.find(m =>
-    m.date === today &&
-    ((m.t1name||'').toLowerCase().trim() === t1 && (m.t2name||'').toLowerCase().trim() === t2 ||
-     (m.t1name||'').toLowerCase().trim() === t2 && (m.t2name||'').toLowerCase().trim() === t1)
-  );
+  // Match on team names regardless of date — prevents double-counting across days
+  const duplicate = state.matchHistory.find(m => {
+    const mt1 = (m.t1name||'').toLowerCase().trim();
+    const mt2 = (m.t2name||'').toLowerCase().trim();
+    return (mt1 === t1 && mt2 === t2) || (mt1 === t2 && mt2 === t1);
+  });
   if (duplicate) {
     let choice = false;
     await new Promise((res) => confirmSwapModal(
@@ -3875,6 +3933,7 @@ Respond ONLY in this exact JSON format, no markdown:
       </div>`;
   }
 }
+
 
 function buildFantasyContext(playerName) {
   // Check if this player is already drafted and has fantasy scores
@@ -4334,10 +4393,13 @@ function calcSeasonPoints(participant) {
       const t1 = (match.t1name||'').toLowerCase();
       const t2 = (match.t2name||'').toLowerCase();
       const myTeamName = (IPL_TEAMS[participant.teamPick]?.name||'').toLowerCase();
-      if (!t1.includes(myTeamName.split(' ')[0]) && !t2.includes(myTeamName.split(' ')[0])) return;
-      // match_history stores result as 't1'/'t2'/'draw' (state.pendingResult format)
-      if ((result === 't1' || result === 'team1') && t1.includes(myTeamName.split(' ')[0])) wins++;
-      else if ((result === 't2' || result === 'team2') && t2.includes(myTeamName.split(' ')[0])) wins++;
+      // Use startsWith on first word to avoid 'royal' matching 'rajasthan royals'
+      const firstWord = myTeamName.split(' ')[0];
+      const t1match = t1.startsWith(firstWord) || firstWord.startsWith(t1.split(' ')[0]);
+      const t2match = t2.startsWith(firstWord) || firstWord.startsWith(t2.split(' ')[0]);
+      if (!t1match && !t2match) return;
+      if ((result === 't1' || result === 'team1') && t1match) wins++;
+      else if ((result === 't2' || result === 'team2') && t2match) wins++;
       else if (result === 'draw') draws++;
     });
     teamPts = wins * TEAM_WIN_PTS + draws * TEAM_DRAW_PTS;
@@ -4445,7 +4507,7 @@ function openParticipantDetail(participantIdx) {
         return `<div class="match-breakdown-row">
           <span style="color:var(--muted);font-size:.75rem">${m.date}</span>
           <span style="flex:1;margin:0 .8rem">${m.title}</span>
-          <span style="font-size:.75rem;color:var(--muted)">${u.runs}r ${u.wkts}w ${u.catches}c${u.motm?' ⭐':''}</span>
+          <span style="font-size:.75rem;color:var(--muted)">${u.runs}r ${u.wkts}w ${u.catches}c${u.runouts?' '+u.runouts+'ro':''}${u.stumpings?' '+u.stumpings+'st':''}${u.motm?' ⭐':''}</span>
           <span class="match-breakdown-pts">+${pts}</span>
         </div>`;
       }).join('');
