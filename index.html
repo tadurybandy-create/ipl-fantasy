@@ -3734,7 +3734,7 @@ function renderImportPreview(parsed, allDrafted) {
     </div>`;
   }
 
-  document.getElementById('previewList').innerHTML = rows + missRows + teamWinHtml;
+  document.getElementById('previewList').innerHTML = html + teamWinHtml;
   document.getElementById('applyNote').textContent=`${hitCount} player(s) + team result will be updated`;
   document.getElementById('importPreview').classList.add('show');
 }
