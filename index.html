@@ -3868,9 +3868,6 @@ async function applyMatch() {
     state.matchHistory.push(newMatch);
     applyMatchResultToTeamWins(newMatch, true);
 
-    // Auto-update match_schedule result for predictions
-    await updatePredictionMatchResult(imp.t1name, imp.t2name, state.pendingResult);
-
     setSyncStatus('ok','Synced');
 
     // Reset
@@ -4307,7 +4304,7 @@ function renderMatchLog() {
         <div style="display:flex;align-items:center;gap:.6rem">
           <span class="match-result-chip ${chipClass}">${resultText}</span>
           <button class="btn-whatsapp" onclick="shareToWhatsApp('${m.id}')">📤 WhatsApp</button>
-          <button class="btn-ghost" style="color:var(--gold);border-color:rgba(247,183,49,.3)" onclick="openEditMatch('${m.id}')">✏ Edit</button>
+          ${currentUser?.isAdmin ? `<button class="btn-ghost" style="color:var(--gold);border-color:rgba(247,183,49,.3)" onclick="openEditMatch('${m.id}')">✏ Edit</button>` : ''}
           <button class="btn-ghost" onclick="removeMatch('${m.id}')">✕ Remove</button>
         </div>
       </div>
