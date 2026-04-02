@@ -1065,8 +1065,10 @@ body.admin-visible .admin-only{display:block;}
       </div>
     </div>
   </div>
-  <div class="subsection">Match History</div>
-  <div id="matchLog" class="match-log"><div class="empty-state">No matches scored yet.</div></div>
+  <div id="matchHistorySection">
+    <div class="subsection">Match History</div>
+    <div id="matchLog" class="match-log"><div class="empty-state">No matches scored yet.</div></div>
+  </div>
 
   <div style="margin-top:2rem">
     <div class="subsection" style="margin-bottom:.6rem">🔮 Predictions Leaderboard</div>
@@ -1143,7 +1145,7 @@ body.admin-visible .admin-only{display:block;}
   <div class="sub-tab-bar" style="margin-bottom:1rem">
     <button class="sub-tab active" id="spred-mypicks" onclick="showPredSubTab('mypicks',this)">🎯 My Picks</button>
     <button class="sub-tab" id="spred-standings" onclick="showPredSubTab('standings',this)">🏆 Standings</button>
-    <button class="sub-tab admin-only" id="spred-allpicks" onclick="showPredSubTab('allpicks',this)" style="display:none">📋 All Picks</button>
+    <button class="sub-tab" id="spred-allpicks" onclick="showPredSubTab('allpicks',this)">📋 All Picks</button>
     <button class="sub-tab admin-only" id="spred-manage" onclick="showPredSubTab('manage',this)" style="display:none">⚙️ Manage</button>
   </div>
 
@@ -4291,6 +4293,10 @@ function copyWaMsg() {
 }
 
 function renderMatchLog() {
+  // Hide entire match history section from non-admins
+  const section = document.getElementById('matchHistorySection');
+  if (section) section.style.display = currentUser?.isAdmin ? '' : 'none';
+  if (!currentUser?.isAdmin) return;
   const el=document.getElementById('matchLog');
   if (!state.matchHistory.length) { el.innerHTML='<div class="empty-state">No matches scored yet.</div>'; return; }
   el.innerHTML=[...state.matchHistory].reverse().map((m,ri)=>{
@@ -6614,9 +6620,12 @@ async function loadAllPredictionsForStandings() {
 function renderAllPicks() {
   const el = document.getElementById('predAllPicksContent');
   if (!el) return;
-  if (!currentUser?.isAdmin) { el.innerHTML = '<div class="empty-state">Admin only.</div>'; return; }
+  const isAdmin = currentUser?.isAdmin;
   loadAllPredictionsForStandings().then(allPreds => {
-    const completedMatches = state.matchSchedule.filter(m => m.result || m.locked);
+    // Admins see all matches, non-admins only see completed (result set) or locked matches
+    const completedMatches = state.matchSchedule.filter(m =>
+      isAdmin ? (m.result || m.locked) : (m.result || m.locked)
+    );
     const participants = state.participants;
     if (!participants.length) { el.innerHTML = '<div class="empty-state">No participants.</div>'; return; }
 
