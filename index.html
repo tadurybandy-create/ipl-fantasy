@@ -840,7 +840,56 @@ body.admin-visible .admin-only{display:block;}
 .catch-team{font-size:.6rem;color:#5A7A9A;letter-spacing:.5px;}
 .catch-count{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:#00E676;line-height:1;}
 .catch-count-label{font-size:.55rem;color:#5A7A9A;text-align:center;letter-spacing:1px;}
+
+/* ══ SHARE CARD ══ */
+#shareCardWrap {
+  position:fixed;left:-9999px;top:-9999px;
+  width:400px;font-family:'DM Sans',sans-serif;
+  background:linear-gradient(160deg,#0D1420 0%,#080D17 100%);
+  border-radius:20px;overflow:hidden;
+  box-shadow:0 24px 80px rgba(0,0,0,.8),0 0 0 1px rgba(247,183,49,.15);
+}
+.sc-glow{position:absolute;top:-60px;left:50%;transform:translateX(-50%);
+  width:320px;height:200px;pointer-events:none;
+  background:radial-gradient(ellipse,rgba(247,183,49,.12) 0%,transparent 70%);}
+.sc-header{padding:1.4rem 1.4rem 1rem;display:flex;align-items:center;
+  justify-content:space-between;border-bottom:1px solid rgba(247,183,49,.1);
+  position:relative;}
+.sc-brand{display:flex;align-items:center;gap:.6rem;}
+.sc-bolt{font-size:1.6rem;filter:drop-shadow(0 0 8px rgba(247,183,49,.6));}
+.sc-title{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:3px;
+  background:linear-gradient(135deg,#F7B731,#FF6B35);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.sc-meta{text-align:right;}
+.sc-meta-main{font-family:'Bebas Neue',sans-serif;font-size:.85rem;letter-spacing:2px;color:#8AA0B8;}
+.sc-meta-sub{font-size:.62rem;color:#5A7A9A;letter-spacing:1px;margin-top:1px;}
+.sc-standings{padding:.7rem .9rem;}
+.sc-row{display:flex;align-items:center;padding:.4rem .5rem;
+  border-radius:8px;margin-bottom:.2rem;gap:.5rem;}
+.sc-row:nth-child(odd){background:rgba(255,255,255,.02);}
+.sc-row.sc-top1{background:linear-gradient(90deg,rgba(247,183,49,.08),transparent);}
+.sc-row.sc-top2{background:linear-gradient(90deg,rgba(192,192,192,.06),transparent);}
+.sc-row.sc-top3{background:linear-gradient(90deg,rgba(205,127,50,.06),transparent);}
+.sc-rank{font-family:'Bebas Neue',sans-serif;font-size:.95rem;color:#5A7A9A;min-width:22px;text-align:center;}
+.sc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.sc-name{font-weight:700;font-size:.85rem;flex:1;color:#EDF2FF;}
+.sc-pts{font-family:'Bebas Neue',sans-serif;font-size:.9rem;color:#8AA0B8;min-width:60px;text-align:right;}
+.sc-div{height:1px;background:rgba(255,255,255,.06);margin:.35rem .5rem;}
+.sc-catches{border-top:1px solid rgba(247,183,49,.08);padding:.7rem .9rem;
+  display:flex;align-items:flex-start;gap:.8rem;}
+.sc-catches-label{font-family:'Bebas Neue',sans-serif;letter-spacing:2px;
+  font-size:.75rem;color:#5A7A9A;min-width:55px;line-height:1.3;padding-top:.1rem;}
+.sc-catches-list{display:flex;flex-direction:column;gap:.18rem;flex:1;}
+.sc-catch-row{display:flex;align-items:center;gap:.4rem;}
+.sc-catch-medal{font-size:.78rem;}
+.sc-catch-name{font-size:.72rem;color:#EDF2FF;font-weight:600;flex:1;}
+.sc-catch-count{font-family:'Bebas Neue',sans-serif;font-size:.88rem;color:#00E676;}
+.sc-footer{padding:.55rem 1.4rem;display:flex;align-items:center;
+  justify-content:space-between;border-top:1px solid rgba(255,255,255,.04);}
+.sc-footer-date{font-size:.6rem;color:#3A5A7A;letter-spacing:1px;}
+.sc-footer-brand{font-family:'Bebas Neue',sans-serif;font-size:.68rem;letter-spacing:2px;color:#3A5A7A;}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -1078,9 +1127,18 @@ body.admin-visible .admin-only{display:block;}
 
 <!-- LEADERBOARD -->
 <div id="screen-leaderboard" class="screen">
-  <div class="section-title">🏆 Leaderboard</div>
+  <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+    <span>🏆 Leaderboard</span>
+    <button onclick="generateShareCard()" id="shareCardBtn"
+      style="display:flex;align-items:center;gap:.4rem;background:linear-gradient(135deg,#F7B731,#FF6B35);color:#000;border:none;border-radius:8px;padding:.4rem .9rem;font-size:.78rem;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(247,183,49,.3)">
+      📸 Share Card
+    </button>
+  </div>
   <div id="leaderboardContent"><div class="empty-state">Complete the draft first.</div></div>
 </div>
+
+<!-- SHARE CARD (off-screen, rendered to PNG) -->
+<div id="shareCardWrap"></div>
 
 <!-- DRAFT ORDER -->
 <div id="screen-draftorder" class="screen">
@@ -5545,43 +5603,82 @@ function renderRosters() {
   }
 
   const myName = currentUser?.participantName?.toLowerCase();
-
-  // Sort: me first, then by most picks desc
   const sorted = [...state.participants].sort((a, b) => {
     const aIsMe = a.name.toLowerCase() === myName;
     const bIsMe = b.name.toLowerCase() === myName;
-    if (aIsMe) return -1;
-    if (bIsMe) return 1;
+    if (aIsMe) return -1; if (bIsMe) return 1;
     return Object.keys(b.picks||{}).length - Object.keys(a.picks||{}).length;
   });
 
   el.innerHTML = '<div class="rosters-grid">' + sorted.map(p => {
     const isMe = p.name.toLowerCase() === myName;
-    const {total} = calcSeasonPoints(p);
+    const {total, breakdown, teamPts, teamWinData} = calcSeasonPoints(p);
     const pickCount = Object.keys(p.picks||{}).length;
 
     const pickRows = TEAM_KEYS.map(k => {
-      const player = p.picks[k];
-      const playerObj = player ? (IPL_TEAMS[k]?.players||[]).find(pl => pl.name === player) : null;
-      const flag = playerObj?.foreign ? '🌍' : '🇮🇳';
-      const avail = playerObj?.availability || 'active';
-      const availInfo = AVAILABILITY[avail] || AVAILABILITY.active;
-      const badge = availInfo.label
-        ? `<span class="player-status-badge ${availInfo.badge}" style="margin-left:.2rem">${availInfo.label}</span>` : '';
-      return `<div class="roster-pick-row">
-        <span class="slot">${k}</span>
-        ${player
-          ? `<span class="pname">${flag} ${player}${badge}</span>`
-          : `<span class="empty-slot">—</span>`}
+      const slotData = breakdown[k] || {};
+      const slotPlayers = slotData.slotPlayers || [];
+      const slotPts = slotData.slotPts || 0;
+      const currentPlayer = p.picks[k];
+
+      if (!currentPlayer && !slotPlayers.length) {
+        return `<div class="roster-pick-row">
+          <span class="slot">${k}</span>
+          <span class="empty-slot">—</span>
+        </div>`;
+      }
+
+      // Build player entries — show all players in this slot (current + swapped out)
+      const playerEntries = slotPlayers.map((sp, si) => {
+        const isActive = sp.name === currentPlayer;
+        const playerObj = (IPL_TEAMS[k]?.players||[]).find(pl => pl.name === sp.name);
+        const flag = playerObj?.foreign ? '🌍' : '🇮🇳';
+        const sc = sp.sc || {};
+        const statParts = [];
+        if (sc.runs)      statParts.push(`${sc.runs}r`);
+        if (sc.wickets)   statParts.push(`${sc.wickets}w`);
+        if (sc.catches)   statParts.push(`${sc.catches}c`);
+        if (sc.runouts)   statParts.push(`${sc.runouts}ro`);
+        if (sc.stumpings) statParts.push(`${sc.stumpings}st`);
+        if (sc.motm)      statParts.push(`⭐`);
+        const statsStr = statParts.length ? statParts.join(' ') : '0 pts';
+        const swapLabel = !isActive
+          ? `<span style="font-size:.58rem;color:var(--muted);background:rgba(255,255,255,.06);border-radius:3px;padding:.05rem .25rem;margin-left:.2rem">OLD</span>` : '';
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.18rem 0;${!isActive?'opacity:.55':''};border-bottom:${si<slotPlayers.length-1?'1px solid rgba(255,255,255,.04)':'none'}">
+          <span style="font-size:.78rem;${isActive?'font-weight:600':''}">
+            ${flag} ${sp.name}${swapLabel}
+          </span>
+          <span style="display:flex;align-items:center;gap:.4rem;flex-shrink:0">
+            <span style="font-size:.65rem;color:var(--muted)">${statsStr}</span>
+            <span style="font-size:.75rem;font-family:'Bebas Neue',sans-serif;color:${sp.pts>0?'var(--gold)':'var(--muted)'}">+${sp.pts}</span>
+          </span>
+        </div>`;
+      }).join('');
+
+      // If no window data yet (no matches applied), just show name
+      const hasStats = slotPlayers.length > 0;
+      return `<div class="roster-pick-row" style="flex-direction:column;align-items:stretch;gap:0;padding:.35rem .5rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${hasStats?'.2rem':'0'}">
+          <span class="slot" style="flex-shrink:0">${k}</span>
+          ${hasStats ? `<span style="font-family:'Bebas Neue',sans-serif;font-size:.75rem;color:var(--gold);letter-spacing:1px">${slotPts} pts</span>` : ''}
+        </div>
+        ${hasStats ? playerEntries : `<div style="font-size:.78rem;font-weight:600;padding:.1rem 0">${(() => {
+          const playerObj = (IPL_TEAMS[k]?.players||[]).find(pl => pl.name === currentPlayer);
+          return (playerObj?.foreign ? '🌍' : '🇮🇳') + ' ' + currentPlayer;
+        })()}</div>`}
       </div>`;
     }).join('');
 
-    const teamRow = p.teamPick
-      ? `<div class="roster-team-row">
-          <span class="roster-team-label">🏆 ${IPL_TEAMS[p.teamPick]?.name || p.teamPick}</span>
-        </div>` : '';
+    // Team pick row with pts
+    const teamRow = p.teamPick ? (() => {
+      const tw = teamWinData || {wins:0,draws:0};
+      return `<div class="roster-team-row" style="justify-content:space-between">
+        <span class="roster-team-label">🏆 ${IPL_TEAMS[p.teamPick]?.name || p.teamPick}</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:.8rem;color:var(--gold)">${tw.wins}W ${tw.draws}D · +${teamPts}pts</span>
+      </div>`;
+    })() : '';
 
-    return `<div class="roster-card ${isMe ? 'is-me' : ''}">
+    return `<div class="roster-card ${isMe ? 'is-me' : ''}" onclick="openParticipantDetail(${state.participants.indexOf(p)})">
       <div class="roster-header">
         <div>
           <div class="roster-name">${isMe ? '<span style="color:var(--green);font-size:.72rem;font-weight:600;margin-right:.3rem">YOU</span>' : ''}${p.name}</div>
@@ -7316,6 +7413,162 @@ function _copyText(text, btnId) {
   } else {
     const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done();
   }
+}
+
+
+// ═══════════════════════════════════════════════════════
+// SHARE CARD — generates PNG scorecard
+// ═══════════════════════════════════════════════════════
+async function generateShareCard() {
+  const btn = document.getElementById('shareCardBtn');
+  const origText = btn.innerHTML;
+  btn.innerHTML = '⏳ Generating…';
+  btn.disabled = true;
+
+  try {
+    const TC = {CSK:'#FFD700',MI:'#004BA0',RCB:'#CC0000',KKR:'#3A225D',
+      SRH:'#FF6B00',RR:'#E91E8C',GT:'#1C4C9C',LSG:'#00B4D8',PBKS:'#EE1B2E',DC:'#17479E'};
+    const medals = ['🥇','🥈','🥉'];
+
+    // Build standings
+    const sorted = state.participants
+      .map(p => ({...p, ...calcSeasonPoints(p)}))
+      .sort((a,b) => b.total - a.total);
+
+    // Match context
+    const lastMatch = state.matchHistory.length
+      ? state.matchHistory[state.matchHistory.length-1] : null;
+    const matchCount = state.matchHistory.length;
+    const totalMatches = (state.matchSchedule||[]).filter(m=>m.team1&&m.team2).length || 74;
+    const metaSub = matchCount
+      ? `AFTER ${matchCount} MATCH${matchCount!==1?'ES':''} · ${totalMatches-matchCount} REMAINING`
+      : 'DRAFT COMPLETE · SEASON STARTING';
+
+    // Standings rows HTML
+    const rowsHTML = sorted.map((p, i) => {
+      const rankClass = i===0?'sc-top1':i===1?'sc-top2':i===2?'sc-top3':'';
+      const medal = medals[i] || (i+1);
+      const tc = TC[p.teamPick] || '#555';
+      return `<div class="sc-row ${rankClass}">
+        <div class="sc-rank">${medal}</div>
+        <div class="sc-dot" style="background:${tc}"></div>
+        <div class="sc-name">${p.name}</div>
+        <div class="sc-pts">${p.total.toLocaleString()} pts</div>
+      </div>`;
+    }).join('');
+
+    // Top catches
+    const catchData = [];
+    const seen = new Set();
+    state.participants.forEach(p => {
+      Object.keys(TC).forEach(k => {
+        const name = p.picks?.[k];
+        if (!name || seen.has(name)) return;
+        seen.add(name);
+        const sc = state.seasonScores[name]||{};
+        if ((sc.catches||0) > 0) catchData.push({player:name, team:k, catches:sc.catches});
+      });
+    });
+    catchData.sort((a,b) => b.catches - a.catches);
+    const topCatches = catchData.slice(0,5);
+    const catchHTML = topCatches.map((d,i) => `
+      <div class="sc-catch-row">
+        <span class="sc-catch-medal">${medals[i]||`${i+1}.`}</span>
+        <span class="sc-catch-name">${d.player}</span>
+        <span class="sc-catch-count">${d.catches}</span>
+      </div>`).join('');
+
+    // Date
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US',{month:'short',year:'numeric'}).toUpperCase();
+
+    // Build card HTML
+    const wrap = document.getElementById('shareCardWrap');
+    wrap.innerHTML = `
+      <div class="sc-glow"></div>
+      <div class="sc-header">
+        <div class="sc-brand">
+          <span class="sc-bolt">⚡</span>
+          <div class="sc-title">IPL Fantasy 2026</div>
+        </div>
+        <div class="sc-meta">
+          <div class="sc-meta-main">SEASON STANDINGS</div>
+          <div class="sc-meta-sub">${metaSub}</div>
+        </div>
+      </div>
+      <div class="sc-standings">${rowsHTML}</div>
+      ${topCatches.length ? `
+      <div class="sc-catches">
+        <div class="sc-catches-label">🧤 TOP<br>CATCHES</div>
+        <div class="sc-catches-list">${catchHTML}</div>
+      </div>` : ''}
+      <div class="sc-footer">
+        <div class="sc-footer-date">${dateStr}</div>
+        <div class="sc-footer-brand">⚡ CRICKET FANTASY LEAGUE</div>
+      </div>`;
+
+    // Wait for fonts
+    await document.fonts.ready;
+    await new Promise(r => setTimeout(r, 200));
+
+    // Render to canvas
+    const canvas = await html2canvas(wrap, {
+      backgroundColor: null,
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      width: 400,
+      windowWidth: 400,
+    });
+
+    // Show preview modal and download
+    showShareCardModal(canvas);
+
+  } catch(e) {
+    console.error('generateShareCard error:', e);
+    showToast('Could not generate card: ' + e.message, 'err');
+  } finally {
+    btn.innerHTML = origText;
+    btn.disabled = false;
+  }
+}
+
+function showShareCardModal(canvas) {
+  // Remove existing modal if any
+  const existing = document.getElementById('shareCardModal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'shareCardModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem 1rem;gap:1rem';
+
+  const img = canvas.toDataURL('image/png');
+
+  modal.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;letter-spacing:3px;font-size:1rem;color:#8AA0B8">SHARE CARD PREVIEW</div>
+    <img src="${img}" style="max-width:100%;max-height:65vh;border-radius:16px;box-shadow:0 24px 80px rgba(0,0,0,.8)">
+    <div style="display:flex;gap:.8rem;flex-wrap:wrap;justify-content:center">
+      <button onclick="downloadShareCard('${img}')"
+        style="display:flex;align-items:center;gap:.4rem;background:linear-gradient(135deg,#F7B731,#FF6B35);color:#000;border:none;border-radius:10px;padding:.65rem 1.4rem;font-weight:700;font-size:.9rem;cursor:pointer;box-shadow:0 4px 16px rgba(247,183,49,.3)">
+        📥 Save Image
+      </button>
+      <button onclick="document.getElementById('shareCardModal').remove()"
+        style="background:rgba(255,255,255,.08);color:#EDF2FF;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:.65rem 1.4rem;font-size:.9rem;cursor:pointer">
+        Close
+      </button>
+    </div>
+    <div style="font-size:.7rem;color:#5A7A9A">Long-press the image on mobile to save · or tap Save Image</div>
+  `;
+
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+function downloadShareCard(dataUrl) {
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = `ipl-fantasy-standings-${new Date().toISOString().slice(0,10)}.png`;
+  a.click();
 }
 
 </script>
