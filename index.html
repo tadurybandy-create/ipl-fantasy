@@ -4866,7 +4866,7 @@ function renderLeaderboard() {
 
 function openParticipantDetail(participantIdx) {
   const p = state.participants[participantIdx];
-  const {breakdown, teamPick, teamWinData, teamPts, playerPts, total} = calcSeasonPoints(p);
+  const {breakdown, teamPick, teamWinData, teamPts, playerPts, total, teamHistory} = calcSeasonPoints(p);
   document.getElementById('modalTitle').textContent = p.name + ' — Season Breakdown';
 
   // Build match-by-match breakdown per player slot
@@ -5875,7 +5875,7 @@ function renderRosters() {
 
   el.innerHTML = '<div class="rosters-grid">' + sorted.map(p => {
     const isMe = p.name.toLowerCase() === myName;
-    const {total, breakdown, teamPts, teamWinData} = calcSeasonPoints(p);
+    const {total, breakdown, teamPts, teamWinData, teamHistory} = calcSeasonPoints(p);
     const pickCount = Object.keys(p.picks||{}).length;
 
     const pickRows = TEAM_KEYS.map(k => {
