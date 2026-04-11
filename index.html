@@ -7866,22 +7866,15 @@ function setDraftMode(mode) {
     if (orig && orig.length) {
       const inp = document.getElementById('doTeamInput');
       if (inp) { inp.value = orig.join('\n'); doUpdateCount(); }
-    } else {
-      showToast('No original order saved yet — run Original Draft first', 'warn');
     }
+    // updateDraftModeUI will handle the error display if no order found
   }
+
+  // Update UI sections (show/hide generate vs preview)
+  updateDraftModeUI(mode);
 }
 
-// ── Override draftCurrentPicker to respect snake setting ──────────────────────
-const _origDraftCurrentPicker = draftCurrentPicker;
-function draftCurrentPicker() {
-  if (!state.draftActive || !state.draftOrder.length) return null;
-  const isSnake = state.draftType !== 'redraft1'; // redraft1 = not snake
-  const order = isSnake && state.draftRound % 2 === 0
-    ? [...state.draftOrder].reverse()
-    : [...state.draftOrder];
-  return order[state.draftPickIdx] || null;
-}
+// draftCurrentPicker snake logic is in the main function definition above
 
 // ── Override DRAFT_TOTAL_ROUNDS check in advance logic ────────────────────────
 function getDraftTotalRounds() {
@@ -7989,12 +7982,7 @@ async function saveAndStartRedraft() {
   await startDraft();
 }
 
-// ── Patch setDraftMode to also call updateDraftModeUI ──────────────────────
-const _origSetDraftMode = setDraftMode;
-function setDraftMode(mode) {
-  _origSetDraftMode(mode);
-  updateDraftModeUI(mode);
-}
+// setDraftMode calls updateDraftModeUI directly — see function definition above
 
 </script>
 
