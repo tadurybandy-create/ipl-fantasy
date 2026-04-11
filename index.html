@@ -4734,28 +4734,29 @@ function calcSeasonPoints(participant) {
   const tw = participant.teamPick ? (state.teamWins[participant.teamPick]||{wins:0,draws:0}) : null;
   const total = playerPts + teamPts;
 
-  // Build teamHistory for display — each window with its win/draw counts
-  const teamHistory = teamWindows ? teamWindows.map(w => {
+  // Build teamHistory for display — simple: just annotate each window with pts
+  const teamHistory = teamWindows.length > 0 ? teamWindows.map(w => {
+    const tName = (IPL_TEAMS[w.teamKey]?.name||'').toLowerCase();
+    const fw = tName.split(' ')[0];
     let wWins = 0, wDraws = 0;
-    state.matchHistory.forEach(match => {
-      const matchTime = match.appliedAt ? new Date(match.appliedAt) : null;
-      if (!matchTime) return;
-      const result = match.result || '';
-      const t1 = (match.t1name||'').toLowerCase();
-      const t2 = (match.t2name||'').toLowerCase();
-      if ((w.from && matchTime <= w.from) || (w.to && matchTime > w.to)) return;
-      const name = (IPL_TEAMS[w.teamKey]?.name||'').toLowerCase();
-      const fw = name.split(' ')[0];
+    state.matchHistory.forEach(m => {
+      const mt = m.appliedAt ? new Date(m.appliedAt) : null;
+      if (!mt) return;
+      if (w.from && mt <= w.from) return;
+      if (w.to && mt > w.to) return;
+      const t1 = (m.t1name||'').toLowerCase(), t2 = (m.t2name||'').toLowerCase();
       const t1m = t1.startsWith(fw)||fw.startsWith(t1.split(' ')[0]);
       const t2m = t2.startsWith(fw)||fw.startsWith(t2.split(' ')[0]);
-      if ((result==='t1'||result==='team1') && t1m) wWins++;
-      else if ((result==='t2'||result==='team2') && t2m) wWins++;
-      else if (result==='draw' && (t1m||t2m)) wDraws++;
+      if (!t1m && !t2m) return;
+      const r = m.result||'';
+      if ((r==='t1'||r==='team1') && t1m) wWins++;
+      else if ((r==='t2'||r==='team2') && t2m) wWins++;
+      else if (r==='draw') wDraws++;
     });
-    return { teamKey: w.teamKey, teamName: IPL_TEAMS[w.teamKey]?.name||w.teamKey, wins: wWins, draws: wDraws, isCurrent: w.to === null };
-  }) : (participant.teamPick ? [{ teamKey: participant.teamPick, teamName: IPL_TEAMS[participant.teamPick]?.name||participant.teamPick, wins: tw?.wins||0, draws: tw?.draws||0, isCurrent: true }] : []);
+    return { teamKey: w.teamKey, teamName: IPL_TEAMS[w.teamKey]?.name||w.teamKey, wins: wWins, draws: wDraws, isCurrent: !w.to };
+  }) : (participant.teamPick ? [{ teamKey: participant.teamPick, teamName: IPL_TEAMS[participant.teamPick]?.name||participant.teamPick, wins: 0, draws: 0, isCurrent: true }] : []);
 
-  return {playerPts, teamPts, total, breakdown, teamPick:participant.teamPick, teamWinData:tw, teamHistory};
+    return {playerPts, teamPts, total, breakdown, teamPick:participant.teamPick, teamWinData:tw, teamHistory};
 }
 
 function renderLeaderboard() {
@@ -4764,7 +4765,14 @@ function renderLeaderboard() {
 
   const TEAM_COLORS = {"CSK": "#FFD700", "MI": "#004BA0", "RCB": "#CC0000", "KKR": "#3A225D", "SRH": "#FF6B00", "RR": "#E91E8C", "GT": "#1C4C9C", "LSG": "#00B4D8", "PBKS": "#EE1B2E", "DC": "#17479E"};
 
-  const sorted = state.participants.map((p,i) => ({...p, i, ...calcSeasonPoints(p)})).sort((a,b) => b.total - a.total);
+  let sorted;
+  try {
+    sorted = state.participants.map((p,i) => ({...p, i, ...calcSeasonPoints(p)})).sort((a,b) => b.total - a.total);
+  } catch(e) {
+    console.error('calcSeasonPoints crash:', e);
+    el.innerHTML = `<div class="empty-state" style="color:var(--red)">Leaderboard error: ${e.message}<br><small>${e.stack?.split('\n')[1]||''}</small></div>`;
+    return;
+  }
   const maxPts = sorted[0]?.total || 1;
 
   // ── Match context pill ──
