@@ -15,20 +15,20 @@
   --gold:#F7B731;--gold2:#FFD95A;--gold-dim:rgba(247,183,49,.15);
   --orange:#FF6B35;--orange-dim:rgba(255,107,53,.12);
   --red:#FF1744;--purple:#9C27B0;
-  --bg:#080D17;--bg2:#0D1420;
-  --card:#0F1825;--card2:#131E2E;
-  --border:rgba(247,183,49,.18);--border2:rgba(255,255,255,.06);
-  --text:#EDF2FF;--muted:#5A7A9A;--muted2:#8AA0B8;
+  --bg:#111827;--bg2:#1a2235;
+  --card:#1E293B;--card2:#243047;
+  --border:rgba(148,163,184,.15);--border2:rgba(148,163,184,.08);
+  --text:#F1F5F9;--muted:#64748B;--muted2:#94A3B8;
   --accent:var(--gold);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(247,183,49,.08) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 30% at 80% 60%, rgba(255,107,53,.05) 0%, transparent 50%),
-    radial-gradient(ellipse 40% 30% at 20% 80%, rgba(156,39,176,.04) 0%, transparent 50%),
-    repeating-linear-gradient(0deg,transparent,transparent 60px,rgba(247,183,49,.015) 60px,rgba(247,183,49,.015) 61px),
-    repeating-linear-gradient(90deg,transparent,transparent 60px,rgba(247,183,49,.015) 60px,rgba(247,183,49,.015) 61px);
+    radial-gradient(ellipse 80% 40% at 50% -10%, rgba(247,183,49,.07) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 30% at 95% 20%, rgba(0,180,216,.04) 0%, transparent 45%),
+    radial-gradient(ellipse 40% 25% at 5% 80%, rgba(238,27,46,.03) 0%, transparent 45%),
+    repeating-linear-gradient(0deg,transparent,transparent 80px,rgba(148,163,184,.02) 80px,rgba(148,163,184,.02) 81px),
+    repeating-linear-gradient(90deg,transparent,transparent 80px,rgba(148,163,184,.02) 80px,rgba(148,163,184,.02) 81px);
 }
 header{text-align:center;padding:1.8rem 1rem 1.2rem;
   border-bottom:1px solid var(--border);
@@ -56,10 +56,10 @@ header::before{content:'';position:absolute;bottom:0;left:50%;transform:translat
 nav{
   display:flex;justify-content:center;flex-wrap:wrap;gap:.5rem;
   padding:.8rem 1rem;position:sticky;top:0;z-index:100;
-  background:rgba(8,13,23,.92);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  border-bottom:1px solid var(--border);
-  box-shadow:0 4px 32px rgba(0,0,0,.4);
+  background:rgba(17,24,39,.88);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(148,163,184,.12);
+  box-shadow:0 4px 24px rgba(0,0,0,.2);
 }
 .tab-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);
   padding:.5rem 1.2rem;border-radius:99px;cursor:pointer;
@@ -95,12 +95,12 @@ label{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--m
 .btn-ghost:hover{border-color:var(--green);color:var(--green);}
 .card{
   background:linear-gradient(135deg, var(--card) 0%, var(--card2) 100%);
-  border:1px solid var(--border2);
+  border:1px solid var(--border);
   border-radius:14px;padding:1.2rem;
-  box-shadow:0 4px 24px rgba(0,0,0,.4), 0 1px 0 rgba(247,183,49,.08) inset;
+  box-shadow:0 2px 16px rgba(0,0,0,.25), 0 1px 0 rgba(247,183,49,.06) inset;
   transition:border-color .2s, box-shadow .2s;
 }
-.card:hover{border-color:rgba(247,183,49,.3);}
+.card:hover{border-color:rgba(247,183,49,.35);box-shadow:0 4px 24px rgba(0,0,0,.3);}
 .info-box{background:rgba(247,183,49,.07);border:1px solid rgba(247,183,49,.2);border-radius:10px;padding:.9rem 1.1rem;font-size:.85rem;color:var(--muted);margin-bottom:1.2rem;}
 .info-box strong{color:var(--text);}
 .scoring-key{display:flex;gap:.7rem;margin-bottom:1.2rem;flex-wrap:wrap;}
@@ -616,15 +616,15 @@ body.admin-visible .admin-only{display:block;}
 /* ── ROSTERS ─────────────────────────────────────────── */
 .rosters-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;}
 .roster-card{
-  background:linear-gradient(160deg, #0F1825 0%, #111E30 100%);
-  border:1px solid rgba(247,183,49,.12);
+  background:linear-gradient(160deg, #1E293B 0%, #243047 100%);
+  border:1px solid rgba(148,163,184,.12);
   border-radius:14px;padding:1.2rem;
   transition:border-color .2s, transform .2s, box-shadow .2s;
 }
 .roster-card:hover{
-  border-color:rgba(247,183,49,.35);
+  border-color:rgba(247,183,49,.4);
   transform:translateY(-2px);
-  box-shadow:0 8px 32px rgba(247,183,49,.1);
+  box-shadow:0 8px 32px rgba(0,0,0,.2);
 }
 .roster-card:hover{border-color:rgba(247,183,49,.3);}
 .roster-card.is-me{border-color:rgba(247,183,49,.4);}
@@ -804,9 +804,9 @@ body.admin-visible .admin-only{display:block;}
 .podium-card{border-radius:14px;padding:1.2rem .8rem .8rem;text-align:center;position:relative;overflow:hidden;cursor:pointer;transition:transform .2s;}
 .podium-card::before{content:'';position:absolute;inset:0;opacity:.06;background:var(--pc);}
 .podium-card:hover{transform:translateY(-3px);}
-.podium-card.pc-gold{background:linear-gradient(160deg,#1A1508,#100E05);border:1px solid rgba(247,183,49,.4);box-shadow:0 0 40px rgba(247,183,49,.15),0 8px 32px rgba(0,0,0,.4);padding-top:1.5rem;}
-.podium-card.pc-silver{background:linear-gradient(160deg,#141520,#0E0F1A);border:1px solid rgba(192,192,192,.25);box-shadow:0 0 20px rgba(192,192,192,.08);}
-.podium-card.pc-bronze{background:linear-gradient(160deg,#140E08,#0F0A06);border:1px solid rgba(205,127,50,.25);box-shadow:0 0 20px rgba(205,127,50,.08);}
+.podium-card.pc-gold{background:linear-gradient(160deg,#2a1f08,#1e1605);border:1px solid rgba(247,183,49,.4);box-shadow:0 0 40px rgba(247,183,49,.15),0 8px 32px rgba(0,0,0,.4);padding-top:1.5rem;}
+.podium-card.pc-silver{background:linear-gradient(160deg,#1e2035,#181928);border:1px solid rgba(192,192,192,.25);box-shadow:0 0 20px rgba(192,192,192,.08);}
+.podium-card.pc-bronze{background:linear-gradient(160deg,#231508,#1a0f05);border:1px solid rgba(205,127,50,.25);box-shadow:0 0 20px rgba(205,127,50,.08);}
 .podium-crown{position:absolute;top:-2px;left:50%;transform:translateX(-50%);font-size:1.2rem;}
 .podium-medal{font-size:1.8rem;margin-bottom:.3rem;display:block;}
 .podium-name{font-family:'Bebas Neue',sans-serif;letter-spacing:2px;font-size:1.1rem;margin-bottom:.2rem;}
@@ -821,7 +821,7 @@ body.admin-visible .admin-only{display:block;}
 .pc-bronze .podium-pts{color:#CD7F32;}
 .podium-pts-label{font-size:.62rem;opacity:.5;letter-spacing:1px;text-transform:uppercase;}
 .lb-rest-list{display:flex;flex-direction:column;gap:.4rem;margin-bottom:2rem;}
-.lb-rest-row{display:flex;align-items:center;gap:.8rem;padding:.6rem 1rem;background:linear-gradient(135deg,#0F1825,#111E30);border:1px solid rgba(255,255,255,.05);border-radius:10px;position:relative;overflow:hidden;cursor:pointer;transition:all .15s;}
+.lb-rest-row{display:flex;align-items:center;gap:.8rem;padding:.6rem 1rem;background:linear-gradient(135deg,#1E293B,#243047);border:1px solid rgba(148,163,184,.08);border-radius:10px;position:relative;overflow:hidden;cursor:pointer;transition:all .15s;}
 .lb-rest-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tc,#333);}
 .lb-rest-row:hover{border-color:rgba(247,183,49,.2);transform:translateX(2px);}
 .lb-rest-rank{font-family:'Bebas Neue',sans-serif;font-size:1rem;color:#5A7A9A;min-width:20px;text-align:center;}
@@ -830,10 +830,10 @@ body.admin-visible .admin-only{display:block;}
 .lb-bar-wrap{width:70px;height:3px;background:rgba(255,255,255,.05);border-radius:99px;overflow:hidden;}
 .lb-bar{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--tc,#F7B731),rgba(247,183,49,.2));}
 .lb-rest-pts{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:#F7B731;min-width:50px;text-align:right;}
-.lb-match-pill{display:inline-flex;align-items:center;gap:.5rem;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:99px;padding:.3rem .9rem;font-size:.72rem;color:#8AA0B8;margin-bottom:1.2rem;}
+.lb-match-pill{display:inline-flex;align-items:center;gap:.5rem;background:rgba(148,163,184,.05);border:1px solid rgba(148,163,184,.1);border-radius:99px;padding:.3rem .9rem;font-size:.72rem;color:#8AA0B8;margin-bottom:1.2rem;}
 .lb-match-pill .result-tag{background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,200,83,.1));border:1px solid rgba(0,230,118,.3);color:#00E676;border-radius:99px;padding:.1rem .5rem;font-size:.68rem;font-weight:700;}
 .catches-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:.5rem;}
-.catch-card{background:linear-gradient(135deg,#0F1825,#111E30);border:1px solid rgba(255,255,255,.05);border-radius:10px;padding:.7rem .9rem;display:flex;align-items:center;gap:.6rem;position:relative;overflow:hidden;}
+.catch-card{background:linear-gradient(135deg,#1E293B,#243047);border:1px solid rgba(148,163,184,.08);border-radius:10px;padding:.7rem .9rem;display:flex;align-items:center;gap:.6rem;position:relative;overflow:hidden;}
 .catch-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tc,#5A7A9A);}
 .catch-info{flex:1;min-width:0;}
 .catch-name{font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -845,7 +845,7 @@ body.admin-visible .admin-only{display:block;}
 #shareCardWrap {
   position:fixed;left:-9999px;top:-9999px;
   width:400px;font-family:'DM Sans',sans-serif;
-  background:linear-gradient(160deg,#0D1420 0%,#080D17 100%);
+  background:linear-gradient(160deg,#1E293B 0%,#111827 100%);
   border-radius:20px;overflow:hidden;
   box-shadow:0 24px 80px rgba(0,0,0,.8),0 0 0 1px rgba(247,183,49,.15);
 }
@@ -892,6 +892,87 @@ body.admin-visible .admin-only{display:block;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
+<!-- IPL Team Crests Background -->
+<div id="iplCrests" aria-hidden="true" style="position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden">
+<svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="position:absolute;inset:0">
+  <defs>
+    <!-- Grain texture filter -->
+    <filter id="grain" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feBlend in="SourceGraphic" mode="multiply"/>
+    </filter>
+    <!-- Soft glow filter -->
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- CSK - Top left - Yellow shield -->
+  <g transform="translate(-40, -30) rotate(-15)" opacity="0.07" filter="url(#glow)">
+    <path d="M100,0 L180,30 L180,100 C180,145 100,180 100,180 C100,180 20,145 20,100 L20,30 Z" fill="#FFD700"/>
+    <text x="100" y="115" text-anchor="middle" font-family="Arial Black" font-size="52" font-weight="900" fill="rgba(0,0,0,0.5)">CSK</text>
+  </g>
+
+  <!-- MI - Top right - Blue shield -->
+  <g transform="translate(1200, -20) rotate(12)" opacity="0.07" filter="url(#glow)">
+    <path d="M80,0 L160,28 L160,95 C160,138 80,170 80,170 C80,170 0,138 0,95 L0,28 Z" fill="#004BA0"/>
+    <text x="80" y="108" text-anchor="middle" font-family="Arial Black" font-size="44" font-weight="900" fill="rgba(255,255,255,0.3)">MI</text>
+  </g>
+
+  <!-- RCB - Mid left -->
+  <g transform="translate(-60, 35vh) rotate(8)" opacity="0.06" filter="url(#glow)">
+    <path d="M90,0 L170,28 L170,95 C170,138 90,170 90,170 C90,170 10,138 10,95 L10,28 Z" fill="#CC0000"/>
+    <text x="90" y="108" text-anchor="middle" font-family="Arial Black" font-size="38" font-weight="900" fill="rgba(255,255,255,0.3)">RCB</text>
+  </g>
+
+  <!-- KKR - Mid right -->
+  <g transform="translate(1220, 280) rotate(-10)" opacity="0.07" filter="url(#glow)">
+    <path d="M80,0 L155,26 L155,90 C155,130 80,160 80,160 C80,160 5,130 5,90 L5,26 Z" fill="#3A225D"/>
+    <text x="80" y="102" text-anchor="middle" font-family="Arial Black" font-size="38" font-weight="900" fill="rgba(255,255,255,0.3)">KKR</text>
+  </g>
+
+  <!-- SRH - Bottom left -->
+  <g transform="translate(-30, 65vh) rotate(-8)" opacity="0.07" filter="url(#glow)">
+    <path d="M90,0 L170,28 L170,95 C170,138 90,170 90,170 C90,170 10,138 10,95 L10,28 Z" fill="#FF6B00"/>
+    <text x="90" y="108" text-anchor="middle" font-family="Arial Black" font-size="38" font-weight="900" fill="rgba(0,0,0,0.4)">SRH</text>
+  </g>
+
+  <!-- RR - Bottom right -->
+  <g transform="translate(1180, 520) rotate(15)" opacity="0.065" filter="url(#glow)">
+    <path d="M85,0 L160,26 L160,90 C160,130 85,160 85,160 C85,160 10,130 10,90 L10,26 Z" fill="#E91E8C"/>
+    <text x="85" y="102" text-anchor="middle" font-family="Arial Black" font-size="38" font-weight="900" fill="rgba(255,255,255,0.3)">RR</text>
+  </g>
+
+  <!-- GT - Centre top -->
+  <g transform="translate(580, -50) rotate(5)" opacity="0.05" filter="url(#glow)">
+    <path d="M80,0 L155,25 L155,85 C155,125 80,155 80,155 C80,155 5,125 5,85 L5,25 Z" fill="#1C4C9C"/>
+    <text x="80" y="98" text-anchor="middle" font-family="Arial Black" font-size="42" font-weight="900" fill="rgba(255,255,255,0.3)">GT</text>
+  </g>
+
+  <!-- LSG - Centre bottom -->
+  <g transform="translate(600, 780) rotate(-5)" opacity="0.055" filter="url(#glow)">
+    <path d="M75,0 L145,24 L145,82 C145,120 75,148 75,148 C75,148 5,120 5,82 L5,24 Z" fill="#00B4D8"/>
+    <text x="75" y="94" text-anchor="middle" font-family="Arial Black" font-size="34" font-weight="900" fill="rgba(0,0,0,0.35)">LSG</text>
+  </g>
+
+  <!-- PBKS - Lower left -->
+  <g transform="translate(-20, 700) rotate(10)" opacity="0.06" filter="url(#glow)">
+    <path d="M85,0 L162,26 L162,90 C162,132 85,162 85,162 C85,162 8,132 8,90 L8,26 Z" fill="#EE1B2E"/>
+    <text x="85" y="102" text-anchor="middle" font-family="Arial Black" font-size="32" font-weight="900" fill="rgba(255,255,255,0.3)">PBKS</text>
+  </g>
+
+  <!-- DC - Lower right -->
+  <g transform="translate(1210, 700) rotate(-12)" opacity="0.065" filter="url(#glow)">
+    <path d="M80,0 L155,25 L155,88 C155,128 80,158 80,158 C80,158 5,128 5,88 L5,25 Z" fill="#17479E"/>
+    <text x="80" y="100" text-anchor="middle" font-family="Arial Black" font-size="38" font-weight="900" fill="rgba(255,255,255,0.3)">DC</text>
+  </g>
+
+  <!-- Grain overlay -->
+  <rect width="100%" height="100%" opacity="0.018" filter="url(#grain)" fill="#94A3B8"/>
+</svg>
+</div>
 
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
@@ -907,7 +988,7 @@ body.admin-visible .admin-only{display:block;}
   </div>
 </div>
 
-<header>
+<header style="position:relative;z-index:1">
   <div class="logo">⚡ Cricket Fantasy App</div>
   <div class="tagline" id="appTagline">Pick Smart. Score Big. Rule the Season.</div>
   <div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-top:.6rem;flex-wrap:wrap">
@@ -931,7 +1012,7 @@ body.admin-visible .admin-only{display:block;}
   </div>
 </header>
 
-<nav>
+<nav style="z-index:100">
   <button class="tab-btn active" onclick="showScreen('draft',this)">🎯 Draft</button>
   <button class="tab-btn" onclick="showScreen('rosters',this);renderRosters()">👥 Rosters</button>
   <button class="tab-btn" onclick="showScreen('leaderboard',this)">🏆 Leaderboard</button>
@@ -1174,6 +1255,7 @@ body.admin-visible .admin-only{display:block;}
       <span style="font-size:.75rem;color:var(--muted)">Default shown above · Change if needed</span>
     </div>
 
+    <div id="originalDraftSection">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green);margin-bottom:.5rem">Fantasy Team Names</div>
     <div style="font-size:.83rem;color:var(--muted);margin-bottom:.9rem">Enter each fantasy team name on a new line. Order does not matter — the draft order will be randomized. IPL team picks can happen any round at the team's discretion.</div>
     <textarea id="doTeamInput" rows="12" placeholder="Team Alpha&#10;Team Bravo&#10;Team Charlie&#10;..."
@@ -1187,6 +1269,20 @@ body.admin-visible .admin-only{display:block;}
       </div>
     </div>
     <div id="doError" style="color:var(--red);font-size:.82rem;margin-top:.5rem;min-height:1rem"></div>
+    </div><!-- end originalDraftSection -->
+
+    <!-- Redraft order preview (shown for redraft1/redraft2) -->
+    <div id="redraftOrderSection" style="display:none">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:2px;color:var(--green);margin-bottom:.5rem">Draft Order</div>
+      <div id="redraftOrderPreview" style="font-size:.82rem;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.8rem;max-height:280px;overflow-y:auto;line-height:1.8"></div>
+      <div style="display:flex;gap:.7rem;margin-top:.8rem;flex-wrap:wrap">
+        <button class="btn" onclick="saveAndStartRedraft()" style="background:linear-gradient(135deg,var(--gold),var(--orange));color:#000;font-weight:700">
+          🏏 Save Order &amp; Start Redraft
+        </button>
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" onclick="doCopyOrder()">📋 Copy Order</button>
+      </div>
+      <div id="redraftError" style="color:var(--red);font-size:.82rem;margin-top:.5rem;min-height:1rem"></div>
+    </div>
   </div>
   <!-- Non-admin message -->
   <div id="doNonAdminMsg" style="display:none" class="card" style="margin-bottom:1.5rem">
@@ -2696,6 +2792,11 @@ async function autoAddParticipant() {
     try {
       const origOrder = (settingsRes||[])[0]?.original_draft_order;
       if (origOrder) state.draftOriginalOrder = JSON.parse(origOrder);
+      // Fallback: if no saved original order, use current draft_state order as the original
+      // (covers case where original draft ran before this feature was added)
+      if (!state.draftOriginalOrder?.length && state.draftOrder?.length) {
+        state.draftOriginalOrder = [...state.draftOrder];
+      }
     } catch(e) {}
   } catch(e) {}
   const m = state.mode || 'ipl';
@@ -7785,6 +7886,114 @@ function draftCurrentPicker() {
 // ── Override DRAFT_TOTAL_ROUNDS check in advance logic ────────────────────────
 function getDraftTotalRounds() {
   return window._draftTotalRounds || DRAFT_TOTAL_ROUNDS;
+}
+
+
+// ═══════════════════════════════════════════════════════
+// DRAFT MODE UI — show/hide sections, preview order
+// ═══════════════════════════════════════════════════════
+
+function updateDraftModeUI(mode) {
+  const origSection  = document.getElementById('originalDraftSection');
+  const redraftSection = document.getElementById('redraftOrderSection');
+  const roundsWrap   = document.getElementById('draftRoundsWrap');
+  const preview      = document.getElementById('redraftOrderPreview');
+  const errEl        = document.getElementById('redraftError');
+  if (errEl) errEl.textContent = '';
+
+  if (mode === 'original') {
+    if (origSection)   origSection.style.display   = '';
+    if (redraftSection) redraftSection.style.display = 'none';
+    if (roundsWrap)    roundsWrap.style.display     = 'none';
+  } else {
+    if (origSection)   origSection.style.display   = 'none';
+    if (redraftSection) redraftSection.style.display = '';
+    if (roundsWrap)    roundsWrap.style.display     = 'flex';
+
+    // Build order for this mode
+    let order = [];
+    if (mode === 'redraft1') {
+      const ranked = [...state.participants]
+        .map(p => ({ name: p.name, ...calcSeasonPoints(p) }))
+        .sort((a, b) => b.total - a.total);
+      order = ranked.map(p => p.name).reverse(); // last→first
+      doOrder = [...order];
+      doTeams = [...order];
+      state.draftOrder = [...order];
+    } else if (mode === 'redraft2') {
+      // Try saved original order first
+      if (state.draftOriginalOrder && state.draftOriginalOrder.length) {
+        order = [...state.draftOriginalOrder];
+      } else if (state.draftOrder && state.draftOrder.length) {
+        // Fallback: use current draft_state order (may be the original)
+        order = [...state.draftOrder];
+        showToast('Using current draft_state order as original — verify it looks right', 'warn');
+      } else {
+        if (errEl) errEl.textContent = '⚠ No original order found. Enter participant names in Original Draft mode first, or ask admin to set the order.';
+        return;
+      }
+      doOrder = [...order];
+      doTeams = [...order];
+      state.draftOrder = [...order];
+      state.draftOriginalOrder = [...order]; // lock it in
+    }
+
+    // Render preview
+    if (preview) {
+      const cfg = DRAFT_MODE_CONFIG[mode];
+      const medals = ['🥇','🥈','🥉'];
+      const scores = mode === 'redraft1'
+        ? Object.fromEntries(state.participants.map(p => [p.name, calcSeasonPoints(p).total]))
+        : {};
+      preview.innerHTML = order.map((name, i) => {
+        const pts = scores[name] != null ? ` <span style="color:var(--muted);font-size:.75rem">${scores[name]} pts</span>` : '';
+        return `<div style="padding:.15rem 0;border-bottom:1px solid var(--border2)">
+          <span style="color:var(--muted);min-width:24px;display:inline-block">${medals[i]||`${i+1}.`}</span>
+          <span style="font-weight:600">${name}</span>${pts}
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+// saveAndStartRedraft: persists order + immediately starts the draft
+async function saveAndStartRedraft() {
+  const mode = state.draftType;
+  if (mode === 'original') { startDraft(); return; }
+
+  const errEl = document.getElementById('redraftError');
+  if (errEl) errEl.textContent = '';
+
+  if (!doOrder || !doOrder.length) {
+    if (errEl) errEl.textContent = '⚠ No order set. Select a mode first.';
+    return;
+  }
+
+  // Persist order to Supabase
+  try {
+    await sb('POST', 'draft_state',
+      { id: 1, mode: state.mode, active: state.draftActive,
+        order: JSON.stringify(doOrder), round: state.draftRound,
+        pick_idx: state.draftPickIdx, draft_type: mode },
+      '', { 'Prefer': 'return=minimal,resolution=merge-duplicates' });
+    state.draftOrder = [...doOrder];
+    const errElDo = document.getElementById('doError');
+    if (errElDo) errElDo.innerHTML = '<span style="color:var(--green)">✓ Order saved.</span>';
+    if (errEl) errEl.innerHTML = '<span style="color:var(--green)">✓ Order saved — starting draft…</span>';
+  } catch(e) {
+    if (errEl) errEl.textContent = 'Save failed: ' + e.message;
+    return;
+  }
+
+  // Now start
+  await startDraft();
+}
+
+// ── Patch setDraftMode to also call updateDraftModeUI ──────────────────────
+const _origSetDraftMode = setDraftMode;
+function setDraftMode(mode) {
+  _origSetDraftMode(mode);
+  updateDraftModeUI(mode);
 }
 
 </script>
