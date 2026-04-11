@@ -2201,7 +2201,11 @@ async function confirmPickAndAdvance() {
         return;
       }
       if (p.picks[teamKey]) {
-        await dbDelete('picks', `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`);
+        // Mark old pick as inactive (preserve for window-based scoring history)
+        await dbPatch('picks',
+          { is_active: false, swapped_at: new Date().toISOString() },
+          `?participant_id=eq.${p.id}&team_key=eq.${teamKey}&is_active=eq.true`
+        );
       }
       await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: player, is_active: true, mode: state.mode });
     } else if (ctp && ctp.isTeam) {
@@ -2494,6 +2498,13 @@ async function startDraft() {
 
   // Clear team picks from picks table AND participants for fresh draft
   await dbDelete('picks', `?mode=eq.${state.mode}&is_team_pick=eq.true`);
+  // For redrafts: cap all existing active player pick windows so scoring stays clean
+  if (draftType !== 'original') {
+    await dbPatch('picks',
+      { is_active: false, swapped_at: new Date().toISOString() },
+      `?mode=eq.${state.mode}&is_team_pick=eq.false&is_active=eq.true`
+    );
+  }
   try {
     await dbPatch('participants', { team_pick: null, team_pick_seq: null }, `?mode=eq.${state.mode}`);
   } catch(e) {
@@ -2797,6 +2808,9 @@ async function autoAddParticipant() {
       if (!state.draftOriginalOrder?.length && state.draftOrder?.length) {
         state.draftOriginalOrder = [...state.draftOrder];
       }
+      // Freeze a copy so clicking Redraft 1 can't corrupt it
+      window._frozenOriginalOrder = state.draftOriginalOrder?.length
+        ? [...state.draftOriginalOrder] : null;
     } catch(e) {}
   } catch(e) {}
   const m = state.mode || 'ipl';
@@ -7862,7 +7876,7 @@ function setDraftMode(mode) {
 
   // For Redraft 2: auto-fill saved original order
   if (mode === 'redraft2') {
-    const orig = state.draftOriginalOrder;
+    const orig = window._frozenOriginalOrder || state.draftOriginalOrder;
     if (orig && orig.length) {
       const inp = document.getElementById('doTeamInput');
       if (inp) { inp.value = orig.join('\n'); doUpdateCount(); }
@@ -7914,21 +7928,21 @@ function updateDraftModeUI(mode) {
       doTeams = [...order];
       state.draftOrder = [...order];
     } else if (mode === 'redraft2') {
-      // Try saved original order first
-      if (state.draftOriginalOrder && state.draftOriginalOrder.length) {
-        order = [...state.draftOriginalOrder];
-      } else if (state.draftOrder && state.draftOrder.length) {
-        // Fallback: use current draft_state order (may be the original)
-        order = [...state.draftOrder];
-        showToast('Using current draft_state order as original — verify it looks right', 'warn');
+      // Always use the frozen original order — never fall back to state.draftOrder
+      // which may have been mutated by clicking Redraft 1
+      const orig = window._frozenOriginalOrder || state.draftOriginalOrder;
+      if (orig && orig.length) {
+        order = [...orig];
+        // Re-sync so they match
+        state.draftOriginalOrder = [...orig];
+        window._frozenOriginalOrder = [...orig];
       } else {
-        if (errEl) errEl.textContent = '⚠ No original order found. Enter participant names in Original Draft mode first, or ask admin to set the order.';
+        if (errEl) errEl.textContent = '⚠ No original order found. The original draft order needs to be saved first. Check with admin.';
         return;
       }
       doOrder = [...order];
       doTeams = [...order];
       state.draftOrder = [...order];
-      state.draftOriginalOrder = [...order]; // lock it in
     }
 
     // Render preview
