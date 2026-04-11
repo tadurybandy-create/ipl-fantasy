@@ -4887,9 +4887,21 @@ function openParticipantDetail(participantIdx) {
     allSlot.forEach(({name, isCurrent}) => {
       const sc = state.seasonScores[name]||{};
       // Per-match breakdown from matchHistory
-      const matchRows = state.matchHistory.filter(m =>
-        (m.updates||[]).some(u => u.player === name)
-      ).map(m => {
+      // Get this player's active window in slot k from pickWindows
+      const slotWindows = (p.pickWindows?.[k]||[]);
+      const playerWindow = slotWindows.find(w => w.player === name);
+      const windowFrom = playerWindow?.from ? new Date(playerWindow.from) : null;
+      const windowTo   = playerWindow?.to   ? new Date(playerWindow.to)   : null;
+
+      const matchRows = state.matchHistory.filter(m => {
+        if (!(m.updates||[]).some(u => u.player === name)) return false;
+        // Only show match if it falls within this player's active window
+        const mt = m.appliedAt ? new Date(m.appliedAt) : null;
+        if (!mt) return true; // no timestamp — include (legacy)
+        if (windowFrom && mt <= windowFrom) return false;
+        if (windowTo   && mt >  windowTo)   return false;
+        return true;
+      }).map(m => {
         const u = m.updates.find(u => u.player === name);
         const pts = u.pts || (u.runs + u.wkts*25 + u.catches*5 + (u.runouts||0)*5 + (u.stumpings||0)*5 + (u.motm||0)*MOTM_PTS);
         return `<div class="match-breakdown-row">
@@ -4900,7 +4912,18 @@ function openParticipantDetail(participantIdx) {
         </div>`;
       }).join('');
 
-      const totalPts = (sc.runs||0)+(sc.wickets||0)*25+(sc.catches||0)*5+(sc.runouts||0)*5+(sc.stumpings||0)*5+(sc.motm||0)*MOTM_PTS;
+      // Sum pts only from windowed matches (not cumulative season_scores)
+      const totalPts = state.matchHistory.filter(m => {
+          if (!(m.updates||[]).some(u => u.player === name)) return false;
+          const mt = m.appliedAt ? new Date(m.appliedAt) : null;
+          if (!mt) return true;
+          if (windowFrom && mt <= windowFrom) return false;
+          if (windowTo && mt > windowTo) return false;
+          return true;
+        }).reduce((sum, m) => {
+          const u = m.updates.find(u => u.player === name);
+          return sum + (u ? (u.pts || (u.runs + (u.wkts||0)*25 + (u.catches||0)*5 + (u.runouts||0)*5 + (u.stumpings||0)*5 + (u.motm||0)*MOTM_PTS)) : 0);
+        }, 0);
       html += `<div style="margin-bottom:.5rem">
         <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem">
           ${!isCurrent?'<span style="font-size:.7rem;color:var(--muted)">↩</span>':''}
