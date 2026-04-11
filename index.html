@@ -2210,18 +2210,35 @@ async function confirmPickAndAdvance() {
       await dbPost('picks', { participant_id: p.id, team_key: teamKey, player_name: player, is_active: true, mode: state.mode });
     } else if (ctp && ctp.isTeam) {
       // Team pick — save to picks table (source of truth) AND participants (cache)
-      // picks table entry gives us created_at for correct chronological ordering
+      const now = new Date().toISOString();
       await dbPost('picks', {
         participant_id: p.id,
         team_key: ctp.teamKey,
-        player_name: ctp.teamKey,  // team_key stored as player_name for team picks
+        player_name: ctp.teamKey,
         is_active: true,
         is_team_pick: true,
         mode: state.mode
       });
-      // Also update participants.team_pick as a fast-access cache
       const teamPickSeqVal = p.teamPickSeq || state.picksAtTurnStart + 1 || 1;
       await dbPatch('participants', { team_pick: ctp.teamKey, team_pick_seq: teamPickSeqVal }, `?id=eq.${p.id}`);
+
+      // Write swap_history record for team pick so calcSeasonPoints knows when team became active
+      // Only write if this is a CHANGE (i.e. participant already had a team before)
+      const hadTeamBefore = p.teamPick && p.teamPick !== ctp.teamKey;
+      await dbPost('swap_history', {
+        participant_id: p.id,
+        participant_name: p.name,
+        team_key: ctp.teamKey,
+        team_name: IPL_TEAMS[ctp.teamKey]?.name || ctp.teamKey,
+        old_player: p.teamPick || null,    // old team key
+        new_player: ctp.teamKey,           // new team key
+        frozen_pts: 0,
+        swap_date: new Date().toLocaleDateString(),
+        swap_timestamp: now,
+        is_team_swap: true,                // ← this is what calcSeasonPoints filters on
+        new_team: ctp.teamKey,
+        mode: state.mode
+      });
     }
     setSyncStatus('ok', 'Synced');
   } catch(e) {
@@ -2863,8 +2880,9 @@ function getDraftCounts() {
   const pc = {}, tc = {};
   state.participants.forEach(p => {
     TEAM_KEYS.forEach(k => {
+      // Only count ACTIVE picks — pickHistory entries are dropped players
+      // and should be available for others to pick up
       if (p.picks[k]) pc[p.picks[k]] = (pc[p.picks[k]]||0)+1;
-      (p.pickHistory?.[k]||[]).forEach(name => { pc[name] = (pc[name]||0)+1; });
     });
     if (p.teamPick) tc[p.teamPick] = (tc[p.teamPick]||0)+1;
   });
@@ -4659,35 +4677,74 @@ function calcSeasonPoints(participant) {
   });
 
   // Team pick points — disabled in World Cup mode
-  // Only count wins from matches applied AFTER this participant's team was active
+  // Supports multiple team windows: CSK (start→redraft) + RR (redraft→now)
   let teamPts = 0;
   if (state.mode !== 'worldcup' && participant.teamPick) {
-    // Find when this participant last acquired their current team
-    // Check swap_history for a team swap — or use draft pick time
-    const teamSwap = (state.swapHistory||[])
-      .filter(s => s.participantId === participant.id && s.isTeamSwap && s.newTeam === participant.teamPick)
-      .sort((a,b) => new Date(b.swapTimestamp||0) - new Date(a.swapTimestamp||0))[0];
 
-    const teamActiveFrom = teamSwap?.swapTimestamp
-      ? new Date(teamSwap.swapTimestamp)
-      : null; // null = from beginning (draft pick, no cutoff)
+    // Build all team windows for this participant from swap_history
+    // Each window: { teamKey, from: Date|null, to: Date|null }
+    const teamSwaps = (state.swapHistory||[])
+      .filter(s => s.participantId === participant.id && s.isTeamSwap)
+      .sort((a,b) => new Date(a.swapTimestamp||0) - new Date(b.swapTimestamp||0));
 
+    // Build chronological windows
+    const teamWindows = [];
+    if (teamSwaps.length === 0) {
+      // No swaps — current team was active from the beginning
+      teamWindows.push({ teamKey: participant.teamPick, from: null, to: null });
+    } else {
+      // First window: whatever team they had before the first swap
+      // We don't know the original team from swap_history easily,
+      // so use oldPlayer field of the first swap (old team key)
+      const firstSwap = teamSwaps[0];
+      const originalTeam = firstSwap.oldPlayer; // stored as old team key
+      if (originalTeam && IPL_TEAMS[originalTeam]) {
+        teamWindows.push({
+          teamKey: originalTeam,
+          from: null,
+          to: new Date(firstSwap.swapTimestamp)
+        });
+      }
+      // Each swap creates a new window
+      teamSwaps.forEach((swap, i) => {
+        const nextSwap = teamSwaps[i+1];
+        teamWindows.push({
+          teamKey: swap.newTeam || swap.new_team,
+          from: new Date(swap.swapTimestamp),
+          to: nextSwap ? new Date(nextSwap.swapTimestamp) : null
+        });
+      });
+    }
+
+    // Helper: does a team match a match's t1/t2?
+    function teamMatchesMatch(teamKey, t1, t2) {
+      const name = (IPL_TEAMS[teamKey]?.name||'').toLowerCase();
+      const fw = name.split(' ')[0];
+      const t1m = t1.startsWith(fw) || fw.startsWith(t1.split(' ')[0]);
+      const t2m = t2.startsWith(fw) || fw.startsWith(t2.split(' ')[0]);
+      return { t1m, t2m };
+    }
+
+    // Score each match against the active team window at that time
     let wins = 0, draws = 0;
     state.matchHistory.forEach(match => {
       const matchTime = match.appliedAt ? new Date(match.appliedAt) : null;
-      if (teamActiveFrom && matchTime && matchTime <= teamActiveFrom) return; // before swap-in
-      // Check if this match involved the participant's team winning/drawing
+      if (!matchTime) return;
       const result = match.result || '';
       const t1 = (match.t1name||'').toLowerCase();
       const t2 = (match.t2name||'').toLowerCase();
-      const myTeamName = (IPL_TEAMS[participant.teamPick]?.name||'').toLowerCase();
-      // Use startsWith on first word to avoid 'royal' matching 'rajasthan royals'
-      const firstWord = myTeamName.split(' ')[0];
-      const t1match = t1.startsWith(firstWord) || firstWord.startsWith(t1.split(' ')[0]);
-      const t2match = t2.startsWith(firstWord) || firstWord.startsWith(t2.split(' ')[0]);
-      if (!t1match && !t2match) return;
-      if ((result === 't1' || result === 'team1') && t1match) wins++;
-      else if ((result === 't2' || result === 'team2') && t2match) wins++;
+
+      // Find which team window was active at matchTime
+      const activeWindow = teamWindows.find(w =>
+        (w.from === null || matchTime > w.from) &&
+        (w.to === null || matchTime <= w.to)
+      );
+      if (!activeWindow) return;
+
+      const { t1m, t2m } = teamMatchesMatch(activeWindow.teamKey, t1, t2);
+      if (!t1m && !t2m) return;
+      if ((result === 't1' || result === 'team1') && t1m) wins++;
+      else if ((result === 't2' || result === 'team2') && t2m) wins++;
       else if (result === 'draw') draws++;
     });
     teamPts = wins * TEAM_WIN_PTS + draws * TEAM_DRAW_PTS;
@@ -4695,7 +4752,28 @@ function calcSeasonPoints(participant) {
   const tw = participant.teamPick ? (state.teamWins[participant.teamPick]||{wins:0,draws:0}) : null;
   const total = playerPts + teamPts;
 
-  return {playerPts, teamPts, total, breakdown, teamPick:participant.teamPick, teamWinData:tw};
+  // Build teamHistory for display — each window with its win/draw counts
+  const teamHistory = teamWindows ? teamWindows.map(w => {
+    let wWins = 0, wDraws = 0;
+    state.matchHistory.forEach(match => {
+      const matchTime = match.appliedAt ? new Date(match.appliedAt) : null;
+      if (!matchTime) return;
+      const result = match.result || '';
+      const t1 = (match.t1name||'').toLowerCase();
+      const t2 = (match.t2name||'').toLowerCase();
+      if ((w.from && matchTime <= w.from) || (w.to && matchTime > w.to)) return;
+      const name = (IPL_TEAMS[w.teamKey]?.name||'').toLowerCase();
+      const fw = name.split(' ')[0];
+      const t1m = t1.startsWith(fw)||fw.startsWith(t1.split(' ')[0]);
+      const t2m = t2.startsWith(fw)||fw.startsWith(t2.split(' ')[0]);
+      if ((result==='t1'||result==='team1') && t1m) wWins++;
+      else if ((result==='t2'||result==='team2') && t2m) wWins++;
+      else if (result==='draw' && (t1m||t2m)) wDraws++;
+    });
+    return { teamKey: w.teamKey, teamName: IPL_TEAMS[w.teamKey]?.name||w.teamKey, wins: wWins, draws: wDraws, isCurrent: w.to === null };
+  }) : (participant.teamPick ? [{ teamKey: participant.teamPick, teamName: IPL_TEAMS[participant.teamPick]?.name||participant.teamPick, wins: tw?.wins||0, draws: tw?.draws||0, isCurrent: true }] : []);
+
+  return {playerPts, teamPts, total, breakdown, teamPick:participant.teamPick, teamWinData:tw, teamHistory};
 }
 
 function renderLeaderboard() {
@@ -4846,12 +4924,22 @@ function openParticipantDetail(participantIdx) {
     html += '</div>';
   });
 
-  // Team pick section
-  if (teamPick) {
-    const tw = teamWinData || {wins:0, draws:0};
+  // Team pick section — show all windows (e.g. CSK until redraft + RR after)
+  if (teamPick && teamHistory && teamHistory.length) {
+    const windowLines = teamHistory.map(w => {
+      const label = w.isCurrent
+        ? `<span style="font-size:.65rem;background:rgba(0,230,118,.12);color:var(--green);border-radius:3px;padding:.05rem .3rem;margin-left:.3rem">CURRENT</span>`
+        : `<span style="font-size:.65rem;background:rgba(255,255,255,.07);color:var(--muted);border-radius:3px;padding:.05rem .3rem;margin-left:.3rem">PREV</span>`;
+      const pts = w.wins * TEAM_WIN_PTS + w.draws * TEAM_DRAW_PTS;
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.04)">
+        <span style="font-size:.82rem">🏆 ${w.teamName}${label}</span>
+        <span style="font-size:.82rem;color:var(--muted)">${w.wins}W ${w.draws}D = <strong style="color:var(--gold)">${pts}pts</strong></span>
+      </div>`;
+    }).join('');
     html += `<div style="background:rgba(255,214,0,.06);border:1px solid rgba(255,214,0,.2);border-radius:8px;padding:.8rem;margin-top:.5rem">
-      <div style="font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:var(--gold);margin-bottom:.4rem">🏆 Team Draft — ${IPL_TEAMS[teamPick]?.name||teamPick}</div>
-      <div style="font-size:.85rem;color:var(--muted)">${tw.wins} wins × 30 pts + ${tw.draws} draws × 15 pts = <strong style="color:var(--gold)">${teamPts} pts</strong></div>
+      <div style="font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:var(--gold);margin-bottom:.5rem">🏆 Team Draft</div>
+      ${windowLines}
+      <div style="font-size:.82rem;margin-top:.4rem;text-align:right">Total: <strong style="color:var(--gold)">${teamPts} pts</strong></div>
     </div>`;
   }
 
@@ -5855,11 +5943,30 @@ function renderRosters() {
     }).join('');
 
     // Team pick row with pts
-    const teamRow = p.teamPick ? (() => {
-      const tw = teamWinData || {wins:0,draws:0};
-      return `<div class="roster-team-row" style="justify-content:space-between">
-        <span class="roster-team-label">🏆 ${IPL_TEAMS[p.teamPick]?.name || p.teamPick}</span>
-        <span style="font-family:'Bebas Neue',sans-serif;font-size:.8rem;color:var(--gold)">${tw.wins}W ${tw.draws}D · +${teamPts}pts</span>
+    const teamRow = p.teamPick && teamHistory?.length ? (() => {
+      if (teamHistory.length === 1) {
+        const tw = teamHistory[0];
+        return `<div class="roster-team-row" style="justify-content:space-between">
+          <span class="roster-team-label">🏆 ${tw.teamName}</span>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:.8rem;color:var(--gold)">${tw.wins}W ${tw.draws}D · +${teamPts}pts</span>
+        </div>`;
+      }
+      // Multiple windows — show each team on its own line
+      const lines = teamHistory.map(tw => {
+        const pts = tw.wins * TEAM_WIN_PTS + tw.draws * TEAM_DRAW_PTS;
+        const tag = tw.isCurrent
+          ? `<span style="font-size:.58rem;color:var(--green);margin-left:.2rem">NOW</span>`
+          : `<span style="font-size:.58rem;color:var(--muted);margin-left:.2rem">PREV</span>`;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:.1rem 0">
+          <span class="roster-team-label" style="font-size:.72rem">🏆 ${tw.teamName}${tag}</span>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:.75rem;color:var(--gold)">${tw.wins}W ${tw.draws}D +${pts}pts</span>
+        </div>`;
+      }).join('');
+      return `<div class="roster-team-row" style="flex-direction:column;align-items:stretch;gap:.1rem">
+        ${lines}
+        <div style="display:flex;justify-content:flex-end;margin-top:.2rem">
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:.8rem;color:var(--gold)">Total +${teamPts}pts</span>
+        </div>
       </div>`;
     })() : '';
 
@@ -7215,8 +7322,7 @@ function renderUndraftedTab() {
       const flagEmoji = pl.foreign ? '🌏' : '🇮🇳';
       const draftedBy = isFull || isPartial
         ? state.participants.filter(p =>
-            p.picks[teamKey] === pl.name ||
-            (p.pickHistory?.[teamKey]||[]).includes(pl.name)
+            p.picks[teamKey] === pl.name  // only active picks, not dropped history
           ).map(p => p.name).join(', ')
         : '';
 
