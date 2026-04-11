@@ -4679,7 +4679,7 @@ function calcSeasonPoints(participant) {
   // Team pick points — disabled in World Cup mode
   // Supports multiple team windows: CSK (start→redraft) + RR (redraft→now)
   let teamPts = 0;
-  let teamWindows = null; // declared here so teamHistory build below can access it
+  let teamWindows = []; // declared here so teamHistory build below can access it
   if (state.mode !== 'worldcup' && participant.teamPick) {
 
     // Build all team windows for this participant from swap_history
