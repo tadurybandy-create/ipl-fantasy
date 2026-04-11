@@ -4676,37 +4676,25 @@ function calcSeasonPoints(participant) {
     breakdown[k] = {current:participant.picks[k], history:participant.pickHistory?.[k]||[], slotPlayers, slotPts};
   });
 
-  // Team pick points — disabled in World Cup mode
-  // Supports multiple team windows: CSK (start→redraft) + RR (redraft→now)
+  // Team pick points — window-based: supports team swaps (e.g. CSK→RR mid-season)
   let teamPts = 0;
-  let teamWindows = []; // declared here so teamHistory build below can access it
-  if (state.mode !== 'worldcup' && participant.teamPick) {
+  let teamWindows = [];
 
-    // Build all team windows for this participant from swap_history
-    // Each window: { teamKey, from: Date|null, to: Date|null }
+  if (state.mode !== 'worldcup' && participant.teamPick) {
     const teamSwaps = (state.swapHistory||[])
       .filter(s => s.participantId === participant.id && s.isTeamSwap)
       .sort((a,b) => new Date(a.swapTimestamp||0) - new Date(b.swapTimestamp||0));
 
-    // Build chronological windows
-    // teamWindows declared above (let) — just populate it here
     if (teamSwaps.length === 0) {
-      // No swaps — current team was active from the beginning
+      // No swaps — single window from beginning to now
       teamWindows.push({ teamKey: participant.teamPick, from: null, to: null });
     } else {
-      // First window: whatever team they had before the first swap
-      // We don't know the original team from swap_history easily,
-      // so use oldPlayer field of the first swap (old team key)
+      // First window: the old team before first swap
       const firstSwap = teamSwaps[0];
-      const originalTeam = firstSwap.oldPlayer; // stored as old team key
-      if (originalTeam && IPL_TEAMS[originalTeam]) {
-        teamWindows.push({
-          teamKey: originalTeam,
-          from: null,
-          to: new Date(firstSwap.swapTimestamp)
-        });
+      if (firstSwap.oldPlayer && IPL_TEAMS[firstSwap.oldPlayer]) {
+        teamWindows.push({ teamKey: firstSwap.oldPlayer, from: null, to: new Date(firstSwap.swapTimestamp) });
       }
-      // Each swap creates a new window
+      // Each swap → new window
       teamSwaps.forEach((swap, i) => {
         const nextSwap = teamSwaps[i+1];
         teamWindows.push({
@@ -4717,16 +4705,7 @@ function calcSeasonPoints(participant) {
       });
     }
 
-    // Helper: does a team match a match's t1/t2?
-    function teamMatchesMatch(teamKey, t1, t2) {
-      const name = (IPL_TEAMS[teamKey]?.name||'').toLowerCase();
-      const fw = name.split(' ')[0];
-      const t1m = t1.startsWith(fw) || fw.startsWith(t1.split(' ')[0]);
-      const t2m = t2.startsWith(fw) || fw.startsWith(t2.split(' ')[0]);
-      return { t1m, t2m };
-    }
-
-    // Score each match against the active team window at that time
+    // Score each match against whichever window was active at that time
     let wins = 0, draws = 0;
     state.matchHistory.forEach(match => {
       const matchTime = match.appliedAt ? new Date(match.appliedAt) : null;
@@ -4735,18 +4714,20 @@ function calcSeasonPoints(participant) {
       const t1 = (match.t1name||'').toLowerCase();
       const t2 = (match.t2name||'').toLowerCase();
 
-      // Find which team window was active at matchTime
       const activeWindow = teamWindows.find(w =>
         (w.from === null || matchTime > w.from) &&
         (w.to === null || matchTime <= w.to)
       );
-      if (!activeWindow) return;
+      if (!activeWindow || !activeWindow.teamKey) return;
 
-      const { t1m, t2m } = teamMatchesMatch(activeWindow.teamKey, t1, t2);
+      const teamName = (IPL_TEAMS[activeWindow.teamKey]?.name||'').toLowerCase();
+      const fw = teamName.split(' ')[0];
+      const t1m = t1.startsWith(fw) || fw.startsWith(t1.split(' ')[0]);
+      const t2m = t2.startsWith(fw) || fw.startsWith(t2.split(' ')[0]);
       if (!t1m && !t2m) return;
-      if ((result === 't1' || result === 'team1') && t1m) wins++;
-      else if ((result === 't2' || result === 'team2') && t2m) wins++;
-      else if (result === 'draw') draws++;
+      if ((result==='t1'||result==='team1') && t1m) wins++;
+      else if ((result==='t2'||result==='team2') && t2m) wins++;
+      else if (result==='draw') draws++;
     });
     teamPts = wins * TEAM_WIN_PTS + draws * TEAM_DRAW_PTS;
   }
