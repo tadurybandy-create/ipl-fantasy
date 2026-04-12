@@ -5057,7 +5057,7 @@ async function importAllIPLSquads() {
   allBtn.disabled = false;
 }
 
-if (false) {async function importWCSquad() {
+async function importWCSquad() {
   const btn = document.getElementById('wcSquadBtn');
   const status = document.getElementById('wcSquadStatus');
   const nation = document.getElementById('wcSquadNation').value.trim();
@@ -5119,7 +5119,7 @@ Respond ONLY with valid JSON, no markdown, no explanation:
     console.error(e);
   }
   if (btn) btn.disabled = false;
-}}
+}
 
 async function resetEverything() {
   const password = prompt('Enter the admin password to reset all data:');
@@ -5817,11 +5817,6 @@ This will also roll back the draft turn.`)) return;
   }
 }
 
-
-
-// ═══════════════════════════════════════════════════════
-// TOAST NOTIFICATIONS (replaces alert())
-// ═══════════════════════════════════════════════════════
 function showToast(msg, type='info', duration=3000) {
   const stack = document.getElementById('toastStack');
   if (!stack) { console.warn(msg); return; }
