@@ -1017,6 +1017,7 @@ body.admin-visible .admin-only{display:block;}
   <button class="tab-btn" onclick="showScreen('rosters',this);renderRosters()">👥 Rosters</button>
   <button class="tab-btn" onclick="showScreen('leaderboard',this)">🏆 Leaderboard</button>
   <button class="tab-btn" onclick="showScreen('scoring',this)">📊 Scoring</button>
+  <button class="tab-btn" onclick="showScreen('chat',this);initChat()">🤖 AI Chat</button>
 
   <button class="tab-btn" id="predictionsTab" onclick="showScreen('predictions',this);loadPredictions()">🔮 Predictions</button>
   <button class="tab-btn admin-only" id="settingsTab" onclick="showScreen('settings',this)" style="display:none">⚙️ Settings</button>
@@ -1195,6 +1196,9 @@ body.admin-visible .admin-only{display:block;}
       </div>
     </div>
   </div>
+  <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.5rem">🔮 Predictions Leaderboard</div>
+  <div id="predScoringSection"><div class="empty-state">No completed matches yet.</div></div>
+
   <div id="matchHistorySection">
     <div class="subsection">Match History</div>
     <div id="matchLog" class="match-log"><div class="empty-state">No matches scored yet.</div></div>
@@ -1233,6 +1237,14 @@ body.admin-visible .admin-only{display:block;}
       <button id="dmode-original" onclick="setDraftMode('original')"
         style="flex:1;padding:.5rem .8rem;border-radius:8px;border:1px solid rgba(247,183,49,.5);background:rgba(247,183,49,.15);color:var(--gold);font-weight:700;font-size:.8rem;cursor:pointer;transition:all .2s">
         🏏 Original Draft<br><span style="font-size:.65rem;font-weight:400;opacity:.7">New season · Randomized · Snake · 11 rounds</span>
+      </button>
+      <button id="dmode-redraft1" onclick="setDraftMode('redraft1')"
+        style="flex:1;padding:.5rem .8rem;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:transparent;color:var(--muted);font-size:.8rem;cursor:pointer;transition:all .2s">
+        🔄 Redraft 1<br><span style="font-size:.65rem;opacity:.7">Reverse standings · Not snake · 3 rounds</span>
+      </button>
+      <button id="dmode-redraft2" onclick="setDraftMode('redraft2')"
+        style="flex:1;padding:.5rem .8rem;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:transparent;color:var(--muted);font-size:.8rem;cursor:pointer;transition:all .2s">
+        🔁 Redraft 2<br><span style="font-size:.65rem;opacity:.7">Original order · Snake · 2 rounds</span>
       </button>
     </div>
     <div id="draftModeDesc" style="font-size:.78rem;color:var(--muted);margin-bottom:.7rem;padding:.5rem .7rem;background:rgba(255,255,255,.03);border-radius:8px;border-left:3px solid var(--gold)">
@@ -1424,6 +1436,32 @@ body.admin-visible .admin-only{display:block;}
 
 
 
+<!-- AI CHAT -->
+<div id="screen-chat" class="screen">
+  <div class="chat-wrap">
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <div class="chat-avatar">🤖</div>
+        <div>
+          <div class="chat-name">Cricket AI</div>
+          <div class="chat-status">Ask me anything about IPL fantasy</div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-msg assistant">
+        <div class="chat-bubble">👋 Hi! I'm your Cricket Fantasy AI. Ask me about players, strategies, or your team!</div>
+      </div>
+    </div>
+    <div class="chat-input-wrap">
+      <input type="text" id="chatInput" class="chat-input" placeholder="Ask about players, picks, strategy..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="chat-send-btn" onclick="sendChat()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ROSTERS -->
 <div id="screen-rosters" class="screen">
   <div class="section-title">👥 Rosters</div>
@@ -1432,11 +1470,8 @@ body.admin-visible .admin-only{display:block;}
 
 <!-- PARTICIPANT DETAIL MODAL -->
 <div class="modal-overlay" id="detailModal" onclick="closeDetailModal(event)">
-  <div class="modal-box">
-    <div class="modal-header">
-      <span class="modal-title" id="modalTitle">—</span>
-      <button class="modal-close" onclick="closeDetailModal()">✕</button>
-    </div>
+  <div class="modal-content" style="max-width:700px;width:95%;max-height:85vh;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;position:relative">
+    <div id="modalTitle" style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:2px;color:var(--gold);margin-bottom:1rem"></div>
     <div id="modalBody"></div>
   </div>
 </div>
@@ -4398,7 +4433,6 @@ function generateWhatsAppMsg(match) {
     });
   });
   catchData.sort((a,b) => b.catches - a.catches);
-  const topCatchData = catchData.slice(0, 3);
   const catchLine = catchData.length
     ? `\n\n🧤 *Top Catcher*\n${catchData[0].player} — ${catchData[0].catches} catches`
     : '';
@@ -4505,6 +4539,43 @@ async function removeMatch(id) {
     setSyncStatus('ok','Synced');
     renderMatchLog(); renderLeaderboard();
   } catch(e) { setSyncStatus('err','Failed'); console.error(e); }
+}
+
+
+// ── PREDICTIONS SCORING (for Scoring tab) ─────────────────
+async function renderPredictionsScoring() {
+  const el = document.getElementById('predScoringSection');
+  if (!el) return;
+  try {
+    const allPreds = await loadAllPredictionsForStandings().catch(() => ({}));
+    const completedMatches = (state.matchSchedule||[]).filter(m => m.result);
+    if (!completedMatches.length) {
+      el.innerHTML = '<div class="empty-state">No completed matches yet.</div>';
+      return;
+    }
+    const rows = state.participants.map(p => {
+      let correct=0, wrong=0, skip=0;
+      completedMatches.forEach(m => {
+        const pred = (allPreds[m.id]||{})[p.id];
+        if (!pred) { skip++; return; }
+        if (pred === m.result) correct++; else wrong++;
+      });
+      const pts = correct - wrong - skip;
+      return { name: p.name, correct, wrong, skip, pts };
+    }).sort((a,b) => b.pts - a.pts);
+    const medals = ['🥇','🥈','🥉'];
+    el.innerHTML = `<table class="lb-table" style="margin-bottom:.5rem">
+      <thead><tr><th>#</th><th>Name</th><th>✓</th><th>✗</th><th>—</th><th>Pts</th></tr></thead>
+      <tbody>${rows.map((r,i) => `<tr>
+        <td>${medals[i]||i+1}</td>
+        <td>${r.name}</td>
+        <td style="color:var(--green)">${r.correct}</td>
+        <td style="color:var(--red)">${r.wrong}</td>
+        <td style="color:var(--muted)">${r.skip}</td>
+        <td><strong>${r.pts>0?'+':''}${r.pts}</strong></td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch(e) { el.innerHTML = '<div class="empty-state">Could not load predictions.</div>'; }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -4735,9 +4806,8 @@ function renderLeaderboard() {
     });
   });
   catchData.sort((a,b) => b.catches - a.catches);
-  const topCatchData = catchData.slice(0, 3);
   const catchMedals = ['🥇','🥈','🥉'];
-  const catchCards = topCatchData.map((d,i) => {
+  const catchCards = catchData.map((d,i) => {
     const tc = TEAM_COLORS[d.team] || '#5A7A9A';
     return `<div class="catch-card" style="--tc:${tc}">
       <div style="font-size:1rem">${catchMedals[i]||`${i+1}.`}</div>
@@ -4764,7 +4834,7 @@ function renderLeaderboard() {
       <div style="font-family:'Bebas Neue',sans-serif;letter-spacing:3px;font-size:1rem;color:#8AA0B8">🧤 Top Catches</div>
       <button onclick="copyCatches()" id="copyCatchBtn" class="copy-btn">📋 Copy</button>
     </div>
-    ${topCatchData.length ? `<div class="catches-grid">${catchCards}</div>` : '<div class="empty-state">No catches recorded yet.</div>'}
+    ${catchData.length ? `<div class="catches-grid">${catchCards}</div>` : '<div class="empty-state">No catches recorded yet.</div>'}
   `;
 }
 
@@ -5581,6 +5651,71 @@ function refreshSubTabVisibility() {
   if (predTab) predTab.style.display = 'inline-flex';
 }
 
+
+// ═══════════════════════════════════════════════════════
+// AI CHAT
+// ═══════════════════════════════════════════════════════
+let chatHistory = []; // [{role:'user'|'assistant', content:'...'}]
+let chatInitialised = false;
+
+function initChat() {
+  if (!chatInitialised) chatInitialised = true;
+  const msgs = document.getElementById('chatMessages');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const msg = input?.value?.trim();
+  if (!msg) return;
+  input.value = '';
+
+  appendChatMsg('user', msg);
+  chatHistory.push({ role: 'user', content: msg });
+
+  const typing = appendChatMsg('assistant', '...');
+
+  try {
+    // Build context about the current league
+    const sorted = state.participants
+      .map(p => ({ name: p.name, ...calcSeasonPoints(p) }))
+      .sort((a,b) => b.total - a.total);
+    const standings = sorted.map((p,i) => `${i+1}. ${p.name} - ${p.total}pts`).join('\n');
+
+    const systemPrompt = `You are a cricket fantasy league expert assistant. Current IPL 2026 Fantasy League standings:\n${standings}\n\nBe concise and helpful. Answer in 2-3 sentences max unless asked for detail.`;
+
+    const response = await fetch('/.netlify/functions/anthropic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 400,
+        system: systemPrompt,
+        messages: chatHistory
+      })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const reply = data.content?.[0]?.text || 'Sorry, I could not respond.';
+    chatHistory.push({ role: 'assistant', content: reply });
+    typing.querySelector('.chat-bubble').textContent = reply;
+  } catch(e) {
+    typing.querySelector('.chat-bubble').textContent = 'Error: ' + e.message;
+  }
+  const msgs = document.getElementById('chatMessages');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+}
+
+function appendChatMsg(role, text) {
+  const msgs = document.getElementById('chatMessages');
+  if (!msgs) return { querySelector: () => ({ textContent: '' }) };
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + role;
+  div.innerHTML = `<div class="chat-bubble">${text}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
 // ═══════════════════════════════════════════════════════
 // ROSTERS
 // ═══════════════════════════════════════════════════════
@@ -7318,7 +7453,6 @@ function copyCatches() {
     });
   });
   catchData.sort((a,b) => b.catches - a.catches);
-  const topCatchData = catchData.slice(0, 3);
   if (!catchData.length) { showToast('No catches recorded yet','warn'); return; }
   const medals = ['🥇','🥈','🥉'];
   const text = '🧤 *Top Catches*\n' +
@@ -7395,7 +7529,6 @@ async function generateShareCard() {
       });
     });
     catchData.sort((a,b) => b.catches - a.catches);
-  const topCatchData = catchData.slice(0, 3);
     const topCatches = catchData.slice(0,5);
     const catchHTML = topCatches.map((d,i) => `
       <div class="sc-catch-row">
@@ -7736,6 +7869,8 @@ async function saveAndStartRedraft() {
   // Now start
   await startDraft();
 }
+
+// setDraftMode calls updateDraftModeUI directly — see function definition above
 
 // setDraftMode calls updateDraftModeUI directly — see function definition above
 
