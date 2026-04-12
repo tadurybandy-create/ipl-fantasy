@@ -1805,7 +1805,7 @@ async function checkLoginAndBoot() { await initAuth(); }
 // ═══════════════════════════════════════════════════════
 const MOTM_PTS = 5;
 
-if (false) {function setMode(mode, save=true) {
+function setMode(mode, save=true) {
   state.mode = mode;
   document.getElementById('modeIPL').classList.toggle('active', mode==='ipl');
   document.getElementById('modeWC').classList.toggle('active', mode==='worldcup');
@@ -1830,7 +1830,7 @@ if (false) {function setMode(mode, save=true) {
   } else {
     renderAll();
   }
-}}
+}
 
 function setSyncStatus(state, msg) {
   const dot = document.getElementById('syncDot');
