@@ -1018,7 +1018,6 @@ body.admin-visible .admin-only{display:block;}
   <button class="tab-btn" onclick="showScreen('leaderboard',this)">🏆 Leaderboard</button>
   <button class="tab-btn" onclick="showScreen('scoring',this)">📊 Scoring</button>
   <button class="tab-btn" onclick="showScreen('chat',this);initChat()">🤖 AI Chat</button>
-
   <button class="tab-btn" id="predictionsTab" onclick="showScreen('predictions',this);loadPredictions()">🔮 Predictions</button>
   <button class="tab-btn admin-only" id="settingsTab" onclick="showScreen('settings',this)" style="display:none">⚙️ Settings</button>
 </nav>
@@ -1196,16 +1195,14 @@ body.admin-visible .admin-only{display:block;}
       </div>
     </div>
   </div>
-  <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.5rem">🔮 Predictions Leaderboard</div>
-  <div id="predScoringSection"><div class="empty-state">No completed matches yet.</div></div>
-
   <div id="matchHistorySection">
     <div class="subsection">Match History</div>
     <div id="matchLog" class="match-log"><div class="empty-state">No matches scored yet.</div></div>
   </div>
 
   <div style="margin-top:2rem">
-    </div>
+    <div class="subsection" style="margin-bottom:.6rem">🔮 Predictions Leaderboard</div>
+    <div id="predScoringSection"><div class="empty-state">No completed matches yet.</div></div>
   </div>
 </div>
 
@@ -1240,7 +1237,7 @@ body.admin-visible .admin-only{display:block;}
       </button>
       <button id="dmode-redraft1" onclick="setDraftMode('redraft1')"
         style="flex:1;padding:.5rem .8rem;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:transparent;color:var(--muted);font-size:.8rem;cursor:pointer;transition:all .2s">
-        🔄 Redraft 1<br><span style="font-size:.65rem;opacity:.7">Reverse standings · Not snake · 3 rounds</span>
+        🔄 Redraft 1<br><span style="font-size:.65rem;opacity:.7">Reverse standings · Not snake · All rounds</span>
       </button>
       <button id="dmode-redraft2" onclick="setDraftMode('redraft2')"
         style="flex:1;padding:.5rem .8rem;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:transparent;color:var(--muted);font-size:.8rem;cursor:pointer;transition:all .2s">
@@ -1410,6 +1407,7 @@ body.admin-visible .admin-only{display:block;}
   </div>
   -->
 
+  <!-- Allowlist Management (admin only) -->
   <div class="card admin-only" style="margin-bottom:1.5rem" id="allowlistCard">
     <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleSettingsCard('allowlistBody',this)">
       <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--green)">👥 Access List</div>
@@ -1429,11 +1427,53 @@ body.admin-visible .admin-only{display:block;}
     </div>
     <div id="alStatus" style="font-size:.82rem;min-height:1rem;margin-bottom:.6rem"></div>
     <div id="alList" style="display:flex;flex-direction:column;gap:.4rem"></div>
-    </div><!-- Draft Recovery (Admin) -->
-  
+    </div><!-- /allowlistBody -->
+  </div>
 
 
 
+  <!-- Draft Recovery (Admin) -->
+  <div class="card admin-only" style="border-color:rgba(255,152,0,.3);background:rgba(255,152,0,.04)">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:1px;color:#ff9800;margin-bottom:.4rem">🔧 Draft Recovery</div>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:.8rem">Rewind to a specific pick. Select the participant and their pick number (round) to restart from.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.5rem;align-items:center;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:.25rem">Participant</div>
+        <select id="recoveryPicker" onchange="updateRecoveryRounds()" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.45rem .8rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.85rem">
+          <option value="">— Select —</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:.25rem">Their Pick #</div>
+        <select id="recoveryRound" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.45rem .8rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.85rem">
+          <option value="">— Select participant first —</option>
+        </select>
+      </div>
+      <div style="padding-top:1.2rem">
+        <button class="btn btn-sm" onclick="recoverDraftTurn()" style="background:rgba(255,152,0,.15);border:1px solid rgba(255,152,0,.4);color:#ff9800;white-space:nowrap">↩ Set Turn</button>
+      </div>
+    </div>
+    <div id="recoveryStatus" style="font-size:.78rem;margin-top:.5rem;min-height:1rem"></div>
+  </div>
+
+  <!-- Reset Everything -->
+  <div class="card" style="border-color:rgba(255,23,68,.3);background:rgba(255,23,68,.04)">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:1.5px;color:var(--red);margin-bottom:.4rem">🗑️ Reset Everything</div>
+        <div style="font-size:.85rem;color:var(--muted);max-width:540px">
+          Wipes <strong style="color:var(--text)">picks, scores, match history, swaps and draft order</strong>. Participant names are preserved so everyone can re-draft for a new season.
+        </div>
+        <div style="margin-top:.5rem;font-size:.8rem;color:var(--red)">⚠️ This cannot be undone.</div>
+        <div id="resetStatus" style="margin-top:.6rem;font-size:.82rem;min-height:1rem"></div>
+      </div>
+      <button class="btn" onclick="resetEverything()" id="resetBtn"
+        style="background:var(--red);white-space:nowrap;align-self:center;color:#fff">
+        🗑️ Reset Everything
+      </button>
+    </div>
+  </div>
+</div>
 
 
 <!-- AI CHAT -->
@@ -1443,24 +1483,43 @@ body.admin-visible .admin-only{display:block;}
       <div class="chat-header-left">
         <div class="chat-avatar">🤖</div>
         <div>
-          <div class="chat-name">Cricket AI</div>
-          <div class="chat-status">Ask me anything about IPL fantasy</div>
+          <div class="chat-title">Cricket AI</div>
+          <div class="chat-subtitle" id="chatStatus">Ask me anything about cricket, players, or your fantasy league</div>
         </div>
       </div>
+      <button class="chat-clear-btn" onclick="clearChat()" title="Clear conversation">↺ Clear</button>
     </div>
+
     <div class="chat-messages" id="chatMessages">
-      <div class="chat-msg assistant">
-        <div class="chat-bubble">👋 Hi! I'm your Cricket Fantasy AI. Ask me about players, strategies, or your team!</div>
+      <div class="chat-bubble ai">
+        <div class="bubble-content">
+          <p>Hey! I'm your Cricket AI assistant 🏏</p>
+          <p style="margin-top:.5rem">I can search the web for live scores, player stats, recent match results, IPL news, and anything cricket-related. I also know your fantasy league — just ask!</p>
+          <p style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Try: <em>"How many runs did Virat Kohli score in the last match?"</em> or <em>"Who's in good form heading into the next IPL game?"</em></p>
+        </div>
+        <div class="bubble-time">Now</div>
       </div>
     </div>
-    <div class="chat-input-wrap">
-      <input type="text" id="chatInput" class="chat-input" placeholder="Ask about players, picks, strategy..." onkeydown="if(event.key==='Enter')sendChat()">
-      <button class="chat-send-btn" onclick="sendChat()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+
+    <div class="chat-suggestions" id="chatSuggestions">
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">🏏 Top scorers this IPL season</button>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">📊 Latest match results</button>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">⭐ Best fantasy picks right now</button>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">🤕 Any injury news?</button>
+    </div>
+
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chatInput" placeholder="Ask about players, scores, stats, fantasy tips…" rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"
+        oninput="autoResizeChat(this)"></textarea>
+      <button class="chat-send-btn" id="chatSendBtn" onclick="sendChat()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </div>
   </div>
 </div>
+
+
 
 <!-- ROSTERS -->
 <div id="screen-rosters" class="screen">
@@ -1470,8 +1529,11 @@ body.admin-visible .admin-only{display:block;}
 
 <!-- PARTICIPANT DETAIL MODAL -->
 <div class="modal-overlay" id="detailModal" onclick="closeDetailModal(event)">
-  <div class="modal-content" style="max-width:700px;width:95%;max-height:85vh;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;position:relative">
-    <div id="modalTitle" style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:2px;color:var(--gold);margin-bottom:1rem"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">—</span>
+      <button class="modal-close" onclick="closeDetailModal()">✕</button>
+    </div>
     <div id="modalBody"></div>
   </div>
 </div>
@@ -4541,43 +4603,6 @@ async function removeMatch(id) {
   } catch(e) { setSyncStatus('err','Failed'); console.error(e); }
 }
 
-
-// ── PREDICTIONS SCORING (for Scoring tab) ─────────────────
-async function renderPredictionsScoring() {
-  const el = document.getElementById('predScoringSection');
-  if (!el) return;
-  try {
-    const allPreds = await loadAllPredictionsForStandings().catch(() => ({}));
-    const completedMatches = (state.matchSchedule||[]).filter(m => m.result);
-    if (!completedMatches.length) {
-      el.innerHTML = '<div class="empty-state">No completed matches yet.</div>';
-      return;
-    }
-    const rows = state.participants.map(p => {
-      let correct=0, wrong=0, skip=0;
-      completedMatches.forEach(m => {
-        const pred = (allPreds[m.id]||{})[p.id];
-        if (!pred) { skip++; return; }
-        if (pred === m.result) correct++; else wrong++;
-      });
-      const pts = correct - wrong - skip;
-      return { name: p.name, correct, wrong, skip, pts };
-    }).sort((a,b) => b.pts - a.pts);
-    const medals = ['🥇','🥈','🥉'];
-    el.innerHTML = `<table class="lb-table" style="margin-bottom:.5rem">
-      <thead><tr><th>#</th><th>Name</th><th>✓</th><th>✗</th><th>—</th><th>Pts</th></tr></thead>
-      <tbody>${rows.map((r,i) => `<tr>
-        <td>${medals[i]||i+1}</td>
-        <td>${r.name}</td>
-        <td style="color:var(--green)">${r.correct}</td>
-        <td style="color:var(--red)">${r.wrong}</td>
-        <td style="color:var(--muted)">${r.skip}</td>
-        <td><strong>${r.pts>0?'+':''}${r.pts}</strong></td>
-      </tr>`).join('')}</tbody>
-    </table>`;
-  } catch(e) { el.innerHTML = '<div class="empty-state">Could not load predictions.</div>'; }
-}
-
 // ═══════════════════════════════════════════════════════
 // LEADERBOARD
 // ═══════════════════════════════════════════════════════
@@ -5258,7 +5283,13 @@ async function resetEverything() {
 // PLAYER AVAILABILITY
 // ═══════════════════════════════════════════════════════
 function initAvailabilityManager() {
-  
+  // Populate draft recovery picker
+  const recSel = document.getElementById('recoveryPicker');
+  if (recSel) {
+    recSel.innerHTML = '<option value="">— Select —</option>' +
+      state.participants.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+    updateRecoveryRounds(); // reset round dropdown
+  }
   // Populate team filter
   const sel = document.getElementById('availTeamFilter');
   if (!sel || sel.options.length > 1) return;
@@ -5484,6 +5515,199 @@ function renderSuggestions(result) {
 
 // ═══════════════════════════════════════════════════════
 // AI CHAT
+// ═══════════════════════════════════════════════════════
+let chatHistory = []; // [{role:'user'|'assistant', content:'...'}]
+let chatInitialised = false;
+
+function initChat() {
+  // Only runs once — just scrolls to bottom
+  if (!chatInitialised) chatInitialised = true;
+  scrollChatToBottom();
+}
+
+function autoResizeChat(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function scrollChatToBottom() {
+  const el = document.getElementById('chatMessages');
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+function formatTime() {
+  return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+
+function sendSuggestion(btn) {
+  const text = btn.textContent.replace(/^[^a-zA-Z]+/, '').trim();
+  document.getElementById('chatInput').value = text;
+  // Hide suggestions after first use
+  document.getElementById('chatSuggestions').style.display = 'none';
+  sendChat();
+}
+
+function addMessage(role, html, isHtml=false) {
+  const el = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `chat-bubble ${role}`;
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'bubble-content';
+  if (isHtml) contentDiv.innerHTML = html;
+  else contentDiv.textContent = html;
+  const timeDiv = document.createElement('div');
+  timeDiv.className = 'bubble-time';
+  timeDiv.textContent = formatTime();
+  div.appendChild(contentDiv);
+  div.appendChild(timeDiv);
+  el.appendChild(div);
+  scrollChatToBottom();
+  return contentDiv; // return so we can update it (for thinking state)
+}
+
+function addThinking() {
+  const el = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-bubble ai';
+  div.id = 'chatThinking';
+  div.innerHTML = `<div class="bubble-content thinking">
+    <div class="thinking-dots"><span></span><span></span><span></span></div>
+    <span>Searching…</span>
+  </div>`;
+  el.appendChild(div);
+  scrollChatToBottom();
+}
+
+function removeThinking() {
+  const el = document.getElementById('chatThinking');
+  if (el) el.remove();
+}
+
+function buildLeagueContext() {
+  // Give the AI context about the current fantasy league state
+  if (!state.participants || !state.participants.length) return '';
+  const lines = ['\nCurrent fantasy league context:'];
+  const sorted = state.participants.map(p => {
+    const {total, playerPts, teamPts} = calcSeasonPoints(p);
+    const picks = TEAM_KEYS.filter(k => p.picks[k]).map(k => p.picks[k]);
+    return `- ${p.name}: ${total} pts (${picks.join(', ')}${p.teamPick ? ', team: '+p.teamPick : ''})`;
+  }).sort();
+  lines.push(...sorted);
+  return lines.join('\n');
+}
+
+function markdownToHtml(text) {
+  const lines = text.split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    let l = lines[i];
+    l = l.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    l = l.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    if (l.startsWith('### ')) { out.push('<div style="font-weight:700;color:var(--green);margin:.4rem 0 .1rem">' + l.slice(4) + '</div>'); continue; }
+    if (l.startsWith('## '))  { out.push('<div style="font-weight:700;color:var(--green);font-size:1rem">' + l.slice(3) + '</div>'); continue; }
+    if (l.startsWith('- '))   { out.push('<li>' + l.slice(2) + '</li>'); continue; }
+    if (l === '')              { out.push('<br>'); continue; }
+    out.push(l);
+  }
+  let html = out.join('<br>');
+  html = html.replace(/(<li>[^<]*<\/li>)(<br>)?/g, '$1').replace(/(<li>)/g, '<ul-start>$1').replace(/(<\/li>)(?!.*<li>)/g, '$1<ul-end>');
+  html = html.replace(/<ul-start>/g,'<ul>').replace(/<ul-end>/g,'</ul>');
+  return html;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('chatSendBtn');
+  const text = input.value.trim();
+  if (!text) return;
+
+  // Hide suggestions permanently after first message
+  document.getElementById('chatSuggestions').style.display = 'none';
+
+  // Add user message
+  addMessage('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  // Reset input
+  input.value = '';
+  input.style.height = 'auto';
+  sendBtn.disabled = true;
+  document.getElementById('chatStatus').textContent = 'Searching…';
+
+  // Show thinking indicator
+  addThinking();
+
+  try {
+    const leagueCtx = buildLeagueContext();
+    const systemPrompt = `You are a cricket expert AI assistant embedded in an IPL fantasy league app. You have access to web search — USE IT for any question about recent matches, current form, scores, injuries, or stats. Always search before answering questions about recent events.
+
+Be conversational, concise, and enthusiastic about cricket. Use cricket terminology naturally. Format responses clearly with bullet points or bold text where helpful. Keep responses focused — don't be overly long.
+
+${leagueCtx}
+
+When asked about fantasy league specifics, use the context above. When asked about real cricket news/stats, search the web for the latest information.`;
+
+    const messages = [
+      ...chatHistory.slice(-10) // keep last 10 messages for context
+    ];
+
+    const response = await fetch('/.netlify/functions/anthropic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: systemPrompt,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages
+      })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+
+    // Extract text from response (may contain tool_use blocks)
+    const textBlocks = (data.content || []).filter(b => b.type === 'text');
+    const searchBlocks = (data.content || []).filter(b => b.type === 'tool_use' && b.name === 'web_search');
+    const responseText = textBlocks.map(b => b.text).join('').trim();
+
+    removeThinking();
+
+    if (!responseText) throw new Error('No response received');
+
+    // Add AI response
+    const html = markdownToHtml(responseText)
+      + (searchBlocks.length ? `<div class="search-indicator">Searched the web for latest info</div>` : '');
+    addMessage('ai', html, true);
+    chatHistory.push({ role: 'assistant', content: responseText });
+
+    document.getElementById('chatStatus').textContent = 'Ask me anything about cricket or your fantasy league';
+
+  } catch(e) {
+    removeThinking();
+    addMessage('ai', `Sorry, I ran into an error: ${e.message}. Please try again.`, false);
+    document.getElementById('chatStatus').textContent = 'Error — try again';
+  }
+
+  sendBtn.disabled = false;
+  input.focus();
+}
+
+function clearChat() {
+  chatHistory = [];
+  const el = document.getElementById('chatMessages');
+  el.innerHTML = `<div class="chat-bubble ai">
+    <div class="bubble-content">
+      <p>Chat cleared! What would you like to know? 🏏</p>
+    </div>
+    <div class="bubble-time">${formatTime()}</div>
+  </div>`;
+  document.getElementById('chatSuggestions').style.display = 'flex';
+  document.getElementById('chatStatus').textContent = 'Ask me anything about cricket or your fantasy league';
+}
+
+
+
 
 // ═══════════════════════════════════════════════════════
 // TURN NOTIFICATION
@@ -5651,71 +5875,6 @@ function refreshSubTabVisibility() {
   if (predTab) predTab.style.display = 'inline-flex';
 }
 
-
-// ═══════════════════════════════════════════════════════
-// AI CHAT
-// ═══════════════════════════════════════════════════════
-let chatHistory = []; // [{role:'user'|'assistant', content:'...'}]
-let chatInitialised = false;
-
-function initChat() {
-  if (!chatInitialised) chatInitialised = true;
-  const msgs = document.getElementById('chatMessages');
-  if (msgs) msgs.scrollTop = msgs.scrollHeight;
-}
-
-async function sendChat() {
-  const input = document.getElementById('chatInput');
-  const msg = input?.value?.trim();
-  if (!msg) return;
-  input.value = '';
-
-  appendChatMsg('user', msg);
-  chatHistory.push({ role: 'user', content: msg });
-
-  const typing = appendChatMsg('assistant', '...');
-
-  try {
-    // Build context about the current league
-    const sorted = state.participants
-      .map(p => ({ name: p.name, ...calcSeasonPoints(p) }))
-      .sort((a,b) => b.total - a.total);
-    const standings = sorted.map((p,i) => `${i+1}. ${p.name} - ${p.total}pts`).join('\n');
-
-    const systemPrompt = `You are a cricket fantasy league expert assistant. Current IPL 2026 Fantasy League standings:\n${standings}\n\nBe concise and helpful. Answer in 2-3 sentences max unless asked for detail.`;
-
-    const response = await fetch('/.netlify/functions/anthropic', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 400,
-        system: systemPrompt,
-        messages: chatHistory
-      })
-    });
-    const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
-    const reply = data.content?.[0]?.text || 'Sorry, I could not respond.';
-    chatHistory.push({ role: 'assistant', content: reply });
-    typing.querySelector('.chat-bubble').textContent = reply;
-  } catch(e) {
-    typing.querySelector('.chat-bubble').textContent = 'Error: ' + e.message;
-  }
-  const msgs = document.getElementById('chatMessages');
-  if (msgs) msgs.scrollTop = msgs.scrollHeight;
-}
-
-function appendChatMsg(role, text) {
-  const msgs = document.getElementById('chatMessages');
-  if (!msgs) return { querySelector: () => ({ textContent: '' }) };
-  const div = document.createElement('div');
-  div.className = 'chat-msg ' + role;
-  div.innerHTML = `<div class="chat-bubble">${text}</div>`;
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
-  return div;
-}
 // ═══════════════════════════════════════════════════════
 // ROSTERS
 // ═══════════════════════════════════════════════════════
@@ -5952,6 +6111,11 @@ This will also roll back the draft turn.`)) return;
   }
 }
 
+
+
+// ═══════════════════════════════════════════════════════
+// TOAST NOTIFICATIONS (replaces alert())
+// ═══════════════════════════════════════════════════════
 function showToast(msg, type='info', duration=3000) {
   const stack = document.getElementById('toastStack');
   if (!stack) { console.warn(msg); return; }
@@ -6376,6 +6540,49 @@ function copyDraftBoard() {
 }
 
 
+async function recoverDraftTurn() {
+  const pickerSel = document.getElementById('recoveryPicker');
+  const roundSel  = document.getElementById('recoveryRound');
+  const statusEl  = document.getElementById('recoveryStatus');
+  const targetName = pickerSel?.value;
+  const roundVal   = roundSel?.value; // format "round:pickIdx"
+
+  if (!targetName) { statusEl.innerHTML = '<span style="color:var(--red)">Select a participant first.</span>'; return; }
+  if (!roundVal)   { statusEl.innerHTML = '<span style="color:var(--red)">Select a pick number.</span>'; return; }
+
+  const [roundStr, pickIdxStr] = roundVal.split(':');
+  const targetRound = parseInt(roundStr);
+  const pickIdx     = parseInt(pickIdxStr);
+
+  const order = state.draftOrder;
+  if (!order.length) { statusEl.innerHTML = '<span style="color:var(--red)">No draft order set.</span>'; return; }
+
+  try {
+    statusEl.innerHTML = '<span style="color:var(--muted)">Updating…</span>';
+    await sb('PATCH', 'draft_state',
+      { round: targetRound, pick_idx: pickIdx, active: true },
+      `?id=eq.1&mode=eq.${state.mode}`
+    );
+    state.draftRound = targetRound;
+    state.draftPickIdx = pickIdx;
+    state.draftActive = true;
+    const pi = state.participants.findIndex(p => p.name.toLowerCase() === targetName.toLowerCase());
+    if (pi >= 0) {
+      state.activeParticipant = pi;
+      state.viewParticipant = pi;
+      const pp = state.participants[pi];
+      state.picksAtTurnStart = TEAM_KEYS.filter(k => pp.picks[k]).length + (pp.teamPick ? 1 : 0);
+    }
+    window._pollForceRefresh = true;
+    renderDraftBanner();
+    renderParticipantListWithLock();
+    renderDraftGridWithLock();
+    showConfirmPickBtn();
+    statusEl.innerHTML = `<span style="color:var(--green)">✓ It is now ${targetName}'s turn to pick.</span>`;
+  } catch(e) {
+    statusEl.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  }
+}
 
 // ═══════════════════════════════════════════════════════
 // NAVIGATION
@@ -6421,7 +6628,7 @@ function showScreen(name,btn) {
   }
 
   if (name==='leaderboard') renderLeaderboard();
-  if (name==='scoring') { renderMatchLog();  }
+  if (name==='scoring') { renderMatchLog(); renderPredictionsScoring(); }
   if (name==='settings') initAvailabilityManager();
   if (name==='rosters') renderRosters();
 }
@@ -7041,6 +7248,44 @@ function updatePlayoffTeam(matchId, field, value) {
   if (m) m[field] = value.trim().toUpperCase();
 }
 
+// ── PREDICTIONS SCORING (for Scoring tab) ─────────────────
+async function renderPredictionsScoring() {
+  const el = document.getElementById('predScoringSection');
+  if (!el) return;
+  const allPreds = await loadAllPredictionsForStandings().catch(() => ({}));
+  const completedMatches = state.matchSchedule.filter(m => !!m.result);
+  if (!completedMatches.length) {
+    el.innerHTML = '<div class="empty-state">No completed matches yet.</div>';
+    return;
+  }
+  const rows = state.participants.map(p => {
+    let correct=0, wrong=0, noPick=0;
+    completedMatches.forEach(m => {
+      const pred = allPreds[m.id]?.[p.id];
+      if (pred) {
+        if (pred === m.result) correct++;
+        else wrong++;
+      } else {
+        noPick++; // no pick on completed match = -1
+      }
+    });
+    return { name:p.name, correct, wrong, noPick, pts:correct-wrong-noPick };
+  }).sort((a,b) => b.pts-a.pts);
+
+  let html = `<table class="pred-standings-table">
+    <thead><tr><th>#</th><th>Player</th><th style="text-align:right">Correct</th><th style="text-align:right">Wrong</th><th style="text-align:right">Skip</th><th style="text-align:right">Pts</th></tr></thead><tbody>`;
+  rows.forEach((r,i) => {
+    const medal = ['🥇','🥈','🥉'][i]||(i+1);
+    html += `<tr><td>${medal}</td><td>${r.name}</td>
+      <td style="text-align:right;color:var(--green)">${r.correct}</td>
+      <td style="text-align:right;color:var(--red)">${r.wrong}</td>
+      <td style="text-align:right;color:var(--red)">${r.noPick||0}</td>
+      <td style="text-align:right;color:${r.pts>=0?'var(--gold)':'var(--red)'};font-family:'Bebas Neue',sans-serif;font-size:1.1rem">${r.pts>=0?'+':''}${r.pts}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
 
 
 // ═══════════════════════════════════════════════════════
@@ -7869,8 +8114,6 @@ async function saveAndStartRedraft() {
   // Now start
   await startDraft();
 }
-
-// setDraftMode calls updateDraftModeUI directly — see function definition above
 
 // setDraftMode calls updateDraftModeUI directly — see function definition above
 
