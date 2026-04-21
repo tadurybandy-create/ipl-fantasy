@@ -6000,7 +6000,7 @@ function renderRosters() {
 
   el.innerHTML = '<div class="rosters-grid">' + sorted.map(p => {
     const isMe = p.name.toLowerCase() === myName;
-    const {total, breakdown, teamPts, teamWinData, teamHistory} = calcSeasonPoints(p);
+    const {total, breakdown, teamPts, playerPts, teamWinData, teamHistory} = calcSeasonPoints(p);
     const pickCount = Object.keys(p.picks||{}).length;
 
     const pickRows = TEAM_KEYS.map(k => {
