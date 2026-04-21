@@ -1966,7 +1966,7 @@ async function checkLoginAndBoot() { await initAuth(); }
 // ═══════════════════════════════════════════════════════
 const MOTM_PTS = 5;
 
-if (false) {function setMode(mode, save=true) {
+function setMode(mode, save=true) {
   state.mode = mode;
   document.getElementById('modeIPL').classList.toggle('active', mode==='ipl');
   document.getElementById('modeWC').classList.toggle('active', mode==='worldcup');
@@ -1991,7 +1991,7 @@ if (false) {function setMode(mode, save=true) {
   } else {
     renderAll();
   }
-}}
+}
 
 function setSyncStatus(state, msg) {
   const dot = document.getElementById('syncDot');
@@ -5239,7 +5239,7 @@ async function importAllIPLSquads() {
   allBtn.disabled = false;
 }
 
-if (false) {async function importWCSquad() {
+async function importWCSquad() {
   const btn = document.getElementById('wcSquadBtn');
   const status = document.getElementById('wcSquadStatus');
   const nation = document.getElementById('wcSquadNation').value.trim();
@@ -5301,7 +5301,7 @@ Respond ONLY with valid JSON, no markdown, no explanation:
     console.error(e);
   }
   if (btn) btn.disabled = false;
-}}
+}
 
 async function resetEverything() {
   const password = prompt('Enter the admin password to reset all data:');
