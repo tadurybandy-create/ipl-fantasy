@@ -58,17 +58,20 @@ header::before{content:'';position:absolute;bottom:0;left:50%;transform:translat
 .sync-dot.loading{background:var(--gold);animation:pulse 1s infinite;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 nav{
-  display:flex;justify-content:center;flex-wrap:wrap;gap:.5rem;
+  display:flex;justify-content:flex-start;flex-wrap:nowrap;gap:.5rem;
   padding:.8rem 1rem;position:sticky;top:0;z-index:100;
   background:rgba(17,24,39,.88);
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border-bottom:1px solid rgba(148,163,184,.12);
   box-shadow:0 4px 24px rgba(0,0,0,.2);
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none; /* Firefox */
 }
+nav::-webkit-scrollbar{display:none;} /* Chrome/Safari */
 .tab-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);
   padding:.5rem 1.2rem;border-radius:99px;cursor:pointer;
   font-family:'Bebas Neue',sans-serif;letter-spacing:2px;font-size:.85rem;
-  transition:all .2s;
+  transition:all .2s;white-space:nowrap;flex-shrink:0;
 }
 .tab-btn:hover{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3);color:var(--gold);}
 .tab-btn.active{background:var(--gold);border-color:var(--gold);color:#000;font-weight:700;}
@@ -922,7 +925,7 @@ body.admin-visible .admin-only{display:block;}
 @media(max-width:600px){
   .draft-grid-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .draft-grid-inner{min-width:600px;}
-  nav{gap:.25rem;padding:.5rem .5rem;}
+  nav{gap:.4rem;padding:.5rem .75rem;}
   .tab-primary{font-size:.78rem;padding:.45rem .85rem;}
   .tab-secondary{font-size:.7rem;padding:.35rem .6rem;}
   .container{padding:.75rem .5rem;}
@@ -947,6 +950,24 @@ body.admin-visible .admin-only{display:block;}
 .sync-ok{color:#22c55e;}
 .sync-warn{color:#f59e0b;}
 .sync-err{color:#f87171;}
+
+/* ── Utility classes to replace repeated inline styles ─────── */
+.txt-muted{color:var(--muted);}
+.txt-gold{color:var(--gold);}
+.txt-green{color:var(--green);}
+.txt-red{color:var(--red);}
+.txt-sm{font-size:.82rem;}
+.txt-xs{font-size:.75rem;}
+.txt-xxs{font-size:.7rem;}
+.txt-right{text-align:right;}
+.txt-right-red{text-align:right;color:var(--red);}
+.flex-col-center{display:flex;flex-direction:column;align-items:center;}
+.flex-col-center-gap{display:flex;flex-direction:column;align-items:center;gap:.15rem;}
+.stat-label{font-size:.6rem;color:var(--muted);}
+.mb-1{margin-bottom:.25rem;}
+.mb-2{margin-bottom:.5rem;}
+.mb-3{margin-bottom:1rem;}
+.mb-4{margin-bottom:1.5rem;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
@@ -1047,6 +1068,16 @@ body.admin-visible .admin-only{display:block;}
   </div>
 </div>
 
+<!-- LOADING OVERLAY — shown while Supabase session + data loads, hidden in handleAuthUser -->
+<div id="loadingOverlay" style="position:fixed;inset:0;background:var(--bg);z-index:998;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;
+  background-image:radial-gradient(ellipse 60% 40% at 50% -10%,rgba(245,158,11,.15) 0%,transparent 70%)">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:4px;background:linear-gradient(135deg,#f59e0b,#FF6B35);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">⚡ Cricket Fantasy</div>
+  <div style="display:flex;align-items:center;gap:.6rem;color:var(--muted);font-size:.85rem">
+    <div class="spinner" style="width:16px;height:16px"></div>
+    <span id="loadingText">Loading…</span>
+  </div>
+</div>
+
 <header style="position:relative;z-index:1">
   <div class="logo">⚡ Cricket Fantasy App</div>
   <div class="tagline" id="appTagline">Pick Smart. Score Big. Rule the Season.</div>
@@ -1074,7 +1105,7 @@ body.admin-visible .admin-only{display:block;}
 <nav style="z-index:100">
   <!-- Primary in-season tabs -->
   <button class="tab-btn tab-primary active" onclick="showScreen('leaderboard',this)">🏆 Leaderboard</button>
-  <button class="tab-btn tab-primary" onclick="showScreen('rosters',this);renderRosters()">👥 Rosters</button>
+  <button class="tab-btn tab-primary" onclick="showScreen('rosters',this)">👥 Rosters</button>
   <button class="tab-btn tab-primary" id="predictionsTab" onclick="showScreen('predictions',this);loadPredictions()">🔮 Predictions</button>
   <!-- Divider -->
   <div class="nav-divider"></div>
@@ -1090,7 +1121,7 @@ body.admin-visible .admin-only{display:block;}
 <div class="container">
 
 <!-- DRAFT -->
-<div id="screen-draft" class="screen active">
+<div id="screen-draft" class="screen">
   <div class="sub-tab-bar">
     <button class="sub-tab active" id="sdraft-active" onclick="showSubTab('draft','active',this)">🎯 Draft</button>
     <button class="sub-tab" id="sdraft-undrafted" onclick="showSubTab('draft','undrafted',this);renderUndraftedTab()">🔓 Undrafted</button>
@@ -1113,7 +1144,7 @@ body.admin-visible .admin-only{display:block;}
       <div class="card">
         <div class="subsection" style="margin-top:0">Participants <span id="pCount" style="font-size:.72rem;color:var(--muted);font-weight:400"></span></div>
         <div class="participant-list" id="participantList"></div>
-        <div style="font-size:.75rem;color:var(--muted)">Click a name to make their picks.</div>
+        <div class="txt-xs txt-muted">Click a name to make their picks.</div>
       </div>
     </div>
     <div>
@@ -1134,14 +1165,14 @@ body.admin-visible .admin-only{display:block;}
         <div id="aiSuggestContent">
           <div style="display:flex;align-items:center;gap:.6rem;padding:.6rem;background:var(--bg);border:1px solid var(--border);border-radius:8px">
             <div class="thinking-dots"><span></span><span></span><span></span></div>
-            <span style="font-size:.82rem;color:var(--muted)">Analysing your team…</span>
+            <span class="txt-sm txt-muted">Analysing your team…</span>
           </div>
         </div>
       </div>
 
       <div class="draft-grid-wrap"><div class="draft-grid-inner"><div class="team-draft-grid" id="teamDraftGrid"></div></div></div>
       <div class="picks-summary" id="picksSummary" style="display:none">
-        <h5>Current Picks for <span id="picksSummaryName"></span> &nbsp; <span id="picksSummaryForeign" style="font-size:.75rem;color:var(--muted)"></span></h5>
+        <h5>Current Picks for <span id="picksSummaryName"></span> &nbsp; <span id="picksSummaryForeign" class="txt-xs txt-muted"></span></h5>
         <div id="picksSummaryRows"></div>
 
       </div>
@@ -1151,13 +1182,6 @@ body.admin-visible .admin-only{display:block;}
 
   </div><!-- /sub-draft-active -->
 
-  <!-- Always-visible confirm + suggest strip — shown regardless of sub-tab -->
-  <div id="draftActionStrip" style="display:none">
-    <div id="aiSuggestTrigger" style="margin-top:.6rem;display:none">
-      <button onclick="loadAISuggestions(true)" style="width:100%;padding:.5rem;background:rgba(162,89,255,.1);border:1px solid rgba(162,89,255,.3);border-radius:8px;color:#c084fc;font-size:.8rem;cursor:pointer;font-family:'DM Sans',sans-serif">🤖 Get AI pick suggestions</button>
-    </div>
-    <div id="confirmPickSlot" style="margin-top:.5rem"></div>
-  </div>
 
 <!-- DRAFT ORDER sub-pane (inside draft screen) -->
 <div id="sub-draft-order" class="sub-pane" style="display:none"></div>
@@ -1270,7 +1294,7 @@ body.admin-visible .admin-only{display:block;}
 </div>
 
 <!-- LEADERBOARD -->
-<div id="screen-leaderboard" class="screen">
+<div id="screen-leaderboard" class="screen active">
   <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
     <span>🏆 Leaderboard</span>
     <button onclick="generateShareCard()" id="shareCardBtn"
@@ -1315,7 +1339,7 @@ body.admin-visible .admin-only{display:block;}
       <input type="number" id="draftRoundsInput" min="1" max="11" value="3"
         onchange="window._draftTotalRounds=Math.max(1,Math.min(11,parseInt(this.value)||3))"
         style="width:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:.3rem .5rem;font-size:.9rem;text-align:center;font-family:'Bebas Neue',sans-serif">
-      <span style="font-size:.75rem;color:var(--muted)">Default shown above · Change if needed</span>
+      <span class="txt-xs txt-muted">Default shown above · Change if needed</span>
     </div>
 
     <div id="originalDraftSection">
@@ -1464,7 +1488,7 @@ body.admin-visible .admin-only{display:block;}
       Switch to World Cup mode using the toggle in the header. In World Cup mode, <strong style="color:var(--text)">foreign player limits are removed</strong> — all players are equal.
       The squad structure works the same: 1 player per nation. Use the squad import below to load World Cup team squads.
     </div>
-    <div style="font-size:.82rem;color:var(--muted)">
+    <div class="txt-sm txt-muted">
       To set up a World Cup league: (1) Reset everything, (2) Switch to World Cup mode, (3) Import WC squads via the squad importer with each nation as a "team_key", (4) Start drafting.
     </div>
   </div>
@@ -1817,10 +1841,8 @@ async function handleAuthUser(user) {
   try {
     const { data: { session } } = await _supaClient.auth.getSession();
     if (session?.access_token) _sessionToken = session.access_token;
-  } catch(e) {}
-
-  // Update last_seen timestamp so admin can see who's online
-  dbPatch('allowlist', { last_seen: new Date().toISOString() }, '?email=eq.' + encodeURIComponent(email)).catch(() => {});
+  } catch(e) { console.warn('Session token refresh failed:', e.message); }
+  dbPatch('allowlist', { last_seen: new Date().toISOString() }, '?email=eq.' + encodeURIComponent(email)).catch(e => console.warn('last_seen update failed:', e.message));
 
   const _lo = document.getElementById('loginOverlay');
   if (_lo) _lo.style.display = 'none';
@@ -1856,6 +1878,7 @@ async function handleAuthUser(user) {
 
 function showLoginOverlay() {
   const _slo = document.getElementById('loginOverlay'); if (_slo) _slo.style.display = 'flex';
+  const _lo2 = document.getElementById('loadingOverlay'); if (_lo2) _lo2.style.display = 'none';
 }
 
 function showAccessDenied(email) {
@@ -1985,7 +2008,7 @@ function setMode(mode, save=true) {
   const iplImporter = document.getElementById('iplSquadImporter');
   if (iplImporter) iplImporter.style.display = isWC ? 'none' : 'block';
   if (save) {
-    dbPatch('settings', { mode }, '?id=eq.global').catch(()=>{});
+    dbPatch('settings', { mode }, '?id=eq.global').catch(e => console.warn('Settings mode save failed:', e.message));
     // Full reload to get mode-specific participants, picks, scores, matches
     loadAll();
   } else {
@@ -2123,12 +2146,15 @@ async function loadAll() {
           state.matchSchedule = schedule;
           autoLockStartedMatches();
         }
-      }).catch(()=>{});
+      }).catch(e => console.warn('match_schedule load failed:', e.message));
     } else {
       autoLockStartedMatches();
     }
     setSyncStatus('ok', 'Synced');
     state._loaded = true;
+    // Hide the initial loading overlay now that data is ready
+    const _overlay = document.getElementById('loadingOverlay');
+    if (_overlay) _overlay.style.display = 'none';
     renderAll();
     autoSelectMyParticipant();
     // After DB sync: recalculate picksAtTurnStart correctly, then check madePickThisTurn
@@ -2893,8 +2919,8 @@ async function autoAddParticipant() {
       // Freeze a copy so clicking Redraft 1 can't corrupt it
       window._frozenOriginalOrder = state.draftOriginalOrder?.length
         ? [...state.draftOriginalOrder] : null;
-    } catch(e) {}
-  } catch(e) {}
+    } catch(e) { console.warn('Original draft order parse failed:', e.message); }
+  } catch(e) { console.warn('autoAddParticipant outer error:', e.message); }
   const m = state.mode || 'ipl';
   // Check if already exists (case-insensitive)
   const existing = await dbGet('participants', `?mode=eq.${m}&name=ilike.${encodeURIComponent(name)}`).catch(()=>[]);
@@ -2903,7 +2929,6 @@ async function autoAddParticipant() {
     return;
   }
   // Add them
-  console.log('Auto-adding participant:', name, 'mode:', m);
   const row = { name, mode: m };
   await sb('POST', 'participants', row, '', { 'Prefer': 'return=minimal' });
 }
@@ -2932,6 +2957,10 @@ function renderAll() {
   renderRedraftScreen();
   renderMatchLog();
   renderLeaderboard();
+  // Only re-render rosters if the screen is active (avoid wasted work)
+  if (document.getElementById('screen-rosters')?.classList.contains('active')) {
+    renderRosters();
+  }
 }
 
 // Auto-refresh every 30 seconds so all viewers stay in sync
@@ -3159,7 +3188,7 @@ function renderDraftGrid() {
   if (active) {
     const existing = document.getElementById('foreignCounter');
     const badge = `<div id="foreignCounter" style="margin-bottom:.8rem;display:flex;align-items:center;gap:.6rem">
-      <span style="font-size:.82rem;color:var(--muted)">Foreign players in your team:</span>
+      <span class="txt-sm txt-muted">Foreign players in your team:</span>
       <span style="font-weight:600;color:${foreignCount>=MAX_FOREIGN_PER_FANTASY?'#ff9800':'var(--green)'}">
         ${foreignCount} / ${MAX_FOREIGN_PER_FANTASY}
       </span>
@@ -3394,7 +3423,7 @@ function applyMatchResultToTeamWins(m, add=true) {
   const t1key = findKey(m.t1name);
   const t2key = findKey(m.t2name);
   if (!t1key || !t2key) {
-    console.log('applyMatchResultToTeamWins: could not find team keys for', m.t1name, m.t2name, '— available:', TEAM_KEYS.map(k=>IPL_TEAMS[k]?.name));
+    console.warn('applyMatchResultToTeamWins: could not find team keys for', m.t1name, m.t2name, '— available:', TEAM_KEYS.map(k=>IPL_TEAMS[k]?.name));
     return;
   }
   if (!state.teamWins[t1key]) state.teamWins[t1key] = {wins:0,draws:0};
@@ -3942,35 +3971,35 @@ function renderImportPreview(parsed, allDrafted) {
     return `<div class="preview-player-row" style="${rowStyle}border-radius:10px;padding:.5rem .8rem;margin-bottom:.35rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
       <div style="min-width:150px"><strong>${playerName}</strong> <span style="color:var(--muted);font-size:.72rem">${teamKey}</span></div>
       <div class="preview-stats" style="flex-wrap:wrap;gap:.5rem">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
+        <div class="flex-col-center-gap">
           <input type="number" min="0" style="${inputStyle}" value="${p.runs||0}"
             onchange="updateParsedStat('${playerName}','runs',this.value)">
-          <span style="font-size:.6rem;color:var(--muted)">runs</span>
+          <span class="stat-label">runs</span>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
+        <div class="flex-col-center-gap">
           <input type="number" min="0" style="${inputStyle}" value="${p.wickets||0}"
             onchange="updateParsedStat('${playerName}','wickets',this.value)">
-          <span style="font-size:.6rem;color:var(--muted)">wkts</span>
+          <span class="stat-label">wkts</span>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
+        <div class="flex-col-center-gap">
           <input type="number" min="0" style="${inputStyle}" value="${p.catches||0}"
             onchange="updateParsedStat('${playerName}','catches',this.value)">
-          <span style="font-size:.6rem;color:var(--muted)">ctch</span>
+          <span class="stat-label">ctch</span>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
+        <div class="flex-col-center-gap">
           <input type="number" min="0" style="${inputStyle}" value="${p.runouts||0}"
             onchange="updateParsedStat('${playerName}','runouts',this.value)">
-          <span style="font-size:.6rem;color:var(--muted)">r/o</span>
+          <span class="stat-label">r/o</span>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
+        <div class="flex-col-center-gap">
           <input type="number" min="0" style="${inputStyle}" value="${p.stumpings||0}"
             onchange="updateParsedStat('${playerName}','stumpings',this.value)">
-          <span style="font-size:.6rem;color:var(--muted)">st</span>
+          <span class="stat-label">st</span>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem">
+        <div class="flex-col-center-gap">
           <input type="checkbox" ${p.motm?'checked':''} onchange="toggleMotm('${playerName}',this.checked)"
             style="width:16px;height:16px;cursor:pointer">
-          <span style="font-size:.6rem;color:var(--muted)">motm</span>
+          <span class="stat-label">motm</span>
         </div>
         <div style="display:flex;align-items:center">
           <span id="pts_${pid}" style="color:var(--gold);font-weight:600;font-size:.85rem">+${pts} pts</span>
@@ -4362,7 +4391,7 @@ function renderScoutCard(playerName, teamKey, scout) {
         <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:.3rem">Current Form</div>
         <div style="display:flex;align-items:center;gap:.6rem">
           <span style="font-weight:700;color:${formColor}">${scout.form||'—'}</span>
-          <span style="font-size:.82rem;color:var(--muted)">${scout.form_detail||''}</span>
+          <span class="txt-sm txt-muted">${scout.form_detail||''}</span>
         </div>
       </div>
 
@@ -4995,7 +5024,7 @@ function openParticipantDetail(participantIdx) {
         return `<div class="match-breakdown-row">
           <span style="color:var(--muted);font-size:.75rem">${m.date}</span>
           <span style="flex:1;margin:0 .8rem">${m.title}</span>
-          <span style="font-size:.75rem;color:var(--muted)">${u.runs}r ${u.wkts}w ${u.catches}c${u.runouts?' '+u.runouts+'ro':''}${u.stumpings?' '+u.stumpings+'st':''}${u.motm?' ⭐':''}</span>
+          <span class="txt-xs txt-muted">${u.runs}r ${u.wkts}w ${u.catches}c${u.runouts?' '+u.runouts+'ro':''}${u.stumpings?' '+u.stumpings+'st':''}${u.motm?' ⭐':''}</span>
           <span class="match-breakdown-pts">+${pts}</span>
         </div>`;
       }).join('');
@@ -5034,7 +5063,7 @@ function openParticipantDetail(participantIdx) {
       const pts = w.wins * TEAM_WIN_PTS + w.draws * TEAM_DRAW_PTS;
       return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.04)">
         <span style="font-size:.82rem">🏆 ${w.teamName}${label}</span>
-        <span style="font-size:.82rem;color:var(--muted)">${w.wins}W ${w.draws}D = <strong style="color:var(--gold)">${pts}pts</strong></span>
+        <span class="txt-sm txt-muted">${w.wins}W ${w.draws}D = <strong style="color:var(--gold)">${pts}pts</strong></span>
       </div>`;
     }).join('');
     html += `<div style="background:rgba(255,214,0,.06);border:1px solid rgba(255,214,0,.2);border-radius:8px;padding:.8rem;margin-top:.5rem">
@@ -5130,7 +5159,6 @@ Rules:
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
     const fullText = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-    console.log('importIPLSquad raw response:', fullText.substring(0, 300));
     // Strip markdown code fences if present
     const stripped = fullText
       .replace(/^```(?:json)?\s*/m, '')
@@ -5485,7 +5513,7 @@ async function loadAISuggestions(force = false) {
   // Show loading
   content.innerHTML = `<div style="display:flex;align-items:center;gap:.6rem;padding:.6rem;background:var(--bg);border:1px solid var(--border);border-radius:8px">
     <div class="thinking-dots"><span></span><span></span><span></span></div>
-    <span style="font-size:.82rem;color:var(--muted)">Scouting best available picks for ${p.name}…</span>
+    <span class="txt-sm txt-muted">Scouting best available picks for ${p.name}…</span>
   </div>`;
   if (badge) badge.style.display = 'none';
   if (refreshBtn) refreshBtn.style.display = 'none';
@@ -5866,7 +5894,7 @@ function showPickToast(pickerName, playerPicked, teamKey, isTeamPick) {
   const teamName = teamKey ? (IPL_TEAMS[teamKey]?.name || teamKey) : '';
   const pickText = isTeamPick
     ? `🏆 <strong>${pickerName}</strong> drafted team <strong>${teamName}</strong>`
-    : `🏏 <strong>${pickerName}</strong> picked <strong>${playerPicked}</strong> <span style="font-size:.75rem;color:var(--muted)">(${teamKey})</span>`;
+    : `🏏 <strong>${pickerName}</strong> picked <strong>${playerPicked}</strong> <span class="txt-xs txt-muted">(${teamKey})</span>`;
 
   const toast = document.createElement('div');
   toast.id = 'pickToast';
@@ -5991,16 +6019,19 @@ function renderRosters() {
     return Object.keys(b.picks||{}).length - Object.keys(a.picks||{}).length;
   });
 
+  // Compute season points once per participant and cache — used for rank map AND render
+  const seasonCache = new Map(state.participants.map(p => [p, calcSeasonPoints(p)]));
+
   // Build rank map by total season points (descending)
   const lbRankMap = {};
   [...state.participants]
-    .map(p => ({ name: p.name, total: calcSeasonPoints(p).total }))
+    .map(p => ({ name: p.name, total: seasonCache.get(p).total }))
     .sort((a, b) => b.total - a.total)
     .forEach((p, i) => { lbRankMap[p.name] = i + 1; });
 
   el.innerHTML = '<div class="rosters-grid">' + sorted.map(p => {
     const isMe = p.name.toLowerCase() === myName;
-    const {total, breakdown, teamPts, playerPts, teamWinData, teamHistory} = calcSeasonPoints(p);
+    const {total, breakdown, teamPts, playerPts, teamWinData, teamHistory} = seasonCache.get(p);
     const pickCount = Object.keys(p.picks||{}).length;
 
     const pickRows = TEAM_KEYS.map(k => {
@@ -6768,13 +6799,13 @@ function autoLockStartedMatches() {
     !m.locked && !m.result && m.team1 && m.team2 && matchHasStarted(m)
   );
   if (!toLock.length) return;
-  console.log(`autoLockStartedMatches: locking ${toLock.length} matches`, toLock.map(m=>`#${m.match_num}`));
+  console.info(`autoLockStartedMatches: locking ${toLock.length} matches`, toLock.map(m=>`#${m.match_num}`));
   toLock.forEach(m => {
     dbPatch('match_schedule', { locked: true }, `?id=eq.${m.id}`)
       .then(patched => {
         if (patched && (!Array.isArray(patched) || patched.length > 0)) {
           m.locked = true;
-          console.log(`✓ Auto-locked match #${m.match_num}`);
+          console.info(`✓ Auto-locked match #${m.match_num}`);
         }
       })
       .catch(e => console.warn(`Failed to lock match #${m.match_num}:`, e.message));
@@ -7046,7 +7077,7 @@ async function submitPredictions() {
     setSyncStatus('loading', 'Saving predictions…');
     for (const [matchId, pick] of pending) {
       // Always delete first
-      await dbDelete('predictions', `?participant_id=eq.${myPart.id}&match_id=eq.${matchId}`).catch(()=>{});
+      await dbDelete('predictions', `?participant_id=eq.${myPart.id}&match_id=eq.${matchId}`).catch(e => console.warn('Prediction delete failed:', e.message));
       if (pick && pick !== '__deleted__') {
         await sb('POST', 'predictions',
           { participant_id: myPart.id, match_id: parseInt(matchId), predicted_winner: pick, mode: state.mode },
@@ -7317,7 +7348,7 @@ async function updatePredictionMatchResult(t1name, t2name, result) {
     return t1Match && t2Match;
   });
   if (!match) {
-    console.log('updatePredictionMatchResult: no match found for', t1name, 'vs', t2name);
+    console.warn('updatePredictionMatchResult: no match found for', t1name, 'vs', t2name);
     return;
   }
   const scheduleResult = result === 't1' ? 'team1' : result === 't2' ? 'team2' : 'draw';
