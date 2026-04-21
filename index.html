@@ -5991,6 +5991,13 @@ function renderRosters() {
     return Object.keys(b.picks||{}).length - Object.keys(a.picks||{}).length;
   });
 
+  // Build rank map by total season points (descending)
+  const lbRankMap = {};
+  [...state.participants]
+    .map(p => ({ name: p.name, total: calcSeasonPoints(p).total }))
+    .sort((a, b) => b.total - a.total)
+    .forEach((p, i) => { lbRankMap[p.name] = i + 1; });
+
   el.innerHTML = '<div class="rosters-grid">' + sorted.map(p => {
     const isMe = p.name.toLowerCase() === myName;
     const {total, breakdown, teamPts, teamWinData, teamHistory} = calcSeasonPoints(p);
