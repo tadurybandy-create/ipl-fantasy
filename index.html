@@ -4105,20 +4105,22 @@ async function applyMatch() {
   }
   const {parsed} = imp;
 
-  // Duplicate check — same two teams on the same date already in history
+  // Duplicate check — same two teams on the SAME date already in history
+  // Teams can play each other twice in IPL season, so date must also match
   const today = new Date().toLocaleDateString();
   const t1 = (imp.t1name||'').toLowerCase().trim();
   const t2 = (imp.t2name||'').toLowerCase().trim();
-  // Match on team names regardless of date — prevents double-counting across days
   const duplicate = state.matchHistory.find(m => {
     const mt1 = (m.t1name||'').toLowerCase().trim();
     const mt2 = (m.t2name||'').toLowerCase().trim();
-    return (mt1 === t1 && mt2 === t2) || (mt1 === t2 && mt2 === t1);
+    const sameTeams = (mt1 === t1 && mt2 === t2) || (mt1 === t2 && mt2 === t1);
+    const sameDate = (m.date || '') === today;
+    return sameTeams && sameDate;
   });
   if (duplicate) {
     let choice = false;
     await new Promise((res) => confirmSwapModal(
-      `${imp.t1name} vs ${imp.t2name} already applied today.<br><br>Click Confirm to <strong>update</strong> it (reverses old scores, applies new scorecard).`,
+      `${imp.t1name} vs ${imp.t2name} was already applied today (${today}).<br><br>Click Confirm to <strong>update</strong> it (reverses today's scores, applies new scorecard).`,
       () => { choice = true; res(); }
     ));
     if (!choice) return;
@@ -4673,7 +4675,7 @@ function renderMatchLog() {
         <div style="display:flex;align-items:center;gap:.6rem">
           <span class="match-result-chip ${chipClass}">${resultText}</span>
           <button class="btn-whatsapp" onclick="shareToWhatsApp('${m.id}')">📤 WhatsApp</button>
-          ${currentUser?.isAdmin ? `<button class="btn-ghost" style="color:var(--gold);border-color:rgba(245,158,11,.3)" onclick="openEditMatch('${m.id}')">✏ Edit</button>` : ''}
+          ${currentUser?.isAdmin ? `<button class="btn-ghost" style="color:var(--gold);border-color:rgba(245,158,11,.3)" onclick="openEditMatch('${m.id}')">✏ Edit</button><button class="btn-ghost" style="color:var(--green);border-color:rgba(34,197,94,.3)" title="Re-add this match's stats back into season totals (use if scores were accidentally reversed)" onclick="reapplyMatch('${m.id}')">↺ Re-apply</button>` : ''}
           <button class="btn-ghost" onclick="removeMatch('${m.id}')">✕ Remove</button>
         </div>
       </div>
@@ -4703,6 +4705,38 @@ async function removeMatch(id) {
     setSyncStatus('ok','Synced');
     renderMatchLog(); renderLeaderboard();
   } catch(e) { setSyncStatus('err','Failed'); console.error(e); }
+}
+
+async function reapplyMatch(id) {
+  const m = state.matchHistory.find(x => x.id === id);
+  if (!m) { showToast('Match not found.','err'); return; }
+  if (!confirm(`Re-apply "${m.title}" (${m.date})?
+
+This adds its player stats BACK into season totals.
+Only use this if those scores were accidentally reversed.`)) return;
+  try {
+    setSyncStatus('loading','Re-applying…');
+    for (const u of (m.updates||[])) {
+      const existing = state.seasonScores[u.player];
+      if (existing) {
+        const newRuns=existing.runs+u.runs, newWkts=existing.wickets+u.wkts, newCtch=existing.catches+u.catches,
+              newRnout=(existing.runouts||0)+u.runouts, newStmp=(existing.stumpings||0)+u.stumpings, newMotm=(existing.motm||0)+(u.motm||0);
+        await dbPatch('season_scores',
+          { runs:newRuns, wickets:newWkts, catches:newCtch, runouts:newRnout, stumpings:newStmp, motm:newMotm },
+          `?player_name=eq.${encodeURIComponent(u.player)}&mode=eq.${state.mode}`
+        );
+        state.seasonScores[u.player]={runs:newRuns,wickets:newWkts,catches:newCtch,runouts:newRnout,stumpings:newStmp,motm:newMotm};
+      } else {
+        await dbPost('season_scores',
+          { player_name:u.player, runs:u.runs, wickets:u.wkts, catches:u.catches, runouts:u.runouts, stumpings:u.stumpings, motm:u.motm||0, mode:state.mode }
+        );
+        state.seasonScores[u.player]={runs:u.runs,wickets:u.wkts,catches:u.catches,runouts:u.runouts,stumpings:u.stumpings,motm:u.motm||0};
+      }
+    }
+    setSyncStatus('ok','Synced');
+    showToast(`✓ Re-applied ${m.updates?.length||0} player scores from ${m.title}`, 'ok');
+    renderLeaderboard();
+  } catch(e) { setSyncStatus('err','Failed'); console.error(e); showToast(e.message,'err'); }
 }
 
 // ═══════════════════════════════════════════════════════
