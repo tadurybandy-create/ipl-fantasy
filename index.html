@@ -1643,6 +1643,9 @@ let _sessionToken = null;
 async function sb(method, table, body=null, params='', extraHeaders={}) {
   const url = `${SUPABASE_URL}/rest/v1/${table}${params}`;
   const authToken = _sessionToken || SUPABASE_KEY;
+  // GET requests: always request up to 5000 rows to avoid Supabase's default 1000-row cap
+  // This is the root cause of missing predictions/picks when league has many rows
+  const rangeHeaders = method === 'GET' ? { 'Range': '0-4999', 'Range-Unit': 'items' } : {};
   const opts = {
     method,
     headers: {
@@ -1650,6 +1653,7 @@ async function sb(method, table, body=null, params='', extraHeaders={}) {
       'Authorization': `Bearer ${authToken}`,
       'Content-Type': 'application/json',
       'Prefer': 'return=representation',
+      ...rangeHeaders,
       ...extraHeaders
     }
   };
@@ -7252,19 +7256,24 @@ function renderPredStandings() {
   // Need all predictions — reload if admin, otherwise only have own
   // For standings we need all participants' predictions
   // Re-fetch all predictions
-  loadAllPredictionsForStandings().then(allPreds => {
+  Promise.all([
+    loadAllPredictionsForStandings(),
+    dbGet('match_schedule', `?mode=eq.${state.mode}&order=match_num.asc`).catch(() => null)
+  ]).then(([allPreds, freshSchedule]) => {
+    if (freshSchedule && freshSchedule.length) state.matchSchedule = freshSchedule;
     const myName = currentUser?.participantName?.toLowerCase();
+    const normalise = v => v === 't1' ? 'team1' : v === 't2' ? 'team2' : v;
     const rows = state.participants.map(p => {
       let correct = 0, wrong = 0, picked = 0, noPick = 0;
       state.matchSchedule.forEach(m => {
         const pred = allPreds[m.id]?.[p.id];
         if (pred) {
-          picked++; // count ALL picks made regardless of result
-          if (!m.result) return; // result not known yet
-          if (pred === m.result) correct++;
+          picked++;
+          if (!m.result) return;
+          if (normalise(pred) === normalise(m.result)) correct++;
           else wrong++;
         } else if (m.result) {
-          noPick++; // completed match with no pick = -1
+          noPick++;
         }
       });
       return { name: p.name, id: p.id, correct, wrong, noPick, picked, pts: correct - wrong - noPick };
@@ -7318,8 +7327,11 @@ function renderAllPicks() {
   const el = document.getElementById('predAllPicksContent');
   if (!el) return;
   const isAdmin = currentUser?.isAdmin;
-  loadAllPredictionsForStandings().then(allPreds => {
-    // Admins see all matches, non-admins only see completed (result set) or locked matches
+  Promise.all([
+    loadAllPredictionsForStandings(),
+    dbGet('match_schedule', `?mode=eq.${state.mode}&order=match_num.asc`).catch(() => null)
+  ]).then(([allPreds, freshSchedule]) => {
+    if (freshSchedule && freshSchedule.length) state.matchSchedule = freshSchedule;
     const completedMatches = state.matchSchedule.filter(m =>
       isAdmin ? (m.result || m.locked) : (m.result || m.locked)
     );
@@ -7547,7 +7559,17 @@ function updatePlayoffTeam(matchId, field, value) {
 async function renderPredictionsScoring() {
   const el = document.getElementById('predScoringSection');
   if (!el) return;
-  const allPreds = await loadAllPredictionsForStandings().catch(() => ({}));
+
+  // Always fetch fresh schedule AND predictions together — never rely on stale state.matchSchedule
+  // This prevents stale result fields causing correct picks to count as noPick
+  const [allPreds, freshSchedule] = await Promise.all([
+    loadAllPredictionsForStandings().catch(() => ({})),
+    dbGet('match_schedule', `?mode=eq.${state.mode}&order=match_num.asc`).catch(() => null)
+  ]);
+
+  // Update state.matchSchedule with fresh data if we got it
+  if (freshSchedule && freshSchedule.length) state.matchSchedule = freshSchedule;
+
   const completedMatches = state.matchSchedule.filter(m => !!m.result);
   if (!completedMatches.length) {
     el.innerHTML = '<div class="empty-state">No completed matches yet.</div>';
@@ -7558,7 +7580,9 @@ async function renderPredictionsScoring() {
     completedMatches.forEach(m => {
       const pred = allPreds[m.id]?.[p.id];
       if (pred) {
-        if (pred === m.result) correct++;
+        // Handle both result formats: 'team1'/'team2' and 't1'/'t2'
+        const normalise = v => v === 't1' ? 'team1' : v === 't2' ? 'team2' : v;
+        if (normalise(pred) === normalise(m.result)) correct++;
         else wrong++;
       } else {
         noPick++; // no pick on completed match = -1

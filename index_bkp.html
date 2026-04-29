@@ -946,6 +946,9 @@ body.admin-visible .admin-only{display:block;}
 .you-badge{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);
   padding:.1rem .4rem;border-radius:4px;font-size:.65rem;font-weight:700;letter-spacing:.5px;margin-right:.3rem;}
 
+/* Team swap entry highlight in history */
+.team-swap-entry{border-left:2px solid var(--gold);padding-left:.5rem;background:rgba(245,158,11,.04);}
+
 /* Sync dot colors */
 .sync-ok{color:#22c55e;}
 .sync-warn{color:#f59e0b;}
@@ -3570,16 +3573,28 @@ function renderSwapSlots() {
   const p = state.participants[ai];
   const {pc} = getDraftCounts();
 
+  // Use calcSeasonPoints for accurate per-slot pts (respects pickWindows/swap timestamps)
+  // This is the same source of truth used by Leaderboard and Rosters
+  const seasonData = calcSeasonPoints(p);
+  const slotBreakdown = seasonData.breakdown || {};
+
   document.getElementById('swapSlotGrid').innerHTML = TEAM_KEYS.map(key => {
     const team = IPL_TEAMS[key];
     const current = p.picks[key];
     const history = p.pickHistory?.[key]||[];
-    const frozenPts = history.reduce((sum,name) => {
-      const sc = state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0};
-      return sum + sc.runs + sc.wickets*25 + sc.catches*5 + (sc.runouts||0)*5 + (sc.stumpings||0)*5 + (sc.motm||0)*MOTM_PTS;
-    }, 0);
-    const curSc = current ? (state.seasonScores[current]||{runs:0,wickets:0,catches:0,runouts:0}) : null;
-    const curPts = curSc ? curSc.runs+curSc.wickets*25+curSc.catches*5+(curSc.runouts||0)*5+(curSc.stumpings||0)*5+(curSc.motm||0)*MOTM_PTS : 0;
+
+    // Per-slot data from calcSeasonPoints — guaranteed to match Leaderboard
+    const bd = slotBreakdown[key] || {};
+    const slotPlayers = bd.slotPlayers || [];
+
+    // Frozen pts: sum of all historical players' pts in this slot (not current)
+    const frozenPts = slotPlayers
+      .filter(sp => sp.name !== current)
+      .reduce((sum, sp) => sum + (sp.pts||0), 0);
+
+    // Current player pts: only what they've earned since they were swapped in
+    const curPlayerData = slotPlayers.find(sp => sp.name === current && sp.active !== false);
+    const curPts = curPlayerData ? (curPlayerData.pts||0) : 0;
 
     const playerOpts = team.players.map(playerObj => {
       const {name: player, foreign} = playerObj;
@@ -3595,8 +3610,9 @@ function renderSwapSlots() {
     }).filter(Boolean).join('');
 
     const historyRows = history.map(name => {
-      const sc = state.seasonScores[name]||{runs:0,wickets:0,catches:0,runouts:0};
-      const pts = sc.runs+sc.wickets*25+sc.catches*5+(sc.runouts||0)*5+(sc.stumpings||0)*5+(sc.motm||0)*MOTM_PTS;
+      // Use calcSeasonPoints data — matches Leaderboard/Rosters exactly
+      const sp = slotPlayers.find(s => s.name === name);
+      const pts = sp ? (sp.pts||0) : 0;
       return `<div class="history-player-row"><span>↩ ${name}</span><span>${pts} pts frozen</span></div>`;
     }).join('');
 
@@ -3658,12 +3674,18 @@ async function executeTeamSwap(participantIdx) {
   if (!newTeam) { showToast('Select a team first.','warn'); return; }
   const {tc} = getDraftCounts();
   if ((tc[newTeam]||0) >= MAX_TEAM_DRAFTS) { showToast(`${IPL_TEAMS[newTeam].name} already drafted ${MAX_TEAM_DRAFTS} times.`,'warn'); return; }
+
+  const oldTeam = p.teamPick; // capture before overwriting
+  const swapTimestamp = new Date().toISOString();
+
   try {
     setSyncStatus('loading','Saving…');
-    // Mark old team pick inactive in picks table
-    await dbPatch('picks', { is_active: false, swapped_at: new Date().toISOString() },
+
+    // 1. Mark old team pick inactive in picks table
+    await dbPatch('picks', { is_active: false, swapped_at: swapTimestamp },
       `?participant_id=eq.${p.id}&is_team_pick=eq.true&is_active=eq.true`);
-    // Insert new team pick into picks table
+
+    // 2. Insert new team pick into picks table
     await dbPost('picks', {
       participant_id: p.id,
       team_key: newTeam,
@@ -3672,10 +3694,49 @@ async function executeTeamSwap(participantIdx) {
       is_team_pick: true,
       mode: state.mode
     });
-    // Update participants cache
+
+    // 3. Update participants cache column
     await dbPatch('participants', { team_pick: newTeam }, `?id=eq.${p.id}`);
+
+    // 4. Write swap_history record — was missing, causing history gaps + wrong team pts
+    const swapRecord = {
+      participant_id: p.id,
+      participant_name: p.name,
+      team_key: oldTeam || '(none)',          // IPL team key context (old team)
+      team_name: oldTeam ? (IPL_TEAMS[oldTeam]?.name||oldTeam) : '(none)',
+      old_player: oldTeam || '(none)',        // old_player used for old team key in team windows
+      new_player: newTeam,                    // new_player used for display
+      new_team: newTeam,                      // explicit field read by calcSeasonPoints
+      frozen_pts: 0,                          // team pts frozen pts not applicable
+      swap_date: new Date().toLocaleDateString(),
+      swap_timestamp: swapTimestamp,
+      is_team_swap: true,                     // critical — filters team swaps in calcSeasonPoints
+      mode: state.mode
+    };
+    const savedRecord = await dbPost('swap_history', swapRecord);
+
+    // 5. Update local participant state
     p.teamPick = newTeam;
+
+    // 6. Update local swapHistory so Leaderboard/Rosters recalculate correctly this session
+    const localRecord = {
+      id: savedRecord?.[0]?.id || null,
+      participantId: p.id,
+      participantName: p.name,
+      teamKey: oldTeam || '(none)',
+      teamName: oldTeam ? (IPL_TEAMS[oldTeam]?.name||oldTeam) : '(none)',
+      oldPlayer: oldTeam || '(none)',
+      newPlayer: newTeam,
+      newTeam: newTeam,
+      frozenPts: 0,
+      date: new Date().toLocaleDateString(),
+      swapTimestamp: swapTimestamp,
+      isTeamSwap: true
+    };
+    state.swapHistory.push(localRecord);
+
     setSyncStatus('ok','Synced');
+    showToast(`✓ ${p.name}'s team changed: ${oldTeam ? IPL_TEAMS[oldTeam]?.name : '(none)'} → ${IPL_TEAMS[newTeam]?.name}`, 'ok');
     renderRedraftScreen();
     renderLeaderboard();
     if (document.getElementById('screen-rosters')?.classList.contains('active')) renderRosters();
@@ -3757,17 +3818,62 @@ function renderSwapHistory() {
   const logEl = document.getElementById('swapLog');
   if (!state.swapHistory.length) { section.style.display='none'; return; }
   section.style.display='block';
-  logEl.innerHTML = [...state.swapHistory].reverse().map(s =>
-    `<div class="swap-entry">
+  logEl.innerHTML = [...state.swapHistory].reverse().map(s => {
+    const isTeam = s.isTeamSwap;
+    const label = isTeam
+      ? `🏆 <span style="color:var(--gold);font-size:.75rem;font-weight:600">TEAM SWAP</span>`
+      : `<span style="color:var(--muted);font-size:.78rem">${s.teamKey}</span>`;
+    const oldLabel = isTeam ? (IPL_TEAMS[s.oldPlayer]?.name || s.oldPlayer) : s.oldPlayer;
+    const newLabel = isTeam ? (IPL_TEAMS[s.newPlayer]?.name || s.newPlayer) : s.newPlayer;
+    return `<div class="swap-entry${isTeam?' team-swap-entry':''}">
       <strong>${s.participantName}</strong>
-      <span style="color:var(--muted);font-size:.78rem">${s.teamKey}</span>
-      <span>${s.oldPlayer}</span>
+      ${label}
+      <span>${oldLabel}</span>
       <span class="swap-arrow">→</span>
-      <span style="color:var(--green)">${s.newPlayer}</span>
+      <span style="color:var(--green)">${newLabel}</span>
       ${s.frozenPts ? `<span style="color:var(--gold);font-size:.78rem">(${s.frozenPts}pts frozen)</span>` : ''}
       <span class="swap-meta">${s.date}</span>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// ADMIN: Backfill missing team swap history records
+// ═══════════════════════════════════════════════════════
+async function backfillTeamSwap(participantIdx, oldTeamKey, newTeamKey, swapTimestamp) {
+  if (!currentUser?.isAdmin) return;
+  const p = state.participants[participantIdx];
+  if (!p) { showToast('Participant not found','err'); return; }
+  try {
+    setSyncStatus('loading','Backfilling…');
+    const record = {
+      participant_id: p.id,
+      participant_name: p.name,
+      team_key: oldTeamKey,
+      team_name: IPL_TEAMS[oldTeamKey]?.name || oldTeamKey,
+      old_player: oldTeamKey,
+      new_player: newTeamKey,
+      new_team: newTeamKey,
+      frozen_pts: 0,
+      swap_date: new Date(swapTimestamp).toLocaleDateString(),
+      swap_timestamp: swapTimestamp,
+      is_team_swap: true,
+      mode: state.mode
+    };
+    await dbPost('swap_history', record);
+    // Add to local state so leaderboard recalculates immediately
+    state.swapHistory.push({
+      participantId: p.id, participantName: p.name,
+      teamKey: oldTeamKey, teamName: IPL_TEAMS[oldTeamKey]?.name || oldTeamKey,
+      oldPlayer: oldTeamKey, newPlayer: newTeamKey, newTeam: newTeamKey,
+      frozenPts: 0, date: new Date(swapTimestamp).toLocaleDateString(),
+      swapTimestamp, isTeamSwap: true
+    });
+    setSyncStatus('ok','Synced');
+    showToast(`✓ Backfilled team swap: ${IPL_TEAMS[oldTeamKey]?.name} → ${IPL_TEAMS[newTeamKey]?.name} for ${p.name}`, 'ok');
+    renderSwapHistory(); renderLeaderboard();
+    if (document.getElementById('screen-rosters')?.classList.contains('active')) renderRosters();
+  } catch(e) { setSyncStatus('err','Failed'); console.error(e); showToast(e.message,'err'); }
 }
 
 // ═══════════════════════════════════════════════════════
