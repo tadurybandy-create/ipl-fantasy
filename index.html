@@ -7332,41 +7332,22 @@ function renderAllPicks() {
     dbGet('match_schedule', `?mode=eq.${state.mode}&order=match_num.asc`).catch(() => null)
   ]).then(([allPreds, freshSchedule]) => {
     if (freshSchedule && freshSchedule.length) state.matchSchedule = freshSchedule;
+    // All Picks tab: show all matches that are locked OR have a result
+    // Non-admins only see completed/locked matches (predictions tab enforces this too)
     const completedMatches = state.matchSchedule.filter(m =>
-      isAdmin ? (m.result || m.locked) : (m.result || m.locked)
+      m.team1 && m.team2 && (m.result || m.locked)
     );
     const participants = state.participants;
     if (!participants.length) { el.innerHTML = '<div class="empty-state">No participants.</div>'; return; }
 
-    // Build table: rows=matches, cols=participants
     let html = '<div class="pred-all-grid"><table class="pred-all-table"><thead><tr><th>Match</th><th>Date</th><th>Teams</th><th>Result</th>';
     participants.forEach(p => { html += `<th>${p.name}</th>`; });
     html += '</tr></thead><tbody>';
 
-    // Only show matches that have started or are within 1 day of starting
-  // This prevents accidentally setting results on future matches
-  const now = Date.now();
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-  const manageableMatches = state.matchSchedule.filter(m => {
-    if (!m.team1 || !m.team2) return false; // skip TBD playoff matches
-    if (m.result) return true; // already has result — always show so it can be corrected
-    // Show if match has started OR starts within next 3 hours (allows early set)
-    return matchHasStarted(m) || (() => {
-      try {
-        const MONTHS={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
-        const timeUpper=(m.match_time||'').toUpperCase();
-        let off=timeUpper.includes('IST')?+(5*60+30):timeUpper.includes('EDT')?-(4*60):timeUpper.includes('EST')?-(5*60):0;
-        const ts=m.match_time.replace(/\s*(IST|EDT|EST|UTC)\s*/i,'').trim().split(':').map(Number);
-        const dp=m.match_date.trim().split(/\s+/);
-        const utcMs=Date.UTC(+dp[2],MONTHS[dp[1].toLowerCase().slice(0,3)],+dp[0],ts[0],ts[1])-off*60000;
-        return utcMs - now < 3 * 60 * 60 * 1000; // within 3 hours of start
-      } catch(e){ return false; }
-    })();
-  });
-  if (!manageableMatches.length) {
-    html += `<div style="color:var(--muted);font-size:.85rem;padding:1rem 0">No matches to manage yet — matches appear here once they start or are about to start.</div>`;
-  }
-  manageableMatches.forEach(m => {
+    if (!completedMatches.length) {
+      html += `<tr><td colspan="${participants.length + 4}" style="color:var(--muted);font-size:.85rem;padding:1rem">No completed or locked matches yet.</td></tr>`;
+    }
+    completedMatches.forEach(m => {
       const resultLabel = m.result === 'team1' ? m.team1 : m.result === 'team2' ? m.team2 : '—';
       html += `<tr><td>#${m.match_num}</td><td>${m.match_date}</td><td>${m.team1} vs ${m.team2}</td><td>${resultLabel}</td>`;
       participants.forEach(p => {
