@@ -1643,9 +1643,7 @@ let _sessionToken = null;
 async function sb(method, table, body=null, params='', extraHeaders={}) {
   const url = `${SUPABASE_URL}/rest/v1/${table}${params}`;
   const authToken = _sessionToken || SUPABASE_KEY;
-  // GET requests: always request up to 5000 rows to avoid Supabase's default 1000-row cap
-  // This is the root cause of missing predictions/picks when league has many rows
-  const rangeHeaders = method === 'GET' ? { 'Range': '0-4999', 'Range-Unit': 'items' } : {};
+  const rangeHeaders = {};  // limit= param on individual queries is the correct Supabase pagination approach
   const opts = {
     method,
     headers: {
@@ -2058,11 +2056,11 @@ async function loadAll() {
     const m = state.mode;
 
     const [participants, picks, scores, matches, swaps, draftStateRes] = await Promise.all([
-      dbGet('participants', `?mode=eq.${m}&order=created_at.asc`),
-      dbGet('picks', `?mode=eq.${m}&order=created_at.asc`),
-      dbGet('season_scores', `?mode=eq.${m}`),
-      dbGet('match_history', `?mode=eq.${m}&order=created_at.asc`),
-      dbGet('swap_history', `?mode=eq.${m}&order=created_at.asc`),
+      dbGet('participants', `?mode=eq.${m}&order=created_at.asc&limit=10000`),
+      dbGet('picks', `?mode=eq.${m}&order=created_at.asc&limit=10000`),
+      dbGet('season_scores', `?mode=eq.${m}&limit=10000`),
+      dbGet('match_history', `?mode=eq.${m}&order=created_at.asc&limit=10000`),
+      dbGet('swap_history', `?mode=eq.${m}&order=created_at.asc&limit=10000`),
       dbGet('draft_state', `?mode=eq.${m}&id=eq.1`).catch(()=>[]),
     ]);
     // Apply draft state
@@ -6995,9 +6993,9 @@ async function loadPredictions() {
     setSyncStatus('loading', 'Loading predictions…');
     const [schedule, myPreds, allPreds] = await Promise.all([
       dbGet('match_schedule', `?mode=eq.${state.mode}&order=match_num.asc`), // always fresh
-      dbGet('predictions', `?mode=eq.${state.mode}`),
+      dbGet('predictions', `?mode=eq.${state.mode}&limit=10000`),
       currentUser.isAdmin
-        ? dbGet('predictions', `?mode=eq.${state.mode}`)
+        ? dbGet('predictions', `?mode=eq.${state.mode}&limit=10000`)
         : Promise.resolve([])
     ]);
     state.matchSchedule = schedule || [];
@@ -7313,7 +7311,7 @@ function renderPredStandings() {
 }
 
 async function loadAllPredictionsForStandings() {
-  const allPreds = await dbGet('predictions', `?mode=eq.${state.mode}`);
+  const allPreds = await dbGet('predictions', `?mode=eq.${state.mode}&limit=10000`);
   const byMatch = {};
   (allPreds||[]).forEach(p => {
     if (!byMatch[p.match_id]) byMatch[p.match_id] = {};

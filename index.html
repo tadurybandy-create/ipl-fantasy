@@ -4880,8 +4880,8 @@ function calcSeasonPoints(participant) {
       });
     } else {
       // New behaviour: only count match stats when player was active in slot
-      // Build per-player stats by iterating match history
-      const playerStats = {}; // playerName -> {runs,wickets,catches,runouts,stumpings,motm}
+      // Build per-window stats keyed by window index to handle same player in multiple windows
+      const windowStats = {}; // windowIndex -> {runs,wickets,catches,runouts,stumpings,motm}
 
       state.matchHistory.forEach(match => {
         const matchTime = match.appliedAt ? new Date(match.appliedAt) : null;
@@ -4889,27 +4889,27 @@ function calcSeasonPoints(participant) {
 
         (match.updates||[]).forEach(u => {
           const playerName = u.player;
-          // Find if this player was active in this slot at match time
-          const win = slotWindows.find(w =>
+          // Find which window this player was active in at match time
+          const winIdx = slotWindows.findIndex(w =>
             w.player === playerName &&
             new Date(w.from) <= matchTime &&
             (w.to === null || new Date(w.to) > matchTime)
           );
-          if (!win) return; // not active in this slot at match time
+          if (winIdx === -1) return; // not active in this slot at match time
 
-          if (!playerStats[playerName]) playerStats[playerName] = {runs:0,wickets:0,catches:0,runouts:0,stumpings:0,motm:0};
-          playerStats[playerName].runs       += u.runs   || 0;
-          playerStats[playerName].wickets    += u.wkts   || 0;
-          playerStats[playerName].catches    += u.catches || 0;
-          playerStats[playerName].runouts    += u.runouts || 0;
-          playerStats[playerName].stumpings  += u.stumpings || 0;
-          playerStats[playerName].motm       += u.motm   || 0;
+          if (!windowStats[winIdx]) windowStats[winIdx] = {runs:0,wickets:0,catches:0,runouts:0,stumpings:0,motm:0};
+          windowStats[winIdx].runs       += u.runs   || 0;
+          windowStats[winIdx].wickets    += u.wkts   || 0;
+          windowStats[winIdx].catches    += u.catches || 0;
+          windowStats[winIdx].runouts    += u.runouts || 0;
+          windowStats[winIdx].stumpings  += u.stumpings || 0;
+          windowStats[winIdx].motm       += u.motm   || 0;
         });
       });
 
-      // Sum points per player in this slot
-      slotWindows.forEach(w => {
-        const sc = playerStats[w.player] || {runs:0,wickets:0,catches:0,runouts:0,stumpings:0,motm:0};
+      // Sum points per window — each window is independent even if same player name
+      slotWindows.forEach((w, wi) => {
+        const sc = windowStats[wi] || {runs:0,wickets:0,catches:0,runouts:0,stumpings:0,motm:0};
         const pts = sc.runs+sc.wickets*25+sc.catches*5+(sc.runouts||0)*5+(sc.stumpings||0)*5+(sc.motm||0)*MOTM_PTS;
         slotPts += pts;
         slotPlayers.push({name:w.player, sc, pts, active:w.active});
@@ -5148,7 +5148,9 @@ function openParticipantDetail(participantIdx) {
       // Per-match breakdown from matchHistory
       // Get this player's active window in slot k from pickWindows
       const slotWindows = (p.pickWindows?.[k]||[]);
-      const playerWindow = slotWindows.find(w => w.player === name);
+      // Match by player name AND active status to disambiguate same player appearing twice
+      const playerWindow = slotWindows.find(w => w.player === name && w.active === isCurrent)
+                        || slotWindows.find(w => w.player === name);
       const windowFrom = playerWindow?.from ? new Date(playerWindow.from) : null;
       const windowTo   = playerWindow?.to   ? new Date(playerWindow.to)   : null;
 
